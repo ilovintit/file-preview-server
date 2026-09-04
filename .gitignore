@@ -1,6 +1,3 @@
-# change 族执行草稿（本地，不入库）
-.changes/
-
 # Go
 *.exe
 *.test
