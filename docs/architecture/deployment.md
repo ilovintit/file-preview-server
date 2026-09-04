@@ -6,6 +6,8 @@
 
 镜像应为单一 Go 二进制镜像，包含现有处理依赖；对象存储使用 silo 的 S3 API，缓存使用 Valkey。环境变量配置端点、bucket、密钥、Valkey、内部/Admin/HMAC 密钥和历史端点开关；明文凭据不写入仓库。
 
+silo 是预览 302 的最终对象域名，部署放行前基础设施侧还必须确认：对象与转换 PDF 均经 HTTPS 提供，媒体类型和 `Content-Disposition: inline` 元数据正确；使用 JavaScript PDF 阅读器的业务 Origin 已被精确配置到 silo CORS，且支持 `GET`、`HEAD` 和单个 `Range`。小程序、App 和 WebView 所需的域名白名单由各调用方在自己的平台配置中登记，项目仓库不保存这些平台凭据。
+
 ## 当前事实与待交付边界
 
 `dev` 中尚无 Dockerfile、`deploy/` 声明、Harbor 制品或 Fleet GitRepo 目标，集群和 namespace 也未被指定。因此没有可读取的 Kubernetes 工作负载或部署健康证据。上述部署物属于 Issue #1 的交付范围；创建它们后由基础设施侧登记 Fleet 目标。
