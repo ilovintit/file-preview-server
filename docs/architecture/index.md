@@ -1,6 +1,6 @@
 # 文件预览服务架构
 
-> 状态：这是依据 Issue #1 已确认裁决迁入的目标架构；`dev` 目前仍是无 Go module 的工程骨架。下面的文件描述目标，不代替实现、CI 或部署证据。
+> 状态：这是依据 [Issue #1](https://git.shw.top/shw-project/file-preview-server/issues/1) 的交付范围与 [Issue #5](https://git.shw.top/shw-project/file-preview-server/issues/5) 的调用方接入契约迁入的目标架构；`dev` 目前仍是无 Go module 的工程骨架。下面的文件描述目标，不代替实现、CI 或部署证据。
 
 | 边界 | 权威文档 | 当前实现状态 |
 | --- | --- | --- |
