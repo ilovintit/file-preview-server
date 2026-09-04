@@ -1,9 +1,9 @@
 name: PR Gate
 on:
   pull_request:
-    branches: [dev, main, test]
+    branches: [dev, main]
   push:
-    branches: [dev, main, test]
+    branches: [dev, main]
 concurrency:
   group: ci-${{ github.event.number || github.sha }}
   cancel-in-progress: true
@@ -13,10 +13,10 @@ jobs:
     name: 快速层（lint/typecheck/build）
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
       - name: 设置 Go
         if: ${{ hashFiles('go.mod') != '' }}
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v5.0.2
         with:
           go-version-file: go.mod
       - name: lint（gofmt + go vet）
@@ -41,8 +41,12 @@ jobs:
         ports:
           - 6379:6379
     steps:
-      - uses: actions/checkout@v4
-      - name: API/E2E/VRT
+      - uses: actions/checkout@v4.2.2
+      - name: API/E2E/VRT readiness
         run: |
-          echo "TODO: 技术栈命令落地后适配——起 docproc 服务跑 API 接口测试、E2E 与 VRT（截图 diff，不更新基线）"
-          echo "依赖参考：valkey(localhost:6379)、gotenberg(sidecar 或 localhost:3000)"
+          if [ ! -f go.mod ]; then
+            echo "骨架期：尚未有服务模块或适用的 API/E2E/VRT 用例。"
+            exit 0
+          fi
+          echo "::error::服务模块已存在；必须由对应交付 Issue 配置真实 API/E2E/VRT 命令与 Gotenberg 依赖，不能以占位 job 代替。"
+          exit 1
