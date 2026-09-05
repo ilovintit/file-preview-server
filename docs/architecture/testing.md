@@ -22,9 +22,9 @@
 
 1. 浏览器图片：`<img>` 经 `/v/{token}` 跳转后正常显示，token 失效后重新访问为 404。
 2. 浏览器 PDF：iframe/object 或选定的 PDF 阅读器正常展示；阅读器模式额外验证 silo CORS、Range 和文件头。
-3. H5/WebView：目标 iOS/Android 版本允许预览域名与 silo 域名的跳转，并对 PDF 呈现或阅读器回退路径验收。
-4. 小程序或原生 App：在目标真机、SDK 与版本上验证所选 `web-view` 或原生下载模式；检查域名白名单、HTTPS、302、最终文件类型和失效处理。
+3. 微信小程序：从附件 ID 打开时调用业务详情/预览接口，而非透传列表数据或裸资源 URL；接口仅返回 token、文件名、展示类型和过期时间。
+4. 微信小程序：在开发者工具与 iOS、Android 真机中验证自有 H5 `web-view` 的域名配置、fragment 清理、图片、PDF/Office、loading、404 失效反馈、5xx 重试以及 silo CORS/Range。
 
-未通过上述对应验收的容器不得宣称支持；调用方应采用已验证的 H5/WebView 或下载查看器路径，而不是依赖未记录的 SDK 默认行为。
+原生 App WebView、原生下载和本地查看器不在 v1.0.0 验收范围；下一版本定义该路径后再建立对应验收。未通过上述微信小程序验收的业务不得宣称支持，且不得用未验证的小程序文件 API 替代 H5 路径。
 
 所有 lint、单元、集成/API、E2E 和 VRT 结论以 PR CI 中当前 head 的 job 为准；本地只允许构建/类型级确认。PR Gate 使用每个 run 独立的 Valkey service，不能把 CI 指向共享的长寿缓存实例。
