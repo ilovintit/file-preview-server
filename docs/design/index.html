@@ -13,22 +13,22 @@
 </head>
 <body>
   <h1>交互入口索引</h1>
-  <p><span class="tag">无仓库内 UI</span> 本仓库是完全重构的 HTTP 文件预览服务；截至 2026-09-05，<code>dev</code> 中没有前端入口或可点击页面，因此没有可创建或验收的本仓库高保真原型。v1.0.0 的微信小程序由调用方自有 H5 预览页承载；原生 App 不在本期支持范围。</p>
+  <p><span class="tag">仓库内 demo</span> 本仓库是完全重构的 HTTP 文件预览服务；截至 2026-09-05，生产调用方 UI 不属于服务代码，但 v1.0.0 在本仓库维护微信小程序、H5 与 fixture demo，作为可点击和真机验收入口。原生 App 不在本期支持范围。</p>
   <section>
     <h2>跨入口旅程</h2>
     <ol>
-      <li>API server 以已轮换调用方密钥加密、签名并调用 <code>POST /internal/tokens</code>，提交存储 profile、对象键、内容 hash、文件名和双 TTL，取得加密的 token。</li>
+      <li>API server 在 HTTPS 上以已轮换调用方密钥签名调用 <code>POST /internal/tokens</code>，提交 HTTPS 源 URL、缓存 profile、内容 hash、文件名和双 TTL，取得 token。</li>
       <li>浏览器调用方保存并传给展示层的始终是 <code>/v/{token}</code>，而不是对象存储的签名目标 URL。</li>
-      <li>微信小程序用户点击附件后，小程序只以附件 ID 调用其业务详情/预览接口；该接口返回 token、文件名、展示类型和过期时间，绝不返回裸资源 URL。</li>
-      <li>小程序打开调用方自有 HTTPS H5 的 <code>web-view</code>；展示信息置于 H5 URL fragment，H5 读取后清除 fragment。</li>
+      <li>仓库内微信小程序 demo 用户点击 fixture 附件后，小程序只以附件 ID 调用 demo 详情/预览 API；该接口返回 token、文件名、展示类型和过期时间，绝不返回裸资源 URL。</li>
+      <li>小程序 demo 打开本仓库 H5 的 <code>web-view</code>；展示信息置于 H5 URL fragment，H5 读取后清除 fragment。</li>
       <li>H5 图片元素或 PDF 阅读器加载 <code>/v/{token}</code>；最终对象存储域名须满足 CORS/Range 条件。</li>
       <li>服务验证 token，以内容 hash 查缓存；未命中时等待或转换后重定向到对象存储的短时签名 URL。被撤销或过期的 token 返回 404，H5 提示用户回到业务页面重新获取预览。</li>
-      <li>管理后台服务通过独立 Admin role 的加密、签名、防重放调用列出或撤销 token。</li>
+      <li>管理后台服务通过独立 Admin role 的 HTTPS、签名、防重放调用列出或撤销 token。</li>
     </ol>
   </section>
   <section>
     <h2>边界</h2>
-    <p>调用方前端的页面原型属于各自仓库。本服务不把调用方 UI 或 H5 预览页复制到此处；微信小程序调用方须配置 H5、预览服务与其对象存储域名，并在开发者工具和真机完成接入验收。阿里云 OSS 是首个验收实现，标准 S3 兼容实现通过相同适配合同接入。原生 App 的 WebView/下载查看器验证延后到下一版本。小程序所需的详情/预览接口、文件名与展示类型字段属于 <code>xlzb-project</code> 的独立 v1.0.0 交付项。</p>
+    <p>本仓库的 <code>demo/wechat-miniprogram/</code>、<code>demo/preview-h5/</code> 与 <code>demo/fixtures/</code> 共同构成 v1.0.0 验收环境；它们须配置 H5、预览服务与实际对象存储域名，并在开发者工具和真机完成验收。阿里云 OSS 与 silo 是本期仅有的 storage profile。原生 App 的 WebView/下载查看器验证延后到下一版本；不创建或依赖外部仓库实现。</p>
   </section>
   <p>业务规则以 <a href="../prd/product.md">唯一 PRD</a> 为准，接口细节以 <a href="../architecture/apis.md">API 架构文档</a> 为准。</p>
 </body>

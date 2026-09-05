@@ -4,9 +4,9 @@
 
 一个 Deployment 包含两个容器：默认运行 `server` 子命令的 file-preview-server（端口 9501）和 Gotenberg sidecar（端口 3000）。它们共享 Pod 网络，因此未显式覆盖时 `GOTENBERG_URL=http://localhost:3000`。Service 暴露应用容器，不直接暴露 sidecar；liveness probe 使用 `/livez`，readiness probe 使用 `/readyz`。
 
-镜像应为单一 Go 二进制镜像，包含固定版本的 Gotenberg 处理依赖；缓存使用 Valkey。对象存储以具名 `storage_profile` 配置：阿里云 OSS 为首个验收 profile，标准 S3 API profile 用于符合适配合同的常见对象存储。环境变量配置 profile endpoint、bucket、凭据、生命周期、Valkey、调用方 current/next HMAC/AES key；明文凭据不写入仓库。
+镜像应为单一 Go 二进制镜像，包含固定版本的 Gotenberg 处理依赖；缓存使用 Valkey。对象存储以具名 `storage_profile` 配置：v1 仅有 `aliyun-oss` 与 `silo` 两个 profile。环境变量配置 profile endpoint、bucket、凭据、生命周期、`MAX_CACHE_TTL`（默认 86400）、调用方 current/next HMAC key；生产环境配置 HTTPS/mTLS；明文凭据不写入仓库。
 
-每个 storage profile 都是预览 302 的最终对象域名。部署放行前基础设施侧必须确认：对象与转换 PDF 均经 HTTPS 提供，媒体类型和 `Content-Disposition: inline` 元数据正确；微信小程序自有 H5 的 Origin 已被精确配置到对应对象存储 CORS，且支持 `GET`、`HEAD` 和单个 `Range`；缓存对象按请求 `cache_ttl` 通过 provider 生命周期/清理策略删除。微信小程序调用方负责在平台侧登记 H5、预览服务和实际对象存储域名，并持有相应配置凭据；项目仓库不保存这些平台凭据。原生 App 的域名与网络策略在下一版本再定义。
+调用方源 URL 与每个 storage profile 都可能成为预览 302 的最终域名。部署放行前基础设施侧必须确认：源对象与转换 PDF 均经 HTTPS 提供，媒体类型和 `Content-Disposition: inline` 元数据正确；仓库内微信 demo H5 的 Origin 已被精确配置到所有测试最终域名的 CORS，且支持 `GET`、`HEAD` 和单个 `Range`；缓存对象按请求 `cache_ttl` 通过 provider 生命周期/清理策略删除。demo 维护预览服务、`aliyun-oss`/`silo` 和 H5 的测试域名配置，项目仓库不保存生产凭据。原生 App 的域名与网络策略在下一版本再定义。
 
 ## 当前事实与待交付边界
 
