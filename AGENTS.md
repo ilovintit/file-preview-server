@@ -1,6 +1,6 @@
 # file-preview-server
 
-独立文件预览服务：Office→PDF 转换（Gotenberg sidecar）、PDF 像素化脱敏、图片处理、token 鉴权预览链接管理（Valkey）。
+独立文件预览服务：签名且加密的 token 签发、Office/图片→PDF 或浏览器预览、内容 hash 转换缓存、可替换对象存储适配与 Valkey 生命周期管理。
 
 <!-- shw-workflow:v7 -->
 ## 工作流（Issue 驱动）
