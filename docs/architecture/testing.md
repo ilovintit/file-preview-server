@@ -30,3 +30,11 @@
 原生 App WebView、原生下载和本地查看器不在 v1.0.0 验收范围；下一版本定义该路径后再建立对应验收。未通过上述仓库内微信 demo 验收不得宣称支持，且不得用未验证的小程序文件 API 替代 H5 路径。
 
 所有 lint、单元、集成/API、E2E 和 VRT 结论以 PR CI 中当前 head 的 job 为准；本地只允许构建/类型级确认。PR Gate 使用每个 run 独立的 Valkey service，不能把 CI 指向共享的长寿缓存实例。
+
+## 本轮文档与原型审查
+
+[review.md](review.md) 记录 D1–D3 待裁决项，裁决前不得把任一候选契约写成通过结论。PR Gate 的文档步骤实际运行 `.gitea/scripts/check-docs.py`，覆盖 docs 内文件链接目标和两份原型内联脚本语法；它不执行服务 API 或浏览器交互。
+
+#1 的 CI 需补充 nonce 未来 timestamp 在首次请求 300 秒后仍不能重放、窗口边界与双 key；缓存续期/清理竞争、lease 丢失/旧 owner 发布、转换期间撤销/过期、两 profile 同 hash、上传成功索引失败，以及签名 URL 到期不晚于有效缓存。D1–D3 落文档后再固定相应断言，不对未裁决方案伪造测试通过。
+
+真实 demo 浏览器用例应覆盖附件 ID 详情请求、重复点击和旧响应竞态、fragment 读取后清除、无 fragment 重入、图片/PDF/Office、等待、404、422、5xx 重试、不可辨识的网络/CORS 错误与返回列表。H5 的状态分类按 clients 中的同源方案验证，不能把图片 onerror 当作 HTTP 404。微信开发者工具及 iOS/Android 真机仍需本仓库人工验收记录。

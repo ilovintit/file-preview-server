@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>阅读文件 · H5 原型</title><link rel="stylesheet" href="../prototype.css"></head>
+<body><main class="shell"><div class="layout">
+<aside><a href="../index.html">← 产品入口索引</a><p class="eyebrow">FILE PREVIEW / 02</p><h1>让文件，安心呈现</h1><p>图片直接展示，Office 以 PDF 阅读体验呈现。等待、失效和失败都有明确的下一步。</p>
+<div class="panel"><strong>原型说明</strong><p>页面与 PDF 是设计样稿；不下载实际文件，不连接 token API。真实 demo 的 fragment 清理、阅读器、CORS 与真机验收由交付 Issue #1 验证。</p></div>
+<div class="panel"><strong>审查场景</strong><div class="scenarios"><button data-state="image">图片</button><button data-state="pdf">PDF</button><button data-state="loading">加载中</button><button data-state="waiting">转换等待</button><button data-state="expired">失效 404</button><button data-state="invalid">内容错误 422</button><button data-state="error">服务错误 5xx</button><button data-state="network">网络 / CORS</button></div></div></aside>
+<section class="phone" aria-label="H5 预览"><div class="statusbar"><span>9:41</span><span>文件预览</span></div><div class="nav"><a href="../wechat-miniprogram/index.html">‹ 返回</a><span id="filename">文件预览</span></div><div class="section" id="content" role="status" aria-live="polite"></div></section></div></main>
+<script>
+const params=new URLSearchParams(location.hash.slice(1));const sample=params.get('sample');
+if(location.hash)history.replaceState(null,'',location.pathname+location.search);
+let selected=sample==='photo'?'image':'pdf',generation=0;const content=document.getElementById('content');
+const names={photo:'山野风景.png',pdf:'项目说明.pdf',office:'使用指南.docx'};document.getElementById('filename').textContent=names[sample]||'文件预览';
+function show(state){
+  generation++;document.querySelectorAll('[data-state]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.state===state)));
+  if(state==='image'){selected='image';document.getElementById('filename').textContent=names.photo;content.innerHTML='<div class="photo" role="img" aria-label="山野风景合成示意图"><span></span></div><p class="caption">图片预览 · 合成样稿</p>';return;}
+  if(state==='pdf'){selected='pdf';document.getElementById('filename').textContent=sample==='office'?names.office:names.pdf;content.innerHTML='<article class="sheet"><div class="cover"></div><p class="eyebrow">FILE PREVIEW</p><h2>文件预览使用说明</h2><p>从附件列表进入阅读页，随时查看所需内容。</p><div class="rule"></div><div class="rule"></div><div class="rule" style="width:65%"></div><p class="muted">这是一页合成文档样稿。</p></article><p class="caption">1 / 1 · PDF 阅读样稿</p>';return;}
+  const states={loading:['···','正在加载文件','请稍候，即将呈现文件内容'],waiting:['···','正在准备预览','文件正在转换，请稍候'],expired:['!','预览链接已失效','请返回附件列表，重新获取预览'],invalid:['!','无法预览此文件','文件内容或格式不符合要求，请返回选择其他附件'],error:['!','预览暂不可用','服务暂时无法处理请求，请稍后重试'],network:['!','文件加载失败','请检查网络后重试，持续失败请联系维护人员']};const row=states[state];
+  content.innerHTML='<div class="state"><div class="symbol">'+row[0]+'</div><h2>'+row[1]+'</h2><p>'+row[2]+'</p>'+(['error','network'].includes(state)?'<button id="retry" class="primary">重试预览</button>':'')+'<a class="primary" href="../wechat-miniprogram/index.html">返回附件列表</a></div>';
+  const retry=document.getElementById('retry');if(retry)retry.onclick=()=>{show('loading');const current=generation;setTimeout(()=>{if(current===generation)show(selected);},700);};
+}
+document.querySelectorAll('[data-state]').forEach(button=>button.onclick=()=>show(button.dataset.state));
+show(sample==='office'?'waiting':sample==='photo'?'image':sample==='pdf'?'pdf':'expired');
+if(sample==='office'){const current=generation;setTimeout(()=>{if(current===generation)show('pdf');},1200);}
+</script></body></html>

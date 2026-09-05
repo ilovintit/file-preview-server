@@ -1,6 +1,8 @@
 # 文件预览服务产品真相
 
-> 当前状态：`v1.0.0` 产品基线审查中（[Issue #11](https://git.shw.top/shw-project/file-preview-server/issues/11)）；功能实现仍由 [Issue #1](https://git.shw.top/shw-project/file-preview-server/issues/1) 交付，尚未进入 `dev`。本文不将目标架构表述为已上线能力。
+> 当前状态：`v1.0.0` 产品基线审查中（[Issue #13](https://git.shw.top/shw-project/file-preview-server/issues/13)）；功能实现仍由 [Issue #1](https://git.shw.top/shw-project/file-preview-server/issues/1) 交付，尚未进入 `dev`。本文不将目标架构表述为已上线能力。
+
+> 基线尚有三项公开契约待用户裁决，详见 [综合审查](../architecture/review.md)。D1–D3 对应条款暂未收敛，不允许进入 `/version`。
 
 ## 用户、问题与价值
 
@@ -15,7 +17,7 @@
 - 以全新服务替代历史 document-processing 实现；不迁移或兼容任何旧 HTTP 路由、数据键、缓存键或调用方式。
 - 只有持有激活调用方密钥的服务端可以通过 HTTPS 上签名且防重放的请求签发、查询或撤销预览 token；资源不直接由业务前端裸露。
 - 通过 `GET /v/{token}` 提供唯一的公开导航入口；图片、PDF 与转换后的文档均以 302 跳转到短时签名资源 URL。调用方持久化和再次打开的只能是 `/v/{token}`，不得保存或复用跳转目标 URL。
-- 对象存储仅经两个已验收 profile 接入：`aliyun-oss` 与 `silo`。阿里云 OSS 是首个应用 profile，silo 是第二个 profile；其他供应商不属于 v1.0.0 范围。
+- 对象存储仅经两个待验收 profile 接入：`aliyun-oss` 与 `silo`。阿里云 OSS 是首个应用 profile，silo 是第二个 profile；其他供应商不属于 v1.0.0 范围。
 - 按 [格式支持](../architecture/formats.md) 覆盖部署所固定 Gotenberg 版本能处理的最大文件集合；不以未验证的文件扩展名暗示支持。
 - `content_sha256` 是转换缓存与锁的唯一资源身份；`cache_ttl` 由每次 token 签发请求显式给出，命中缓存时延长到请求允许的最长有效期；同一内容的并发预览等待首个转换完成。
 - 为编排提供新的 `/livez` 和 `/readyz` 探针；它们不是历史 `/health` 兼容接口，也不属于用户预览入口。

@@ -1,6 +1,8 @@
 # 客户端与调用方边界
 
-本仓库不包含浏览器、PC、H5、小程序或 App UI。`GET /v/{token}` 是 v1 唯一支持的公开预览契约：浏览器安全图片/PDF 302 到签名调用方提供的源 URL，转换格式 302 到 `aliyun-oss` 或 `silo` cache profile 的短时 PDF URL。`v1.0.0` 支持浏览器和微信小程序的 H5 `web-view` 路径；没有历史 `/preview` 或其他兼容入口。服务保证这个 HTTP 响应；不会保证未经验收的原生 App SDK 或控件自动跟随重定向。
+> 审查未放行：与任意源直跳、跨 profile 缓存及双 TTL 有关的原始条款存在 D1–D3 冲突，见 [审查裁决表](review.md)。裁决前不能据此开始相关实现。
+
+生产调用方 UI 不在本服务范围内；本仓库必须交付微信小程序和 H5 demo，当前 `dev` 尚无其实现。`GET /v/{token}` 是 v1 唯一支持的公开预览契约：浏览器安全图片/PDF 302 到签名调用方提供的源 URL，转换格式 302 到 `aliyun-oss` 或 `silo` cache profile 的短时 PDF URL。`v1.0.0` 支持浏览器和微信小程序的 H5 `web-view` 路径；没有历史 `/preview` 或其他兼容入口。服务保证这个 HTTP 响应；不会保证未经验收的原生 App SDK 或控件自动跟随重定向。
 
 API server 是唯一可以提交 HTTPS 源 URL 并签发 token 的调用方；管理后台服务以独立 Admin role 的 HTTPS HMAC 签名调用读取或撤销 token。所有展示层只得到 `/v/{token}`，不得得到调用方密钥，也不得持久化 302 的 `Location`。
 
@@ -50,7 +52,13 @@ H5 必须在调用期间展示 loading；404 显示“预览链接已失效”�
 | --- | --- |
 | `/v/{token}` 返回 404 | token 已失效、撤销或不存在；按业务权限重新签发，不显示底层对象 URL。 |
 | `/v/{token}` 返回 5xx | 展示“预览暂不可用”，可按调用方重试策略重试 token URL；不得改用裸资源 URL。 |
-| PDF 阅读器 CORS 或 Range 失败 | 先修最终源域名或缓存 profile 的精确 CORS/对象元数据；未完成前切换为 iframe/H5 导航方案。 |
+| PDF 阅读器 CORS 或 Range 失败 | 展示“文件加载失败”，提供重试与返回；修复精确 CORS/对象元数据后再验收，不把 iframe 或裸 URL 当作微信小程序替代路径。 |
 | 微信小程序 H5 加载或打开失败 | 检查仓库内 demo API、H5/预览服务/最终域名配置、HTTPS、H5 loading/失败反馈以及 PDF 阅读器的 CORS/Range；在开发者工具和真机复现后修复。 |
 
 微信小程序 demo API、H5 页面和 fixture 是本仓库 v1.0.0 交付的一部分，固定在 `demo/` 下；不得创建或依赖外部仓库实现。生产调用方后续自行参考 demo，但不改变本项目的测试边界。
+
+## 失败状态如何到达 H5
+
+真实 demo 将 H5 与预览服务的 `/v/` 路由部署在同一 HTTPS Origin（入口按路径转发）。图片元素的 onerror 不能直接读取 HTTP 状态；PDF 阅读器也可能只报告网络失败。因此发生渲染失败时，H5 可对原 token URL 发起一次同源 GET，使用 `redirect: "manual"`，只分类非跳转的 404、422、5xx，不读取 Location、不获取替代资源 URL。302 的 opaque-redirect 结果不提供目标签名信息，归为文件加载失败；网络/CORS/Range 失败不能误标为 token 404。依据见 [MDN Response.type](https://developer.mozilla.org/en-US/docs/Web/API/Response/type)。此同源失败分类方案是依据浏览器响应过滤规则得出的设计，需要 #1 CI 和平台验收。
+
+404 引导返回附件列表按 ID 重新获取；422 显示内容/格式不可用并返回；5xx 和网络故障允许重试原 token URL，重试期间防重复点击。fragment 缺失/无效或展示到期时间已过时，进入失效提示而不尝试旧目标签名 URL。展示到期时间只是 UX 提示，服务端 TTL 才是授权依据。阅读页关闭时取消在途请求并清除内存展示信息；重新进入必须重新获取 DTO。

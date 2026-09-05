@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4.2.2
+      - name: 文档链接与原型脚本语法
+        run: python3 .gitea/scripts/check-docs.py
       - name: 设置 Go
         if: ${{ hashFiles('go.mod') != '' }}
         uses: actions/setup-go@v5.0.2

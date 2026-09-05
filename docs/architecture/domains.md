@@ -1,6 +1,8 @@
 # Preview 领域
 
-`PreviewFile` 是核心领域对象，负责由 `filename` 和已验证内容 hash 判定 PDF、可浏览器直接显示的图片、需转换的 Gotenberg 格式或不支持格式。完整集合以 [formats.md](formats.md) 为准。领域层定义以下抽象而不绑定具体驱动：
+> 审查未放行：与任意源直跳、跨 profile 缓存及双 TTL 有关的原始条款存在 D1–D3 冲突，见 [审查裁决表](review.md)。裁决前不能据此开始相关实现。
+
+`PreviewFile` 是核心领域对象，负责由 `filename`、受检内容类型及 hash 校验结果判定 PDF、可浏览器直接显示的图片、需转换的 Gotenberg 格式或不支持格式。完整集合以 [formats.md](formats.md) 为准。领域层定义以下抽象而不绑定具体驱动：
 
 - `TokenStore`：保存、读取、列出与删除预览 token。
 - `ConvertLock`：同一转换资源的互斥获取与安全释放。

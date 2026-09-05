@@ -1,6 +1,8 @@
 # v1.0.0 文件格式支持
 
-格式支持以部署时固定的 **Gotenberg 8.34.0** LibreOffice 转换器为唯一来源；升级镜像版本必须重新对比并运行整张格式矩阵。除 PDF 和浏览器安全图片外，支持格式统一转换为 PDF 后预览；扩展名只是初筛，转换前后均以内容处理结果为准。仓库内 `demo/fixtures/` 维护每种格式的已知内容 hash fixture。密码保护、损坏或转换器不能处理的文件返回 422，不做降级直链。
+> 审查未放行：与任意源直跳、跨 profile 缓存及双 TTL 有关的原始条款存在 D1–D3 冲突，见 [审查裁决表](review.md)。裁决前不能据此开始相关实现。
+
+本表是待逐项验证的目标集合，不是已通过用例的支持清单。格式支持以部署时固定的 **Gotenberg 8.34.0** LibreOffice 转换器为唯一来源；升级镜像版本必须重新对比并运行整张格式矩阵。除 PDF 和浏览器安全图片外，支持格式统一转换为 PDF 后预览；扩展名只是初筛，转换前后均以内容处理结果为准。仓库内 `demo/fixtures/` 维护每种格式的已知内容 hash fixture。密码保护、损坏或转换器不能处理的文件返回 422，不做降级直链。
 
 ## 直接预览
 
@@ -21,3 +23,5 @@
 | Web/其他 | `.html`、`.htm`、`.xhtml`、`.epub`、`.pdb`、`.ltx`、`.mml`、`.smf`、`.sxm`、`.sxg`、`.oth`、`.odm`、`.swf` |
 
 矩阵来源为 [Gotenberg LibreOffice Convert to PDF 支持扩展名](https://gotenberg.dev/docs/convert-with-libreoffice/convert-to-pdf)。每一个扩展名都必须有固定版本 CI 用例；某个格式在实际镜像失败时，在修复前从可签发集合移除，而不是向调用方承诺“理论支持”。
+
+2026-09-05 复审：扩展名集合与官方当前文档相符；[v8.34.0 路由源码](https://github.com/gotenberg/gotenberg/blob/v8.34.0/pkg/modules/libreoffice/routes.go) 使用运行时 Extensions 校验文件。该证据不能替代固定镜像的逐格式转换、字体与版式验收，支持声明仍待 #1 CI。

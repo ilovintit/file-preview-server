@@ -13,7 +13,14 @@
 </head>
 <body>
   <h1>交互入口索引</h1>
+  <p><span class="tag">基线未放行</span> <a href="../architecture/review.md">D1–D3 待裁决</a>；下列跳转与缓存流程保留当前冲突供审查，不表示实现已完成。</p>
   <p><span class="tag">仓库内 demo</span> 本仓库是完全重构的 HTTP 文件预览服务；截至 2026-09-05，生产调用方 UI 不属于服务代码，但 v1.0.0 在本仓库维护微信小程序、H5 与 fixture demo，作为可点击和真机验收入口。原生 App 不在本期支持范围。</p>
+  <section>
+    <h2>可点击原型入口</h2>
+    <p><a href="wechat-miniprogram/index.html">微信小程序：附件列表 → 获取预览</a></p>
+    <p><a href="preview-h5/index.html#sample=pdf">H5：文件阅读 → 失效 / 失败反馈</a></p>
+    <p>角色均为 demo 用户。原型是静态设计样稿，真实 demo API、文件、平台与真机验收仍待 Issue #1；Admin 为服务端 API，没有新增管理 UI。</p>
+  </section>
   <section>
     <h2>跨入口旅程</h2>
     <ol>

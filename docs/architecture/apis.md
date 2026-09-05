@@ -1,5 +1,7 @@
 # HTTP API 契约
 
+> 审查未放行：与任意源直跳、跨 profile 缓存及双 TTL 有关的原始条款存在 D1–D3 冲突，见 [审查裁决表](review.md)。裁决前不能据此开始相关实现。
+
 以下为 Issue #1 按当前产品真相重构的目标契约，尚未在 `dev` 注册：
 
 | 端点 | 认证 | 结果 |
@@ -15,9 +17,9 @@
 
 ## 内部签名请求
 
-所有内部和管理请求都必须为 HTTPS `POST`，生产环境优先使用 mTLS，带 `X-Preview-Key-Id`、`X-Preview-Timestamp`、`X-Preview-Nonce` 和 `X-Preview-Signature`。body 是普通 JSON。`X-Preview-Signature` 是调用方密钥对 `METHOD + "\\n" + PATH + "\\n" + key_id + "\\n" + timestamp + "\\n" + nonce + "\\n" + SHA-256(raw_body)` 的 HMAC-SHA256。
+所有内部和管理请求都必须为 HTTPS `POST`，生产环境优先使用 mTLS，带 `X-Preview-Key-Id`、`X-Preview-Timestamp`、`X-Preview-Nonce` 和 `X-Preview-Signature`。body 是普通 JSON。`X-Preview-Signature` 是调用方密钥对 `METHOD + LF + PATH + LF + key_id + LF + timestamp + LF + nonce + LF + SHA-256(raw_body)` 的 HMAC-SHA256。
 
-服务先校验 HTTPS/mTLS、300 秒时间窗、key role、签名和未使用 nonce，再校验业务 body；任一失败统一 401，避免泄露失败原因。nonce 在 Valkey 保留 300 秒。调用方配置 current/next HMAC key 与 `key_id`，服务同时接受两把激活 key 用于轮换；响应为普通 HTTPS JSON。
+服务先校验 HTTPS/mTLS、300 秒时间窗、key role、签名和未使用 nonce，再校验业务 body；任一失败统一 401，避免泄露失败原因。nonce 必须原子占用（SET NX）并保留至该请求最后可接受时刻之后：`expires_at = timestamp + 301`（Unix 秒，覆盖包含边界的 ±300 秒窗口），使用服务端当前时间计算剩余 TTL。未来 300 秒的 timestamp 最多需要保留 601 秒；固定保留 300 秒会允许其在验签窗口内再次重放。验签成功后先占 nonce，再执行业务校验；重试必须使用新 nonce。Valkey 故障返回 503，不能绕过防重放。调用方配置 current/next HMAC key 与 `key_id`，服务同时接受两把激活 key 用于轮换；响应为普通 HTTPS JSON。
 
 ## 预览跳转契约
 
@@ -34,3 +36,9 @@
 小程序 demo 将该 DTO 传入本仓库 H5 `web-view` 的 URL fragment，H5 清除 fragment 后才拼接 `GET /v/{token}`。这不是本服务新增的公开端点，也不改变内部 token 签发 API；demo API 与 H5 均由本仓库维护。`wx.previewImage`、`wx.downloadFile` 和 `wx.openDocument` 不属于 v1.0.0 对 `/v/{token}` 的兼容承诺。
 
 没有历史路由、兼容开关或测试辅助端点。规范 JSON 响应和错误形态由服务全局中间件统一处理；302 不包装为 JSON 成功响应。
+
+## 签名规范化与错误边界
+
+规范串以单字节 LF（0x0A）连接六段，无末尾换行；上文 LF 表示换行，不能签入反斜杠和字母 n。METHOD 为大写 POST；PATH 为路由中的绝对路径，不含域名，当前 POST 不接受 query；raw_body 为实际发送的 UTF-8 字节，不重新序列化 JSON。SHA-256(raw_body) 与 HMAC 结果均编码为小写 hex；timestamp 使用十进制 Unix 秒，nonce 为 128-bit 随机值的小写 hex。key_id 与请求头值不得含控制字符或额外空白，验签采用常量时间比较。跨语言客户端与服务端需在 #1 CI 共用固定签名向量。
+
+业务 body 校验失败为 422；鉴权失败为 401；缺失角色密钥、已支持但未配置的 profile、Valkey 故障为 503。未知 profile 属于参数错误 422。签发成功只表示 token 已保存，不代表源下载或转换已经成功；这些失败在预览请求中反馈。撤销成功不代表已有签名 URL 被撤回。重放拦截不是业务幂等：新 nonce 重试签发可能创建新 token，调用方须考虑超时后重复签发；撤销天然幂等。具体 JSON DTO/错误码、分页边界与排序在 #1 接口实现前以此文档补齐，并保持上述 HTTP 语义。

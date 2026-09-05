@@ -4,6 +4,7 @@
 
 | 边界 | 权威文档 | 当前实现状态 |
 | --- | --- | --- |
+| 综合审查与待裁决 | [review.md](review.md) | D1–D3 未裁决，产品基线未放行 |
 | 调用方与浏览器 | [clients.md](clients.md) | 生产调用方外置；本仓库的 demo 是 v1 验收入口 |
 | Demo 与测试环境 | [demo.md](demo.md) | 目标已定义，尚未创建 demo 代码 |
 | 服务与分层 | [services.md](services.md) | 目标已定义，未进入 `dev` |
