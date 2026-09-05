@@ -25,3 +25,11 @@
 本 PR 保持草稿且不合并；等待 D1–D3，随后统一改 PRD/API/data/clients/domains/deployment/原型旅程/testing，再复审、推送并取当前 SHA CI。原型视觉审阅也未完成。功能交付留在 #1，原生 App 延期至下一版本；未放行 `/version`。
 
 审查候选 commit 与 CI run 将回写 Issue/PR，避免文档自引用自身 commit。已接受的上一基线为 `52d52a0`（PR #12）；它不是本轮审查已通过的证明。
+
+## prototype 续跑（2026-09-05）
+
+用户明确执行 `/prototype`，沿用 #13、项目内 worktree 和草稿 PR #14。重新读取当前 PRD 与远端 Issue/PR，确认 dev 未新增提交。完善双入口样稿、角色矩阵与跨入口导航；附件 ID 模拟详情改为共享 fixture、脚本按入口拆分；加入取消迟到响应、失败重试、图片缩放、三页 PDF 翻页、Office 等待、过期/撤销统一提示、页面恢复失效及宽窄屏。
+
+新增 `docs/design/acceptance.md` 记录逐入口待验收清单。原型 DOM 状态测试仅在 PR CI 运行（jsdom 26.1.0 + 锁文件），不加载外部资源、不启动浏览器、不执行真实跨页导航；不把它当作前次文件 URL 拒绝后的渲染替代路径。本地只生成依赖锁文件与语法确认，npm cache 放在本 worktree `.cache/`；Git 忽略项目内 worktree 和依赖缓存。
+
+D1–D3 尚无用户答复，原型与 PR 继续保持待逐入口验收，不合并。新候选 SHA 与 CI 证据回写 Issue/PR。

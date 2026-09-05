@@ -1,27 +1,17 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>附件列表 · 微信小程序原型</title><link rel="stylesheet" href="../prototype.css"></head>
-<body><main class="shell"><div class="layout">
-<aside><a href="../index.html">← 产品入口索引</a><p class="eyebrow">FILE PREVIEW / 01</p><h1>从附件，进入预览</h1><p>微信小程序 demo。点击附件后获取最新预览信息，再打开 H5 阅读页。</p>
-<div class="panel"><strong>原型说明</strong><p>这是可点击的设计样稿。全部数据为合成数据，尚未连接服务，不代表微信开发者工具或真机验收通过。</p><p class="muted">附件 ID → 模拟详情请求 → 展示信息 → H5。原型不携带真实 token、源 URL 或密钥。</p></div>
-<div class="panel"><strong>审查场景</strong><div class="scenarios"><button data-state="list">附件列表</button><button data-state="loading">获取中</button><button data-state="empty">无附件</button><button data-state="error">请求失败</button></div></div></aside>
-<section class="phone" aria-label="微信小程序 demo"><div class="statusbar"><span>9:41</span><span>微信 ···</span></div><div class="nav">文件预览</div><div class="section"><h2>示例附件</h2><p>选择一份文件，查看内容</p>
-<div id="list"><button class="file" data-id="photo"><span class="badge">PNG</span><span><strong>山野风景.png</strong><small>图片 · 预览示例</small></span><span class="chevron">›</span></button><button class="file" data-id="pdf"><span class="badge">PDF</span><span><strong>项目说明.pdf</strong><small>PDF 文档 · 预览示例</small></span><span class="chevron">›</span></button><button class="file" data-id="office"><span class="badge">DOCX</span><span><strong>使用指南.docx</strong><small>Office 文档 · 转换为 PDF</small></span><span class="chevron">›</span></button><p class="muted">这里仅包含本仓库维护的示例文件。</p></div>
-<div id="feedback" class="state" role="status" aria-live="polite" hidden></div></div></section></div></main>
-<script>
-const rows=document.getElementById('list'),feedback=document.getElementById('feedback');let sequence=0;
-function show(state){
-  sequence++;rows.hidden=state!=='list';feedback.hidden=state==='list';
-  document.querySelectorAll('[data-state]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.state===state)));
-  if(state==='loading')feedback.innerHTML='<div class="symbol">···</div><h2>正在获取预览</h2><p>请稍候，正在读取最新文件信息</p>';
-  if(state==='empty')feedback.innerHTML='<div class="symbol">—</div><h2>暂无示例附件</h2><p>附件准备好后将在这里显示</p><button class="secondary" id="reload">重新加载</button>';
-  if(state==='error')feedback.innerHTML='<div class="symbol">!</div><h2>暂时无法获取预览</h2><p>请检查网络后重试</p><button class="primary" id="reload">重新加载</button>';
-  const reload=document.getElementById('reload');if(reload)reload.onclick=()=>show('list');
-}
-async function detail(id){await new Promise(resolve=>setTimeout(resolve,700));return ({photo:{sample:'photo'},pdf:{sample:'pdf'},office:{sample:'office'}})[id];}
-document.querySelectorAll('[data-id]').forEach(button=>button.onclick=async()=>{
-  const id=button.dataset.id;show('loading');const current=sequence;const dto=await detail(id);
-  if(current!==sequence)return;location.href='../preview-h5/index.html#sample='+encodeURIComponent(dto.sample);
-});
-document.querySelectorAll('[data-state]').forEach(button=>button.onclick=()=>show(button.dataset.state));show('list');
-</script></body></html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>选择附件 · 微信小程序原型</title><link rel="stylesheet" href="../prototype.css"><script src="../demo-data.js" defer></script><script src="prototype.js" defer></script></head>
+<body><main class="shell">
+<header class="topbar"><a class="brand" href="../index.html"><span class="brand-mark">F</span>文件预览</a><span class="tag">01 / 小程序原型</span></header>
+<div class="workspace"><aside class="review-panel"><p class="eyebrow">CHOOSE A FILE</p><h1>选择附件，<br>打开内容。</h1><p>为小程序用户提供简洁的文件入口，获取最新预览后进入 H5 阅读页。</p>
+<div class="panel"><h3>审查场景</h3><div class="scenarios" aria-label="列表状态"><button data-state="list">附件列表</button><button data-state="loading">首屏加载</button><button data-state="empty">无附件</button><button data-state="error">列表失败</button></div><span class="label">下一次获取预览</span><div class="scenarios" aria-label="模拟详情结果"><button data-outcome="success" aria-pressed="true">成功</button><button data-outcome="error" aria-pressed="false">失败</button></div><p class="muted" style="margin-top:14px">失败场景需点击附件触发，可检查重试和取消。</p></div>
+<div class="panel"><h3>本入口验收</h3><ol class="checklist"><li>分别打开图片、PDF、Office。</li><li>获取期间取消，不能继续跳转。</li><li>获取失败可重试，返回后可重新选择。</li><li>列表加载、空态和失败可恢复。</li></ol><a href="../acceptance.md">查看完整验收清单</a></div>
+<p class="note" style="margin-top:24px">设计样稿使用本仓库合成数据。模拟接口只接收附件 ID；不连接服务、不包含真实 token、源 URL 或密钥。</p></aside>
+<section class="stage"><div class="stage-label"><span>微信小程序 · 附件入口</span><span>交互样稿</span></div><section class="phone" aria-label="小程序演示界面"><div class="statusbar"><span>9:41</span><span>●●● ▰</span></div><div class="nav"><span class="nav-title">文件预览</span><span class="muted" aria-hidden="true">··· ◯</span></div><div class="section">
+<div id="list-heading"><h2>示例附件</h2><p class="section-intro">选择一份文件，查看内容</p></div>
+<div id="list" aria-label="附件列表"></div>
+<div id="feedback" class="state" role="status" aria-live="polite" hidden></div>
+<div id="list-note" class="bottom-note">仅展示本仓库示例文件，预览期间请勿分享页面链接。</div>
+</div></section></section></div>
+<noscript><p>此原型需要启用 JavaScript 才能演示交互。</p></noscript>
+</main></body></html>

@@ -53,5 +53,8 @@ for document in documents:
         if root not in resolved.parents or not resolved.is_file():
             raise SystemExit(f"Invalid local link: {document}: {link}")
         link_count += 1
-print(f"Documents: {len(documents)}; local links: {link_count}; JavaScript blocks: {script_count}; PASS")
+for script in sorted(Path("docs/design").rglob("*.js")):
+    subprocess.run(["node", "--check", str(script)], check=True)
+    script_count += 1
+print(f"Documents: {len(documents)}; local links: {link_count}; JavaScript units: {script_count}; PASS")
 print("Scope: local link targets and script syntax only; no browser, service or device acceptance.")

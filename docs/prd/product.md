@@ -74,4 +74,6 @@
 - 302 响应不缓存、不泄露 token 至跳转目标；本仓库 demo 的微信小程序 API、H5 `web-view`、图片、PDF/Office、失效反馈、域名/CORS 配置均有开发者工具和真机验收证据。原生 App 不在 v1.0.0 验收范围。
 - 构建镜像和双容器 Deployment 声明进入同一交付 PR；真实部署、Fleet 同步和运行健康度由发布/部署流程独立取证。
 
+本仓库 demo 的两个交互入口、角色与跨入口旅程见 [产品原型索引](../design/index.html)，逐入口交互验收见 [验收清单](../design/acceptance.md)。原型只覆盖已确认展示流程，不替代真实 demo 或平台验收。
+
 实现目录、端点字段、数据键和部署契约见 [architecture index](../architecture/index.md)。

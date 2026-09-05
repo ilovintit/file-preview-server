@@ -16,6 +16,10 @@ jobs:
       - uses: actions/checkout@v4.2.2
       - name: 文档链接与原型脚本语法
         run: python3 .gitea/scripts/check-docs.py
+      - name: 原型 DOM 交互检查（不代替视觉与真机验收）
+        run: |
+          npm ci --prefix .gitea/checks --ignore-scripts --no-audit --no-fund
+          node --test .gitea/checks/prototype.test.cjs
       - name: 设置 Go
         if: ${{ hashFiles('go.mod') != '' }}
         uses: actions/setup-go@v5.0.2

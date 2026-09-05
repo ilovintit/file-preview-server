@@ -33,7 +33,7 @@
 
 ## 本轮文档与原型审查
 
-[review.md](review.md) 记录 D1–D3 待裁决项，裁决前不得把任一候选契约写成通过结论。PR Gate 的文档步骤实际运行 `.gitea/scripts/check-docs.py`，覆盖 docs 内文件链接目标和两份原型内联脚本语法；它不执行服务 API 或浏览器交互。
+[review.md](review.md) 记录 D1–D3 待裁决项，裁决前不得把任一候选契约写成通过结论。PR Gate 的文档步骤实际运行 `.gitea/scripts/check-docs.py`，覆盖 docs 内文件链接目标和原型内联及外部脚本语法；另设 jsdom DOM 交互检查步骤，运行 `.gitea/checks/prototype.test.cjs`。它们不执行服务 API、真实浏览器导航或视觉/真机验收。
 
 #1 的 CI 需补充 nonce 未来 timestamp 在首次请求 300 秒后仍不能重放、窗口边界与双 key；缓存续期/清理竞争、lease 丢失/旧 owner 发布、转换期间撤销/过期、两 profile 同 hash、上传成功索引失败，以及签名 URL 到期不晚于有效缓存。D1–D3 落文档后再固定相应断言，不对未裁决方案伪造测试通过。
 
