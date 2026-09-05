@@ -6,7 +6,7 @@
 
 镜像应为单一 Go 二进制镜像，包含现有处理依赖；对象存储使用 silo 的 S3 API，缓存使用 Valkey。环境变量配置端点、bucket、密钥、Valkey、内部/Admin/HMAC 密钥和历史端点开关；明文凭据不写入仓库。
 
-silo 是预览 302 的最终对象域名，部署放行前基础设施侧还必须确认：对象与转换 PDF 均经 HTTPS 提供，媒体类型和 `Content-Disposition: inline` 元数据正确；使用 JavaScript PDF 阅读器的业务 Origin 已被精确配置到 silo CORS，且支持 `GET`、`HEAD` 和单个 `Range`。小程序、App 和 WebView 所需的域名白名单由各调用方在自己的平台配置中登记，项目仓库不保存这些平台凭据。
+silo 是预览 302 的最终对象域名，部署放行前基础设施侧还必须确认：对象与转换 PDF 均经 HTTPS 提供，媒体类型和 `Content-Disposition: inline` 元数据正确；微信小程序自有 H5 的 Origin 已被精确配置到 silo CORS，且支持 `GET`、`HEAD` 和单个 `Range`。微信小程序调用方负责在平台侧登记 H5、预览服务和 silo 域名，并持有相应配置凭据；项目仓库不保存这些平台凭据。原生 App 的域名与网络策略在下一版本再定义。
 
 ## 当前事实与待交付边界
 

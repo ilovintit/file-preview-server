@@ -20,4 +20,10 @@
 
 最终 silo 对象必须以 HTTPS、正确的媒体类型和内联文档处置方式响应。需要由 JavaScript PDF 阅读器读取的对象还需按 [clients.md](clients.md) 配置精确 CORS 和 Range 支持。
 
+## 微信小程序调用方契约
+
+微信小程序不直接调用 `POST /internal/tokens`，也不接收资源 URL。调用方业务服务以附件 ID 为输入，先完成自己的鉴权和详情查询，再在服务端签发 preview token，并仅向小程序返回 `{token, filename, preview_type, expires_at}`。`preview_type` 仅为 `image` 或 `pdf`；PDF 与 Office 均为 `pdf`。
+
+小程序将该 DTO 传入自有 H5 `web-view` 的 URL fragment，H5 清除 fragment 后才拼接 `GET /v/{token}`。这不是本服务新增的公开端点，也不改变内部 token 签发 API；业务详情/预览接口的具体 URL 由调用方仓库定义。`wx.previewImage`、`wx.downloadFile` 和 `wx.openDocument` 不属于 v1.0.0 对 `/v/{token}` 的兼容承诺。
+
 既有 `/health`、`/img/`、`/redact`、`/redact-pdf`、`/pdf-to-images`、`/images-to-pdf` 需在迁移中保留其功能行为。测试辅助端点只在 `ALLOW_TEST_ENDPOINTS=1` 时注册。规范 JSON 响应和错误形态由服务全局中间件统一处理；302 不包装为 JSON 成功响应。
