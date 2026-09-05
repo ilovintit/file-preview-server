@@ -1,6 +1,13 @@
 # file-preview-server
 
-独立文件预览服务：签名且加密的 token 签发、Office/图片→PDF 或浏览器预览、内容 hash 转换缓存、可替换对象存储适配与 Valkey 生命周期管理。
+独立文件预览服务：HTTPS 上签名保护的 token 签发、Office/图片→PDF 或浏览器预览、内容 hash 转换缓存、可替换对象存储适配与 Valkey 生命周期管理。
+
+## 作用域隔离（绝对约束）
+
+- **项目根目录**：`/Users/ilovintit/Documents/Workspace/Projects/file-preview-server`。禁止在此目录外创建、修改、删除、重命名或格式化任何文件；项目外路径仅可在确有必要时只读。
+- 不得创建、修改或依赖任何其他仓库的代码、文档、CI、部署声明或 Gitea 状态。本项目的 Issue、PR 和分支不构成操作外部仓库的授权。
+- 所有 Issue worktree、临时产物、测试环境和 demo 必须位于项目根目录内；Git worktree 固定放在 `.worktrees/<issue-number>/`，不得使用同级或外部目录。
+- 微信小程序/H5 demo 与测试 fixture 必须由本仓库维护；不得将 v1.0.0 验收前置到其他项目。
 
 <!-- shw-workflow:v7 -->
 ## 工作流（Issue 驱动）

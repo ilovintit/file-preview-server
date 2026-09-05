@@ -1,7 +1,8 @@
 # 安全边界
 
-- 内部 token 签发和管理 API 使用角色隔离的调用方密钥，而非静态 Bearer 值。每次请求在 HTTPS 上使用 AES-256-GCM 加密 body、HMAC-SHA256 规范请求签名、时间窗和单次 nonce；key role、验签、解密、时间窗和重放任一失败统一 401。
-- `key_id` 绑定调用方角色，支持 current/next 双 key 轮换；密钥、对象存储凭据与 HMAC/AES 材料仅通过运行环境注入，绝不提交至 Git、Actions 日志、镜像或 Kubernetes YAML。缺失激活密钥或 storage profile 返回 503，不能降级为匿名访问。
+- 内部 token 签发和管理 API 使用角色隔离的调用方密钥，而非静态 Bearer 值。每次请求在 HTTPS 上使用 HMAC-SHA256 规范请求签名、时间窗和单次 nonce；生产环境优先 mTLS。key role、验签、时间窗和重放任一失败统一 401。
+- `key_id` 绑定调用方角色，支持 current/next 双 HMAC key 轮换；密钥与对象存储凭据仅通过运行环境注入，绝不提交至 Git、Actions 日志、镜像或 Kubernetes YAML。缺失激活密钥或 storage profile 返回 503，不能降级为匿名访问。
+- 源 URL 的授权来自已验签调用方，而不是域名 allowlist：仅接受 HTTPS URL，下载时重新校验 `content_sha256`，并拒绝调用方提交对象存储 endpoint、bucket 或凭据。
 - 最终用户 token 只授权到一个预览资源及其 TTL；它不等同于 API server 或管理后台身份。
 - 无效、过期和撤销 token 一律为 404，避免向浏览器泄露 token 是否曾存在。
 - `/v/{token}` 是 bearer URL。成功的 302 必须带 `Cache-Control: no-store` 和 `Referrer-Policy: no-referrer`，避免客户端缓存 token→目标 URL 映射或在请求对象存储时把 token 放入 Referer。

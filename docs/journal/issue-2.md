@@ -1,5 +1,7 @@
 # Issue #2：v7 工作流更新审计
 
+> 历史记录：跨仓库迁移假设已由 Issue #11 取代；v1.0.0 的 demo 与验收均在本仓库内闭环。
+
 审计日期：2026-09-04。证据以远端 `dev`、远端 Issue/分支/Actions 和本地 worktree 为准。
 
 | 范围 | 现状证据 | v7 要求 | 处理 | 状态 |
@@ -21,6 +23,6 @@
 ## 不可由本 Issue 写入的事项
 
 - [Issue #3](https://git.shw.top/shw-project/file-preview-server/issues/3)：需要仓库管理员保护 `main` 并复核 required checks/Actions 设置。
-- [Issue #1](https://git.shw.top/shw-project/file-preview-server/issues/1)：实现服务、实际测试、Dockerfile、项目部署声明、Harbor 和 Fleet 目标；调用方跨仓库迁移仍需在 `xlzb-project` 另建 Issue。
+- [Issue #1](https://git.shw.top/shw-project/file-preview-server/issues/1)：实现服务、实际测试、Dockerfile、项目部署声明、Harbor、Fleet 目标以及本仓库内的 demo/测试环境。
 
 没有删除 Issue #1 worktree 的本地草稿或未提交代码；它不属于 Issue #2，且还承载待交付实现。
