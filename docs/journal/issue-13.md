@@ -33,3 +33,11 @@
 新增 `docs/design/acceptance.md` 记录逐入口待验收清单。原型 DOM 状态测试仅在 PR CI 运行（jsdom 26.1.0 + 锁文件），不加载外部资源、不启动浏览器、不执行真实跨页导航；不把它当作前次文件 URL 拒绝后的渲染替代路径。本地只生成依赖锁文件与语法确认，npm cache 放在本 worktree `.cache/`；Git 忽略项目内 worktree 和依赖缓存。
 
 D1–D3 尚无用户答复，原型与 PR 继续保持待逐入口验收，不合并。新候选 SHA 与 CI 证据回写 Issue/PR。
+
+## architecture 续跑（2026-09-05）
+
+用户执行 `/architecture`，沿用 #13 / PR #14；重新读取 PRD、双入口原型、全部架构文档及远端 Issue/PR。远端 dev 仍为 `52d52a0`，当前起点为 `ec1e936`，Issue 无新增裁决评论；浏览器环境自动给出的打开页面不当作用户已验收证据。
+
+新增 runtime、quality、decisions 并由 index 索引，补组件/时序、失败恢复、领域端口、数据记录、配置制品与测试追踪。重点修订：声明 hash 不等于下载已验证；nonce 丢失不可当普通缓存重建；对象维护记录须独立于过期索引；撤销的新请求与并发在途短链须区分；通用 GoFrame lowerCamelCase/Bearer/HTTP 200/SQL 任务示例不能覆盖项目已确认契约。
+
+未改服务、demo 或原型交互代码，未读取或修改其他仓库实现，未操作集群。D1–D3、用户逐入口验收、#1 的字段/预算/依赖版本与真实平台/部署证据都保持明确边界。新提交由现有 PR Gate 重新验证链接、脚本与原型 DOM；具体 SHA/run 回写 Issue/PR，不复用旧 CI 放行。
