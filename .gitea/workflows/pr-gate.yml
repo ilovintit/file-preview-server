@@ -18,22 +18,25 @@ jobs:
         run: python3 .gitea/scripts/check-docs.py
       - name: 原型 DOM 交互检查（不代替视觉与真机验收）
         run: |
-          npm ci --prefix .gitea/checks --ignore-scripts --no-audit --no-fund
+          npm ci --prefix .gitea/checks --ignore-scripts --no-audit --no-fund --cache .cache/npm
           node --test .gitea/checks/prototype.test.cjs
       - name: 设置 Go
         if: ${{ hashFiles('go.mod') != '' }}
         uses: actions/setup-go@v5.0.2
         with:
           go-version-file: go.mod
+          cache: false
       - name: lint（gofmt + go vet）
         run: |
           if [ ! -f go.mod ]; then echo "go.mod 不存在，骨架期跳过"; exit 0; fi
-          gofmt -l . | tee /tmp/gofmt.out
-          test ! -s /tmp/gofmt.out
+          source .gitea/scripts/go-env.sh
+          git ls-files -z '*.go' | xargs -0 gofmt -l | tee .cache/gofmt.out
+          test ! -s .cache/gofmt.out
           go vet ./...
       - name: unit tests + build
         run: |
           if [ ! -f go.mod ]; then echo "go.mod 不存在，骨架期跳过"; exit 0; fi
+          source .gitea/scripts/go-env.sh
           go test ./...
           go build ./...
 
@@ -48,11 +51,13 @@ jobs:
           - 6379:6379
     steps:
       - uses: actions/checkout@v4.2.2
-      - name: API/E2E/VRT readiness
+      - uses: actions/setup-go@v5.0.2
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: S01 实际 TLS API 与 Valkey 集成
+        env:
+          VALKEY_TEST_ADDR: valkey:6379
         run: |
-          if [ ! -f go.mod ]; then
-            echo "骨架期：尚未有服务模块或适用的 API/E2E/VRT 用例。"
-            exit 0
-          fi
-          echo "::error::服务模块已存在；必须由对应交付 Issue 配置真实 API/E2E/VRT 命令与 Gotenberg 依赖，不能以占位 job 代替。"
-          exit 1
+          source .gitea/scripts/go-env.sh
+          go test -race -tags integration -count=1 -v ./...

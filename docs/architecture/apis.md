@@ -65,3 +65,12 @@ Admin 查询只接受 limit/offset 分页参数，不能借 metadata 动态构�
 Range 与最终文件 HEAD 属于目标签名资源的读取能力；本服务没有新增代理字节流、multipart Range 或签名目标解析 API。H5 的诊断 GET 不读取 Location，不能被扩展为绕过 token 的公开解析接口。客户端不能把已有签名 URL 当作刷新入口。
 
 v1 不接受旧 HTTP 路由、旧静态 Bearer、旧数据键或 AES 信封兼容。未来本服务自己的契约变更需显式评估客户端与滚动升级，而非把“无历史兼容”理解为后续可任意改变已发布协议。
+
+## S01 接口实施参数（#15）
+
+- 管理查询 body 的 `limit` 可省略，默认20、范围1–100；`offset` 默认0、非负整数；未知字段拒绝。按 `created_at` 倒序，同秒按 token 字典序倒序。data 为 `{items, total, limit, offset}`；先判活/清残留再分页，items 为 `{token, filename, storage_profile, created_at, expires_at, metadata}`，不含源 URL。并发变更不保证分页快照。
+- 撤销 body 为 `{}`，data 为 `{}`；合法格式但不存在的 token 也成功。token 路径仅允许32位小写hex。
+- JSON body 上限64KiB，filename上限255字节，metadata如提供必须为JSON object且编码上限4096字节。所有数值按整数处理，不接受null/小数代替必填TTL；拒绝重复JSON字段和尾随JSON。
+- 响应 success 为 HTTP200/code0；401/code40101、404/code40401、422/code42201、503/code50301 对应中文通用消息，由gcode detail映射HTTP，不在错误体泄漏输入、nonce命中原因或基础设施配置。
+- 受保护API必须实际TLS，或来自显式可信代理CIDR且由该入口提供唯一的 `X-Forwarded-Proto: https`；不信任任意客户端转发头，不接受签名POST的query或编码路径变体。
+- S01只交付授权生命周期。`GET /v/{token}` 对无效授权返回404，对有效但尚未接入文件能力返回503；不会裸跳源站。完整资源预览由S02后续交付，S01的readyz不会谎称整个预览能力就绪。
