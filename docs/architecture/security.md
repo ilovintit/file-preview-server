@@ -8,7 +8,7 @@
 - 无效、过期和撤销 token 一律为 404，避免向浏览器泄露 token 是否曾存在。
 - `/v/{token}` 是 bearer URL。成功的 302 必须带 `Cache-Control: no-store` 和 `Referrer-Policy: no-referrer`，避免客户端缓存 token→目标 URL 映射或在请求对象存储时把 token 放入 Referer。
 - 302 会把短时签名目标 URL 交给客户端；撤销只影响后续 token 解析，不能撤回已经取得的目标 URL。因此签名有效期不得超过 token 的剩余 TTL，调用方不得记录、分享或把它作为业务资源链接。
-- 若调用方使用 JavaScript PDF 阅读器，对象存储 CORS 只允许经审批的业务 Origin 读取；图片元素、iframe 和导航流程不得藉由宽松 CORS 取得不必要的读取权限。
+- v1 的共享 OSS 测试 bucket 采用无凭据通配 CORS（`Access-Control-Allow-Origin: *`），以供多个系统的测试前端读取签名资源；签名 URL 仍是短期 bearer URL，不能携带 Cookie/Authorization 等浏览器凭据。图片元素、iframe 和导航流程不把 CORS 作为鉴权替代。生产 profile 的 CORS 由部署配置决定，但同样不得对通配 Origin 启用凭据。
 - 微信小程序仅从已鉴权的调用方详情/预览接口获得 token、文件名、展示类型和过期时间，不获得资源 URL。小程序传给 H5 的 token 必须位于 URL fragment；H5 读取后立即清除，且日志、埋点、分享和本地存储均须脱敏或排除 token。
 - 统一 trace 与错误处理中间件记录基础设施失败，返回响应不得泄露对象存储凭据、内部对象引用或调用方密钥材料。
 

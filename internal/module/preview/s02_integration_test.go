@@ -77,23 +77,24 @@ func TestTC_S02_AC02_ControlledOSSNavigation(t *testing.T) {
 	if object.StatusCode != http.StatusOK || !bytes.Equal(got, rawPDF) || !strings.HasPrefix(object.Header.Get("Content-Type"), "application/pdf") {
 		t.Fatal("OSS target did not return the original PDF")
 	}
-	allowedOrigin := os.Getenv("PREVIEW_CI_OSS_CORS_ALLOWED_ORIGIN")
-	if allowedOrigin == "" {
+	corsPolicy := os.Getenv("PREVIEW_CI_OSS_CORS_ALLOWED_ORIGIN")
+	if corsPolicy != "*" {
 		t.Fatal("S02 integration requires PREVIEW_CI_OSS_CORS_ALLOWED_ORIGIN")
 	}
+	const browserOrigin = "https://preview-e2e.local"
 	rangeRequest, err := http.NewRequest(http.MethodGet, location, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	rangeRequest.Header.Set("Origin", allowedOrigin)
+	rangeRequest.Header.Set("Origin", browserOrigin)
 	rangeRequest.Header.Set("Range", "bytes=0-3")
 	rangeResponse, err := http.DefaultClient.Do(rangeRequest)
 	if err != nil {
 		t.Fatal(err)
 	}
 	rangeResponse.Body.Close()
-	if rangeResponse.StatusCode != http.StatusPartialContent || rangeResponse.Header.Get("Access-Control-Allow-Origin") != allowedOrigin || !strings.Contains(rangeResponse.Header.Get("Access-Control-Expose-Headers"), "Content-Range") {
-		t.Fatal("OSS CORS or single-range contract is not configured for the approved H5 origin")
+	if rangeResponse.StatusCode != http.StatusPartialContent || rangeResponse.Header.Get("Access-Control-Allow-Origin") != "*" || !strings.Contains(rangeResponse.Header.Get("Access-Control-Expose-Headers"), "Content-Range") {
+		t.Fatal("OSS CORS wildcard or single-range contract is not configured for the shared test bucket")
 	}
 
 	secondToken := issueResource(t, f, resource)

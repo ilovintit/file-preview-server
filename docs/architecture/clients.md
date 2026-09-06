@@ -41,7 +41,7 @@ H5 必须在调用期间展示 loading；404 显示“预览链接已失效”�
 - 预览服务、调用方源 URL 与缓存 profile 均使用 HTTPS；微信小程序的 H5、预览服务和实际最终域名均按调用模式完成微信域名配置。
 - profile 中原样图片/PDF 与转换 PDF 的元数据必须给出正确 `Content-Type`；文档预览使用 `Content-Disposition: inline`，而不是强制下载。
 - 仅当 JavaScript 阅读器需要读取 PDF 字节时配置最终缓存 profile CORS；只通过图片元素、iframe 或正常导航呈现时，不把 CORS 当作绕过安全模型的手段。
-- CORS 白名单只列实际业务 Web Origin，允许 `GET`、`HEAD` 与单个 `Range`；不得使用带凭据的通配 Origin。
+- 共享 OSS 测试 bucket 使用无凭据通配 CORS（`Access-Control-Allow-Origin: *`），允许 `GET`、`HEAD` 与单个 `Range`，并暴露读取所需响应头；不得对通配 Origin 启用浏览器凭据。签名 URL 的短期限与不写入业务数据的约束不变。
 - v1.0.0 以 H5 自动化为验收依据，不要求微信域名登记、开发者工具或真机人工验收先完成；实际业务使用时仍需由接入方配置其域名并验证平台行为。本仓库交付接入说明，不引入兼容路由规避平台约束。
 
 ## 失败处理与边界
@@ -50,7 +50,7 @@ H5 必须在调用期间展示 loading；404 显示“预览链接已失效”�
 | --- | --- |
 | `/v/{token}` 返回 404 | token 已失效、撤销或不存在；按业务权限重新签发，不显示底层对象 URL。 |
 | `/v/{token}` 返回 5xx | 展示“预览暂不可用”，可按调用方重试策略重试 token URL；不得改用裸资源 URL。 |
-| PDF 阅读器 CORS 或 Range 失败 | 展示“文件加载失败”，提供重试与返回；修复精确 CORS/对象元数据后再验收，不把 iframe 或裸 URL 当作微信小程序替代路径。 |
+| PDF 阅读器 CORS 或 Range 失败 | 展示“文件加载失败”，提供重试与返回；修复共享 bucket 的无凭据通配 CORS、Range 与对象元数据后再验收，不把 iframe 或裸 URL 当作微信小程序替代路径。 |
 | 微信小程序 H5 加载或打开失败 | 检查仓库内 demo API、H5/预览服务/最终域名配置、HTTPS、H5 loading/失败反馈以及 PDF 阅读器的 CORS/Range；先以 H5 自动化复现已覆盖路径；真实容器问题由业务接入反馈后定位修复。 |
 
 微信小程序 demo API、H5 页面和 fixture 是本仓库 v1.0.0 交付的一部分，固定在 `demo/` 下；不得创建或依赖外部仓库实现。生产调用方后续自行参考 demo，但不改变本项目的测试边界。

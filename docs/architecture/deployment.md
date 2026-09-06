@@ -8,7 +8,7 @@
 
 应用镜像只包含 Go 二进制及必要运行资源；Gotenberg 8.34.0 使用独立 sidecar 镜像，不把其二进制或 Office 依赖打入应用镜像。两个镜像均在部署声明中固定不可变 digest；缓存使用 Valkey。对象存储以具名 `storage_profile` 配置：v1 仅有 `aliyun-oss` 与 `silo` 两个 profile。环境变量配置 profile endpoint、bucket、凭据、生命周期、`MAX_CACHE_TTL`（默认 86400，签发要求 ttl ≤ cache_ttl ≤ MAX_CACHE_TTL）、调用方 current/next HMAC key；生产环境配置 HTTPS/mTLS；明文凭据不写入仓库。
 
-只有所选 storage profile 是预览 302 的最终域名；调用方源 URL 仅供服务端下载，客户端不访问源站。部署放行前基础设施侧必须确认：profile 内的原样图片/PDF 与转换 PDF 均经 HTTPS 提供，媒体类型和 `Content-Disposition: inline` 元数据正确；仓库内微信 demo H5 的 Origin 已被精确配置到所有测试最终域名的 CORS，且支持 `GET`、`HEAD` 和单个 `Range`；缓存对象按请求 `cache_ttl` 通过 provider 生命周期/清理策略删除。demo 维护预览服务、`aliyun-oss`/`silo` 和 H5 的测试域名配置，项目仓库不保存生产凭据。原生 App 的域名与网络策略在下一版本再定义。
+只有所选 storage profile 是预览 302 的最终域名；调用方源 URL 仅供服务端下载，客户端不访问源站。部署放行前基础设施侧必须确认：profile 内的原样图片/PDF 与转换 PDF 均经 HTTPS 提供，媒体类型和 `Content-Disposition: inline` 元数据正确；共享 OSS 测试 bucket 对 H5 使用无凭据通配 CORS（`*`），支持 `GET`、`HEAD`、单个 `Range` 并暴露读取所需响应头；缓存对象按请求 `cache_ttl` 通过 provider 生命周期/清理策略删除。通配 CORS 不得与 Cookie/Authorization 等浏览器凭据组合使用。demo 维护预览服务、`aliyun-oss`/`silo` 和 H5 的测试域名配置，项目仓库不保存生产凭据。原生 App 的域名与网络策略在下一版本再定义。
 
 ## 当前事实与待交付边界
 
