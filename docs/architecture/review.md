@@ -1,0 +1,38 @@
+# 产品基线综合审查
+
+产品定义载体：[Issue #13](https://git.shw.top/shw-project/file-preview-server/issues/13) / [PR #14](https://git.shw.top/shw-project/file-preview-server/pulls/14)。输入基线为 dev@52d52a0，产品/原型/架构在同一分支审查修订。本次用户明确“采纳”三项建议与 v1.0.0 范围，并单独确认“小程序和 H5 两个入口均通过”。
+
+## 用户裁决与复审结论
+
+| 项目 | 已确认契约 | 权威落点 |
+| --- | --- | --- |
+| D1：源文件与短链 | 所有支持文件下载校验后进入所选 profile；PDF/安全图片原样存储，其他格式转 PDF；302 只指向该 profile 的短时签名对象，源 URL 不暴露给用户 | [PRD](../prd/product.md)、[API](apis.md)、[运行时](runtime.md) |
+| D2：跨 profile 缓存 | 缓存、准备锁、期限与清理记录按 profile/config 身份隔离；profile 内以内容 hash/输出版本去重；不同 profile 独立下载/准备，不做全局转换复制 | [数据](data.md)、[领域](domains.md) |
+| D3：双 TTL | 签发必须 ttl ≤ cache_ttl ≤ MAX_CACHE_TTL；不满足返回 422；两个 TTL 均从签发时计算，读取/重建不重新起算 | [PRD](../prd/product.md)、[API](apis.md)、[数据](data.md) |
+| 双入口原型 | 用户确认小程序与 H5 两入口交互逻辑均通过 | [原型索引](../design/index.html)、[验收记录](../design/acceptance.md) |
+| 版本范围 | 用户采纳 v1.0.0 独立文件预览服务范围、非目标、依赖与发布门槛 | 合入后由唯一 Gitea Milestone 承载，version 不另建范围文件 |
+
+**产品定义复审：零阻断。** 三项关键裁决已同步 PRD、全部相关架构、原型旅程和测试映射；用户原型交互验收已记录。当前 head CI 成功并合入 dev 后完成基线放行，具体 commit/run 以 Issue/PR 回写为准，不用旧 CI 替代。
+
+## 双向审查
+
+| 用户价值 / 约束 | 原型与架构支撑 | 结论 |
+| --- | --- | --- |
+| 仓库内 demo 独立验收 | 小程序/H5 双入口；demo API 持有测试 Internal key，生产六条路由不注册测试入口 | 设计及原型交互已确认，真实 demo 仍由 #1 交付 |
+| 按附件 ID 获取预览 | 小程序获取/取消/重试；H5 fragment 清理、返回后重新获取 | 不把列表数据或源 URL 当详情，不携带密钥 |
+| 所有文件受控短链 | 源下载校验、PDF/图片原样上传、其他格式转换、profile 内准备锁 | 客户端只接触所选 profile，CORS/Range 与签名期限闭环 |
+| 安全签发与撤销 | nonce 完整时间窗、原子占用、角色隔离、raw body 验签、真实 HTTP 状态 | 新解析与并发在途/已发短链的撤销界限明确 |
+| 生命周期与失败恢复 | 绝对期限、owner/generation、发布前复查、独立对象维护记录、条件清理 | 不复活已撤销 token，不用清空 nonce 恢复服务 |
+| 整体架构与部署 | 组件关系与时序、领域端口、质量故障矩阵、双独立镜像、Harbor/Fleet/config 清单与回滚 | 子文档均由 index 索引；Agent 只读观察集群 |
+| 工程规范 | 保留 snake_case/HMAC/同步导航与项目 HTTP 语义 | 通用框架示例不覆盖产品已确认契约 |
+
+## 验证层级与明确延期
+
+- 当前 PR Gate 检查文档链接、原型脚本语法和 8 项 DOM 状态；CI 输出与 SHA 在 #13 / PR #14 记录。DOM 检查不证明浏览器 CSS 渲染、真实服务、微信 SDK 或真机。
+- 用户确认的是两份原型的交互逻辑；Agent 之前打开本地 HTML 被 URL 策略阻止，未绕过，也未将用户确认伪装成 Agent 渲染/真机测试证据。
+- Go module、服务、真实 demo/fixture、两 profile 集成、格式矩阵、镜像/声明、平台验收与发布/生产观察仍由 #1 及版本交付承担，不属于本次产品文档完成证明。
+- 管理 API 的字段/分页限额/业务 code、资源预算、依赖版本与环境值在 #1 编码前细化并核对实际库契约；这些是已标明的实施参数，不扩大产品边界，若改变对外保证必须重新裁决。
+- 原生 App 明确延期下一版本；其他供应商、旧接口/旧键兼容、跨仓库依赖不在 v1.0.0。
+- 历史审查过程和被否选项保存在 Git 与 [journal](../journal/issue-13.md)，当前文档只维护已确认规则。
+
+合入 dev 后可创建已确认范围的 v1.0.0 Milestone。Milestone 保持 open，后续由 split/test-plan 建立独立交付与验收映射；tag 不等于版本完成。

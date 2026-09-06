@@ -10,7 +10,7 @@
 | --- | --- |
 | GoFrame 工程与无历史路由重构 | build、gofmt、vet、unit 用例；所有历史路由为 404 |
 | token 签发/参数/认证 | API 用例：HTTPS/mTLS 要求、HMAC 验签、key role、时间窗、nonce 重放、密钥轮换、双 TTL、内容 hash 和非法输入 |
-| `/v/{token}` | API 用例：对象存储短时重定向、PDF 直接预览、全格式转换、无效 404、可重复访问 |
+| `/v/{token}` | API 用例：对象存储短时重定向、PDF/安全图片校验后原样缓存预览、全格式转换、无效 404、可重复访问 |
 | 管理 API | API 用例：HTTPS HMAC 签名下的列表、撤销、过期懒清理、角色隔离 |
 | Valkey 锁、nonce 与 token 仓储 | Valkey service 下的集成/API 用例：内容 hash 锁、等待转换、nonce TTL 和缓存 TTL 延长 |
 | ObjectStorage 适配器 | 阿里云 OSS 与 silo profile 用例：写、删、签名 URL、CORS/Range 元数据和生命周期 |
@@ -25,8 +25,29 @@
 1. 浏览器图片：`<img>` 经 `/v/{token}` 跳转后正常显示，token 失效后重新访问为 404。
 2. 浏览器 PDF：iframe/object 或选定的 PDF 阅读器正常展示；阅读器模式额外验证对象存储 CORS、Range 和文件头。
 3. 微信小程序：从本仓库 demo 附件 ID 打开时调用 demo 详情/预览 API，而非透传列表数据或裸资源 URL；接口仅返回 token、文件名、展示类型和过期时间。
-4. 微信小程序：在开发者工具与 iOS、Android 真机中验证本仓库 demo H5 `web-view` 的域名配置、fragment 清理、图片、PDF/Office、loading、404 失效反馈、5xx 重试以及源 URL/缓存 profile 的 CORS/Range。
+4. 微信小程序：在开发者工具与 iOS、Android 真机中验证本仓库 demo H5 `web-view` 的域名配置、fragment 清理、图片、PDF/Office、loading、404 失效反馈、5xx 重试以及缓存 profile 的 CORS/Range。
 
 原生 App WebView、原生下载和本地查看器不在 v1.0.0 验收范围；下一版本定义该路径后再建立对应验收。未通过上述仓库内微信 demo 验收不得宣称支持，且不得用未验证的小程序文件 API 替代 H5 路径。
 
 所有 lint、单元、集成/API、E2E 和 VRT 结论以 PR CI 中当前 head 的 job 为准；本地只允许构建/类型级确认。PR Gate 使用每个 run 独立的 Valkey service，不能把 CI 指向共享的长寿缓存实例。
+
+## 本轮文档与原型审查
+
+[review.md](review.md) 记录三项已确认契约与用户原型交互验收；服务测试仍须实际执行才能宣称通过。PR Gate 的文档步骤实际运行 `.gitea/scripts/check-docs.py`，覆盖 docs 内文件链接目标和原型内联及外部脚本语法；另设 jsdom DOM 交互检查步骤，运行 `.gitea/checks/prototype.test.cjs`。它们不执行服务 API、真实浏览器导航或视觉/真机验收。
+
+#1 的 CI 需补充 nonce 未来 timestamp 在首次请求 300 秒后仍不能重放、窗口边界与双 key；缓存续期/清理竞争、lease 丢失/旧 owner 发布、转换期间撤销/过期、两 profile 同 hash、上传成功索引失败，以及签名 URL 到期不晚于有效缓存。新增断言必须覆盖 PDF/安全图片校验后原样上传、无源 URL 直跳、跨 profile 同 hash 独立准备、cache_ttl 小于 ttl 时签发 422，以及相同 profile 续期不缩短。
+
+真实 demo 浏览器用例应覆盖附件 ID 详情请求、重复点击和旧响应竞态、fragment 读取后清除、无 fragment 重入、图片/PDF/Office、等待、404、422、5xx 重试、不可辨识的网络/CORS 错误与返回列表。H5 的状态分类按 clients 中的同源方案验证，不能把图片 onerror 当作 HTTP 404。微信开发者工具及 iOS/Android 真机仍需本仓库人工验收记录。
+
+## 架构验收追踪
+
+| PRD / 原型目标 | 架构落点 | #1 必须提供的实现证据 |
+| --- | --- | --- |
+| 小程序按 ID 获取后进入 H5 | clients、demo、runtime 签发时序 | 真实 demo 详情鉴权、最小 DTO、fragment 清理、迟到响应丢弃；开发者工具/真机 |
+| 图片/PDF/Office 读取及错误反馈 | clients、formats、runtime；所有文件经过所选 profile | 固定镜像逐格式 fixture、正确媒体类型、真实 CORS/Range、源故障与 token 404 区分 |
+| HTTPS 签名、角色隔离、防重放 | apis、security、services 请求管道 | 验签先于 JSON 业务校验、原始字节向量、双 key、nonce 丢失恢复和伪造代理头 |
+| 内容 hash 缓存、同内容等待 | domains、data、runtime；profile 隔离且 cache_ttl ≥ ttl | 跨副本并发、锁续租丢失、条件发布、对象上传后索引失败、缓存/清理竞争 |
+| 有效 token 与幂等撤销 | data、runtime 撤销线性化 | 删除成功后开始的新解析为 404；先前在途与已发短链单独断言 |
+| 生命周期与运维可恢复 | quality、deployment | 有界清理、孤儿追踪、依赖失败关闭、readiness 与 liveness 区分、优雅退出、升级/回滚演练 |
+
+所有性能与可靠性结论需注明 commit、镜像 digest、配置、环境规格、fixture、负载和失败注入方式；固定配置缺失时只记录未验证，不填“通过”。结构/链接检查、DOM 检查、服务 API、真实浏览器、微信真机、镜像与 Fleet/K8s 证据分别记录，互不替代。

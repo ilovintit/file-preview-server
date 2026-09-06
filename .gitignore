@@ -10,3 +10,8 @@
 
 # macOS
 .DS_Store
+
+# 项目内 worktree 与验证依赖
+/.worktrees/
+/.cache/
+node_modules/

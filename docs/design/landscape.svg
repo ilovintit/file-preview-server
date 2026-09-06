@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" role="img" aria-labelledby="title desc">
+  <title id="title">山野风景</title><desc id="desc">本仓库绘制的合成图：浅蓝天空、日光、远山和湖泊。</desc>
+  <defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#b8d6e9"/><stop offset="1" stop-color="#edf3ed"/></linearGradient><linearGradient id="water" x2="0" y2="1"><stop stop-color="#6398a0"/><stop offset="1" stop-color="#b3d0cd"/></linearGradient></defs>
+  <path fill="url(#sky)" d="M0 0h960v640H0z"/><circle cx="745" cy="136" r="56" fill="#fff5d8"/>
+  <path fill="#abc2bb" d="m0 360 200-185 165 165 160-205 240 250 100-140 95 120v275H0z"/>
+  <path fill="#718f83" d="m0 410 185-165 222 242 192-183 204 142 157-186v380H0z"/>
+  <path fill="url(#water)" d="M0 469c130-40 220 30 380 0s380-36 580 16v155H0z"/>
+  <path fill="#3b665d" d="m0 363 123 146 246 131H0z"/><path fill="#406f64" d="m960 369-210 154-175 117h385z"/>
+  <path stroke="#d5e5de" stroke-width="3" opacity=".7" d="M369 517h235m-193 27h250m-308 34h150m-51 25h187"/>
+</svg>

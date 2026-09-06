@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>阅读文件 · H5 原型</title><link rel="stylesheet" href="../prototype.css"><script src="../demo-data.js" defer></script><script src="prototype.js" defer></script></head>
+<body><main class="shell">
+<header class="topbar"><a class="brand" href="../index.html"><span class="brand-mark">F</span>文件预览</a><span class="tag">02 / H5 原型</span></header>
+<div class="workspace"><aside class="review-panel"><p class="eyebrow">READ WITH CLARITY</p><h1>专注内容，<br>随时阅读。</h1><p>在小程序 web-view 或浏览器中查看文件。等待有反馈，失败有下一步。</p>
+<div class="panel"><h3>审查场景</h3><div class="scenarios" aria-label="文件状态"><button data-state="image">图片</button><button data-state="pdf">PDF</button><button data-state="office">Office</button><button data-state="loading">加载中</button><button data-state="waiting">转换等待</button><button data-state="expired">过期 / 不存在</button><button data-state="revoked">已撤销</button><button data-state="invalid">内容错误 422</button><button data-state="error">服务错误 5xx</button><button data-state="network">网络 / CORS</button></div><span class="label">展示宽度</span><div class="scenarios"><button id="wide" aria-pressed="true">浏览器</button><button id="narrow" aria-pressed="false">小程序窄屏</button></div></div>
+<div class="panel"><h3>本入口验收</h3><ol class="checklist"><li>图片缩放，PDF 翻页与边界。</li><li>Office 等待结束后呈现 PDF。</li><li>过期和撤销显示相同反馈。</li><li>5xx 重试；等待时可返回。</li><li>宽窄屏下内容和动作均可访问。</li></ol><a href="../acceptance.md">查看完整验收清单</a></div>
+<p class="note" style="margin-top:24px">PDF 为三页合成排版样稿，图片为本仓库 SVG。原型只传合成样例 ID 并清除 fragment；真实鉴权、文件读取及平台兼容仍待实现。</p></aside>
+<section class="stage"><div class="stage-label"><span>H5 · 文件阅读</span><span>交互样稿</span></div>
+<section class="reader" id="reader" aria-label="H5 阅读界面"><div class="nav"><a class="back" href="../wechat-miniprogram/index.html">‹ 返回</a><span id="filename" class="nav-title">文件预览</span><span id="file-kind" class="tag" hidden></span></div>
+<div id="toolbar" class="toolbar" hidden><button id="prev" aria-label="上一页">‹</button><output id="page-counter" aria-live="polite">1 / 3</output><button id="next" aria-label="下一页">›</button><span class="separator" id="page-separator"></span><button id="zoom-out" aria-label="缩小">−</button><output id="zoom-value" aria-live="polite">100%</output><button id="zoom-in" aria-label="放大">＋</button><button id="fit">适合宽度</button></div>
+<div id="viewport" class="viewport" hidden><div id="document-content"></div></div>
+<div id="feedback" class="state" role="status" aria-live="polite"></div>
+<div class="reader-footer" id="reader-footer">预览内容仅供当前查看，请勿分享页面链接。</div></section></section></div>
+<noscript><p>此原型需要启用 JavaScript 才能演示交互。</p></noscript>
+</main></body></html>
