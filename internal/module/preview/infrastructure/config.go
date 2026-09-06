@@ -1,6 +1,17 @@
 package infrastructure
 
-import "net/netip"
+import (
+	"encoding/base64"
+	"encoding/json"
+	"net"
+	"net/netip"
+	"os"
+	"regexp"
+	"strconv"
+	"strings"
+
+	"github.com/gogf/gf/v2/errors/gerror"
+)
 
 type CallerKey struct {
 	ID     string
@@ -22,4 +33,101 @@ type Config struct {
 	Address        string
 	TLSCert        string
 	TLSKey         string
+	TLSClientCA    string
+}
+
+var namespacePattern = regexp.MustCompile(`^[A-Za-z0-9:_-]{1,96}$`)
+
+func (c Config) Validate() error {
+	if c.MaxCacheTTL < 60 || c.MaxCacheTTL > 31536000 || !namespacePattern.MatchString(c.Namespace) || c.ValkeyDB < 0 || c.ValkeyDB > 15 {
+		return gerror.New("invalid namespace, cache TTL or Valkey DB configuration")
+	}
+	if c.ValkeyAddress != "" {
+		if _, _, err := net.SplitHostPort(c.ValkeyAddress); err != nil {
+			return gerror.New("invalid VALKEY_ADDR")
+		}
+	}
+	if (c.TLSCert == "") != (c.TLSKey == "") {
+		return gerror.New("TLS_CERT_FILE and TLS_KEY_FILE must be configured together")
+	}
+	seen := map[string]bool{}
+	for _, k := range c.Keys {
+		if !keyIDPattern.MatchString(k.ID) || seen[k.ID] || (k.Role != "internal" && k.Role != "admin") || len(k.Secret) < 32 || len(k.Secret) > 128 {
+			return gerror.New("invalid caller key configuration")
+		}
+		seen[k.ID] = true
+	}
+	seen = map[string]bool{}
+	for _, p := range c.Profiles {
+		if seen[p] || (p != "aliyun-oss" && p != "silo") {
+			return gerror.New("invalid STORAGE_PROFILES")
+		}
+		seen[p] = true
+	}
+	return nil
+}
+
+func LoadConfig() (Config, error) {
+	c := Config{ValkeyAddress: os.Getenv("VALKEY_ADDR"), ValkeyUser: os.Getenv("VALKEY_USERNAME"), ValkeyPassword: os.Getenv("VALKEY_PASSWORD"), Namespace: os.Getenv("KEY_NAMESPACE"), Address: os.Getenv("LISTEN_ADDR"), TLSCert: os.Getenv("TLS_CERT_FILE"), TLSKey: os.Getenv("TLS_KEY_FILE"), TLSClientCA: os.Getenv("TLS_CLIENT_CA_FILE"), MaxCacheTTL: 86400}
+	if c.Namespace == "" {
+		c.Namespace = "preview:v1"
+	}
+	if c.Address == "" {
+		c.Address = ":9501"
+	}
+	if value := os.Getenv("MAX_CACHE_TTL"); value != "" {
+		n, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return c, gerror.New("invalid MAX_CACHE_TTL")
+		}
+		c.MaxCacheTTL = n
+	}
+	if value := os.Getenv("VALKEY_DB"); value != "" {
+		n, err := strconv.Atoi(value)
+		if err != nil {
+			return c, gerror.New("invalid VALKEY_DB")
+		}
+		c.ValkeyDB = n
+	}
+	if value := os.Getenv("VALKEY_TLS"); value != "" {
+		v, err := strconv.ParseBool(value)
+		if err != nil {
+			return c, gerror.New("invalid VALKEY_TLS")
+		}
+		c.ValkeyTLS = v
+	}
+	if value := os.Getenv("STORAGE_PROFILES"); value != "" {
+		for _, p := range strings.Split(value, ",") {
+			c.Profiles = append(c.Profiles, strings.TrimSpace(p))
+		}
+	}
+	if value := os.Getenv("TRUSTED_PROXY_CIDRS"); value != "" {
+		for _, p := range strings.Split(value, ",") {
+			prefix, err := netip.ParsePrefix(strings.TrimSpace(p))
+			if err != nil {
+				return c, gerror.New("invalid TRUSTED_PROXY_CIDRS")
+			}
+			c.TrustedProxies = append(c.TrustedProxies, prefix.Masked())
+		}
+	}
+	if raw := os.Getenv("CALLER_KEYS_JSON"); raw != "" {
+		var keys []struct {
+			ID     string `json:"id"`
+			Role   string `json:"role"`
+			Secret string `json:"secret_base64"`
+		}
+		d := json.NewDecoder(strings.NewReader(raw))
+		d.DisallowUnknownFields()
+		if err := d.Decode(&keys); err != nil {
+			return c, gerror.New("invalid CALLER_KEYS_JSON")
+		}
+		for _, k := range keys {
+			secret, err := base64.StdEncoding.DecodeString(k.Secret)
+			if err != nil {
+				return c, gerror.New("invalid caller key encoding")
+			}
+			c.Keys = append(c.Keys, CallerKey{ID: k.ID, Role: k.Role, Secret: secret})
+		}
+	}
+	return c, c.Validate()
 }

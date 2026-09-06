@@ -313,6 +313,14 @@ func TestTC_S01_AC04_ActiveQueryIdempotentRevoke(t *testing.T) {
 	f := setup(t)
 	first := f.issue()
 	second := f.issue()
+	indexes, err := f.db.Do(context.Background(), "KEYS", f.cfg.Namespace+":auth:*:tokens:index")
+	if err != nil || len(indexes.Strings()) != 1 {
+		t.Fatal("token index was not created")
+	}
+	score, err := f.db.Do(context.Background(), "ZSCORE", indexes.Strings()[0], first)
+	if err != nil || score.Int64() != f.now.Load() {
+		t.Fatal("token index must retain the grant creation time as its ordering score")
+	}
 	r, b, _ := f.call("/admin/tokens/query", "admin", map[string]any{"limit": 1, "offset": 0})
 	if r.StatusCode != 200 {
 		t.Fatalf("TC:S01-AC04:active_query_idempotent_revoke query got%d", r.StatusCode)
