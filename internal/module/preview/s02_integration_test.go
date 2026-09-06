@@ -11,22 +11,25 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
 var rawPDF = []byte("%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Count 0/Kids[]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n")
 
 func TestTC_S02_AC02_ControlledOSSNavigation(t *testing.T) {
-	f := setupS02(t)
+	var downloads atomic.Int32
 	source := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/fixture.pdf" {
 			http.NotFound(w, r)
 			return
 		}
+		downloads.Add(1)
 		w.Header().Set("Content-Type", "application/pdf")
 		_, _ = w.Write(rawPDF)
 	}))
 	defer source.Close()
+	f := setupS02(t, source.Client())
 
 	resource := resource()
 	resource["url"] = source.URL + "/fixture.pdf"
@@ -72,6 +75,16 @@ func TestTC_S02_AC02_ControlledOSSNavigation(t *testing.T) {
 	}
 	if object.StatusCode != http.StatusOK || !bytes.Equal(got, rawPDF) || !strings.HasPrefix(object.Header.Get("Content-Type"), "application/pdf") {
 		t.Fatal("OSS target did not return the original PDF")
+	}
+
+	secondToken := issueResource(t, f, resource)
+	second, err := client.Get(f.server.URL + "/v/" + secondToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second.Body.Close()
+	if second.StatusCode != http.StatusFound || downloads.Load() != 2 {
+		t.Fatal("a cache hit must sign the existing OSS object without another source download")
 	}
 }
 

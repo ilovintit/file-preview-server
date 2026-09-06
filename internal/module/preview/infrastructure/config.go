@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net"
+	"net/http"
 	"net/netip"
 	"os"
 	"regexp"
@@ -20,21 +21,22 @@ type CallerKey struct {
 }
 
 type Config struct {
-	ValkeyAddress  string
-	ValkeyUser     string
-	ValkeyPassword string
-	ValkeyDB       int
-	ValkeyTLS      bool
-	Namespace      string
-	MaxCacheTTL    int64
-	Profiles       []string
-	Keys           []CallerKey
-	TrustedProxies []netip.Prefix
-	Address        string
-	TLSCert        string
-	TLSKey         string
-	TLSClientCA    string
-	AliyunOSS      AliyunOSSConfig
+	ValkeyAddress    string
+	ValkeyUser       string
+	ValkeyPassword   string
+	ValkeyDB         int
+	ValkeyTLS        bool
+	Namespace        string
+	MaxCacheTTL      int64
+	Profiles         []string
+	Keys             []CallerKey
+	TrustedProxies   []netip.Prefix
+	Address          string
+	TLSCert          string
+	TLSKey           string
+	TLSClientCA      string
+	AliyunOSS        AliyunOSSConfig
+	SourceHTTPClient *http.Client
 }
 
 // AliyunOSSConfig holds one explicitly enabled OSS profile. Credentials are
@@ -77,6 +79,11 @@ func (c Config) Validate() error {
 			return gerror.New("invalid STORAGE_PROFILES")
 		}
 		seen[p] = true
+	}
+	oss := c.AliyunOSS
+	configuredOSS := oss.Endpoint != "" || oss.Region != "" || oss.Bucket != "" || oss.PrefixBase != "" || oss.AccessKeyID != "" || oss.AccessKeySecret != "" || oss.SecurityToken != "" || oss.SignedURLMaxTTL != 0
+	if configuredOSS && (oss.Endpoint == "" || oss.Region == "" || oss.Bucket == "" || oss.PrefixBase == "" || oss.AccessKeyID == "" || oss.AccessKeySecret == "" || oss.SignedURLMaxTTL < 1) {
+		return gerror.New("incomplete Aliyun OSS configuration")
 	}
 	return nil
 }
@@ -142,6 +149,22 @@ func LoadConfig() (Config, error) {
 			}
 			c.Keys = append(c.Keys, CallerKey{ID: k.ID, Role: k.Role, Secret: secret})
 		}
+	}
+	c.AliyunOSS = AliyunOSSConfig{
+		Endpoint:        os.Getenv("PREVIEW_CI_ALIYUN_OSS_ENDPOINT"),
+		Region:          os.Getenv("PREVIEW_CI_ALIYUN_OSS_REGION"),
+		Bucket:          os.Getenv("PREVIEW_CI_ALIYUN_OSS_BUCKET"),
+		PrefixBase:      os.Getenv("PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE"),
+		AccessKeyID:     os.Getenv("PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_ID"),
+		AccessKeySecret: os.Getenv("PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_SECRET"),
+		SecurityToken:   os.Getenv("PREVIEW_CI_ALIYUN_OSS_SECURITY_TOKEN"),
+	}
+	if value := os.Getenv("PREVIEW_CI_OSS_SIGNED_URL_MAX_TTL_SECONDS"); value != "" {
+		n, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return c, gerror.New("invalid PREVIEW_CI_OSS_SIGNED_URL_MAX_TTL_SECONDS")
+		}
+		c.AliyunOSS.SignedURLMaxTTL = n
 	}
 	return c, c.Validate()
 }

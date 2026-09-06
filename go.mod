@@ -3,6 +3,7 @@ module git.shw.top/shw-project/file-preview-server
 go 1.25.4
 
 require (
+	github.com/aliyun/aliyun-oss-go-sdk v3.0.2+incompatible
 	github.com/gogf/gf/contrib/nosql/redis/v2 v2.10.3
 	github.com/gogf/gf/v2 v2.10.3
 )
@@ -36,5 +37,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.38.0 // indirect
 	golang.org/x/sys v0.35.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
+	golang.org/x/time v0.15.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

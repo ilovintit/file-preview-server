@@ -28,7 +28,11 @@ func New(cfg infrastructure.Config, clock func() time.Time) (*Module, error) {
 	if err != nil {
 		return nil, err
 	}
-	service := application.New(store, clock, cfg.MaxCacheTTL, cfg.Profiles)
+	preparer, err := infrastructure.NewAliyunPreviewStore(cfg, store, clock)
+	if err != nil {
+		return nil, err
+	}
+	service := application.New(store, preparer, clock, cfg.MaxCacheTTL, cfg.Profiles)
 	controller := interfaces.New(service)
 	auth := infrastructure.NewAuthenticator(cfg, store, clock)
 	issue := auth.Wrap("internal", controller.Issue, controller.Error)

@@ -32,6 +32,11 @@ type ValkeyStore struct {
 	lastTime  int64
 }
 
+type cacheRecord struct {
+	ObjectKey string `json:"object_key"`
+	ExpiresAt int64  `json:"expires_at"`
+}
+
 func NewValkeyStore(cfg Config, clock func() time.Time) (*ValkeyStore, error) {
 	s := &ValkeyStore{namespace: cfg.Namespace, clock: clock}
 	if cfg.ValkeyAddress == "" {
@@ -218,6 +223,41 @@ func (s *ValkeyStore) Revoke(ctx context.Context, token string) error {
 	prefix := s.epochPrefix(st)
 	r, err := s.db.Do(ctx, "EVAL", `if redis.call('GET',KEYS[1]) ~= ARGV[1] then return -1 end;redis.call('DEL',KEYS[2]);redis.call('ZREM',KEYS[3],ARGV[2]);return 1`, 3, s.guardKey(), prefix+"token:"+token, prefix+"tokens:index", guard, token)
 	if err != nil || r.Int() < 0 {
+		return unavailable()
+	}
+	return nil
+}
+
+func (s *ValkeyStore) GetCache(ctx context.Context, identity string) (*cacheRecord, error) {
+	st, guard, err := s.ensure(ctx)
+	if err != nil {
+		return nil, err
+	}
+	r, err := s.db.Do(ctx, "EVAL", `if redis.call('GET',KEYS[1]) ~= ARGV[1] then return '!guard' end;return redis.call('GET',KEYS[2]) or ''`, 2, s.guardKey(), s.epochPrefix(st)+"cache:"+identity, guard)
+	if err != nil || r.String() == "!guard" {
+		return nil, unavailable()
+	}
+	if r.String() == "" {
+		return nil, entity.ErrNotFound
+	}
+	var value cacheRecord
+	if json.Unmarshal([]byte(r.String()), &value) != nil || value.ExpiresAt <= s.clock().Unix() {
+		return nil, entity.ErrNotFound
+	}
+	return &value, nil
+}
+
+func (s *ValkeyStore) PutCache(ctx context.Context, identity string, value cacheRecord) error {
+	st, guard, err := s.ensure(ctx)
+	if err != nil {
+		return err
+	}
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return unavailable()
+	}
+	r, err := s.db.Do(ctx, "EVAL", `if redis.call('GET',KEYS[1]) ~= ARGV[1] then return -1 end;redis.call('SET',KEYS[2],ARGV[2],'EXAT',ARGV[3]);return 1`, 2, s.guardKey(), s.epochPrefix(st)+"cache:"+identity, guard, string(raw), value.ExpiresAt)
+	if err != nil || r.Int() != 1 {
 		return unavailable()
 	}
 	return nil
