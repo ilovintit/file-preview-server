@@ -67,3 +67,5 @@ flowchart LR
 ## 当前结论
 
 单 GoFrame 服务、同 Pod Gotenberg、Valkey、两种 profile、项目内 demo 与 Fleet 只读观测是已确认方向。三项契约和原型交互已获用户确认，产品定义复审零阻断。当前 PR CI 和合入 dev 的基线 commit 由 #13 / PR #14 记录，版本规划使用已合入 commit；本架构不代替服务实现、真实平台或部署证据。
+
+最新验收裁决见 [testing](testing.md) 与 [Issue #28](https://git.shw.top/shw-project/file-preview-server/issues/28)：v1.0.0 以 H5 自动化作为首版验收，取消人工真实验收与固定生产观察前置；业务接入后的真实反馈用于后续迭代。小程序工程仍交付，但 H5 自动化不能被描述为微信容器/真机兼容已验证。#15–#27 是当前交付切片，#1 仅为需求来源汇总。

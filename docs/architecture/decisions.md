@@ -9,7 +9,7 @@
 | A3：HTTPS HMAC 与角色隔离 | #11 保留 HMAC、时间窗、nonce、双 key；无应用层 AES | 客户端要规范化签名和同步时间；nonce 存储不可当普通可丢缓存 | [apis](apis.md)、[security](security.md) |
 | A4：同步导航解析 | 已确认唯一公开 token 导航入口和等待首个转换 | 首次请求承受下载/转换延迟，必须有界等待；不增加轮询任务 API、消息队列、SQL 任务系统 | [runtime](runtime.md)、[quality](quality.md) |
 | A5：内容寻址与不可变 generation | PRD 内容 hash 目标；本轮细化条件发布与清理 | hash 不等于授权；对象代次防止旧 owner 删除新产物；profile/config 身份隔离，跨 profile 独立准备 | [data](data.md) |
-| A6：仓库内双入口 demo | #11 规定 demo/fixture/测试独立闭环；复用 H5 阅读能力 | demo API 须与生产路由分离；静态原型/DOM 检查不能代替微信真机 | [demo](demo.md)、[clients](clients.md) |
+| A6：仓库内双入口 demo | #11 规定 demo/fixture/测试独立闭环；复用 H5 阅读能力 | demo API 须与生产路由分离；首版需真实 H5 E2E，静态原型/DOM 不替代；微信真机留到业务接入反馈 | [demo](demo.md)、[clients](clients.md) |
 | A7：无历史兼容与受控升级 | #9 完整重构，旧入口/键不迁移；后续本服务升级仍须兼容分析 | 禁止以保留旧路由降低迁移成本；未来不兼容数据需版本隔离和明确回滚界限 | [apis](apis.md)、[deployment](deployment.md) |
 | A8：Fleet 写入、项目只读观察 | 项目 AGENTS 的部署边界 | Agent 不能现场修改集群来绕过声明漂移；基础设施必须提供目标和运行证据 | [deployment](deployment.md) |
 
@@ -25,4 +25,4 @@ GoFrame v2 的模块四层、手工装配、极薄 Controller 与统一错误处
 
 用户已确认所有文件受控存储、按 profile 隔离、cache_ttl ≥ ttl，以及两个原型入口均通过。管理 API 的字段/分页细化、资源预算、依赖版本、真实 fixture 与目标环境值在 #1 实施前需写回权威文档并审查；其中若改变产品范围或外部保证，重新裁决，不能作为实现细节静默带入。
 
-本轮按用户确认收口产品定义 Issue，并创建已确认范围的 v1.0.0 Milestone；既有 #1 保留服务实施职责，不在 version 阶段新增交付 Issue。版本拆分、发布和生产观察仍由后续生命周期执行，不把此架构稿当成版本放行记录。
+本轮按用户确认收口产品定义 Issue，并创建已确认范围的 v1.0.0 Milestone；既有 #1 保留需求汇总，实施由 #15–#27 承担，不在 version 阶段新增交付 Issue。首版采用 Issue #28 的 H5 自动化验收裁决；发布/交付由后续生命周期执行，不等待人工真实验收或固定观察期，也不把架构稿当放行证据。

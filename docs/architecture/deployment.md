@@ -1,5 +1,7 @@
 # 部署与运行边界
 
+> v1.0.0 按 Issue #28 采用 H5 自动化验收并先交付业务接入。镜像、声明、配置与自动恢复检查仍交付；实际 Fleet/业务环境部署和人工回滚演练不再是首版验收前置。不因尚未取得生产 namespace、真机或固定观察记录阻塞首版制品交付，也不将这些事项标为已完成。
+
 ## 目标形态（Issue #1）
 
 一个 Deployment 包含两个容器：默认运行 `server` 子命令的 file-preview-server（端口 9501）和 Gotenberg sidecar（端口 3000）。它们共享 Pod 网络，因此未显式覆盖时 `GOTENBERG_URL=http://localhost:3000`。Service 暴露应用容器，不直接暴露 sidecar；liveness probe 使用 `/livez`，readiness probe 使用 `/readyz`。
@@ -40,7 +42,7 @@ Issue #1 在 `deploy/` 维护应用/sidecar 镜像、Deployment、Service、HTTP
 | runtime 预算 | 缓存上限、请求/依赖/关闭预算、并发/队列、文件与临时空间、清理批次 | 约束见 quality，数值和测量待 #1 |
 | Fleet GitRepo 与 target | 本项目 Git URL、发布分支、deploy 路径、cluster selector、namespace、同步状态 | 基础设施登记；本轮未指定目标 |
 
-Harbor 地址、仓库名、机器人凭据与 Fleet target 没有现成证据，不能使用猜测地址或其他仓库资源补齐。PR CI 不注入部署/生产 key；发布 CI 的制品凭据仅由受保护发布环境提供。Fleet 拉取的是本项目内声明，不使用中央仓库承载本项目变更。
+Harbor 地址、仓库名、机器人凭据与 Fleet target 没有现成证据，不能使用猜测地址或其他仓库资源补齐。PR CI 不注入部署/生产 key；发布 CI 的制品凭据仅由受保护发布环境提供。Fleet 拉取的是本项目内声明，不使用中央仓库承载本项目变更。首版 H5 自动化使用仓库内可复现的 CI 容器/HTTPS/provider 配置；实际业务域名、集群登记和运行反馈在交付接入时落实，不能以当前环境缺少真实业务目标要求人工前置验收。
 
 ## 启动、就绪与网络权限
 
@@ -53,3 +55,5 @@ Harbor 地址、仓库名、机器人凭据与 Fleet target 没有现成证据�
 发布前固定应用、转换器、字体、配置与数据 schema 的兼容组合。兼容升级先确认新旧应用都能读取在役 token 数据；不可兼容时不能边滚动边共享误读状态，需要先定义版本隔离、停止新签发/排空策略及旧 token 影响，再经产品/发布审查。转换 output version 改变隔离缓存但不擅自重置 token 期限。
 
 回滚验证包含在途请求取消、有效 token 是否受影响、nonce 连续性、旧 generation 清理与新旧 profile 配置身份。不能只恢复镜像而沿用不兼容数据/已退役密钥；也不能通过恢复旧授权快照复活已撤销 token。状态恢复边界见 [quality](quality.md)。
+
+上述恢复机制在本期以自动化配置/镜像组合与 CI 服务容器故障恢复用例验证，实际业务/生产回滚保留操作说明，不要求提前人工演练。真实运行需要变更集群时仍由基础设施/Fleet 执行，项目 Agent 只读观测。首版交付不附加固定 24 小时观察期。

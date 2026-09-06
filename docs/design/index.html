@@ -21,5 +21,5 @@
     <tr><td>Admin API 调用方</td><td>列出 / 撤销 token；独立角色服务端调用</td><td>无本仓库管理 UI，撤销后与失效同屏</td></tr>
     <tr><td>原生 App</td><td>下一版本再定义</td><td>本期不适用</td></tr>
   </tbody></table></div><p class="muted">只读阅读无提交或删除行为，无需虚构确认弹窗。取消在途等待直接返回；撤销属于 Admin API，原型仅模拟其用户可见结果。</p></section>
-  <details><summary>设计依据、产品裁决与实现边界</summary><p>业务真相见 <a href="../prd/product.md">唯一 PRD</a>，技术支撑见 <a href="../architecture/clients.md">客户端契约</a>、<a href="../architecture/demo.md">仓库内 demo</a> 与 <a href="../architecture/apis.md">API 契约</a>。</p><p><a href="../architecture/review.md">三项契约已确认</a>：所有文件校验后受控存储、profile 内去重、cache_ttl ≥ ttl。两个原型入口交互均已获用户确认；基线 CI 与合入状态见产品定义 PR。真实 demo、签名服务、fixture、微信开发者工具及真机验收属于 Issue #1。</p><p><a href="acceptance.md">逐入口验收清单与证据边界</a></p></details>
+  <details><summary>设计依据、产品裁决与实现边界</summary><p>业务真相见 <a href="../prd/product.md">唯一 PRD</a>，技术支撑见 <a href="../architecture/clients.md">客户端契约</a>、<a href="../architecture/demo.md">仓库内 demo</a> 与 <a href="../architecture/apis.md">API 契约</a>。</p><p><a href="../architecture/review.md">三项契约已确认</a>：所有文件校验后受控存储、profile 内去重、cache_ttl ≥ ttl。两个原型入口交互均已获用户确认；基线 CI 与合入状态见产品定义 PR。真实 H5、签名服务与 fixture 由交付 Issue 完成；v1.0.0 以 H5 自动化验收，不以微信开发者工具或真机人工验收作前置，真实反馈来自交付后业务使用。</p><p><a href="acceptance.md">逐入口验收清单与证据边界</a></p></details>
 </main></body></html>
