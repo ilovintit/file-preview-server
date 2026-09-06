@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -47,6 +48,14 @@ type response struct {
 }
 
 func setup(t *testing.T) *fixture {
+	return setupWithOSS(t, infrastructure.AliyunOSSConfig{})
+}
+
+func setupS02(t *testing.T) *fixture {
+	return setupWithOSS(t, testAliyunOSS(t))
+}
+
+func setupWithOSS(t *testing.T, ossConfig infrastructure.AliyunOSSConfig) *fixture {
 	t.Helper()
 	address := os.Getenv("VALKEY_TEST_ADDR")
 	if address == "" {
@@ -54,7 +63,7 @@ func setup(t *testing.T) *fixture {
 	}
 	f := &fixture{t: t}
 	f.now.Store(time.Now().Unix())
-	f.cfg = infrastructure.Config{ValkeyAddress: address, Namespace: fmt.Sprintf("test-preview-%d", time.Now().UnixNano()), MaxCacheTTL: 86400, Profiles: []string{"aliyun-oss", "silo"}, Keys: []infrastructure.CallerKey{{ID: "internal", Role: "internal", Secret: internalSecret}, {ID: "internal-next", Role: "internal", Secret: internalSecret}, {ID: "admin", Role: "admin", Secret: adminSecret}}}
+	f.cfg = infrastructure.Config{ValkeyAddress: address, Namespace: fmt.Sprintf("test-preview-%d", time.Now().UnixNano()), MaxCacheTTL: 86400, Profiles: []string{"aliyun-oss", "silo"}, Keys: []infrastructure.CallerKey{{ID: "internal", Role: "internal", Secret: internalSecret}, {ID: "internal-next", Role: "internal", Secret: internalSecret}, {ID: "admin", Role: "admin", Secret: adminSecret}}, AliyunOSS: ossConfig}
 	var err error
 	f.db, err = gredis.New(&gredis.Config{Address: address, Db: 0, Protocol: 2})
 	if err != nil {
@@ -79,6 +88,40 @@ func setup(t *testing.T) *fixture {
 		_ = f.db.Close(context.Background())
 	})
 	return f
+}
+
+func testAliyunOSS(t *testing.T) infrastructure.AliyunOSSConfig {
+	t.Helper()
+	keys := []string{
+		"PREVIEW_CI_ALIYUN_OSS_ENDPOINT",
+		"PREVIEW_CI_ALIYUN_OSS_REGION",
+		"PREVIEW_CI_ALIYUN_OSS_BUCKET",
+		"PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE",
+		"PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_ID",
+		"PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_SECRET",
+		"PREVIEW_CI_OSS_SIGNED_URL_MAX_TTL_SECONDS",
+	}
+	values := make(map[string]string, len(keys))
+	for _, key := range keys {
+		values[key] = os.Getenv(key)
+		if values[key] == "" {
+			t.Fatalf("S02 integration requires %s", key)
+		}
+	}
+	maxTTL, err := strconv.ParseInt(values["PREVIEW_CI_OSS_SIGNED_URL_MAX_TTL_SECONDS"], 10, 64)
+	if err != nil || maxTTL < 1 {
+		t.Fatal("invalid PREVIEW_CI_OSS_SIGNED_URL_MAX_TTL_SECONDS")
+	}
+	return infrastructure.AliyunOSSConfig{
+		Endpoint:        values["PREVIEW_CI_ALIYUN_OSS_ENDPOINT"],
+		Region:          values["PREVIEW_CI_ALIYUN_OSS_REGION"],
+		Bucket:          values["PREVIEW_CI_ALIYUN_OSS_BUCKET"],
+		PrefixBase:      values["PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE"],
+		AccessKeyID:     values["PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_ID"],
+		AccessKeySecret: values["PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_SECRET"],
+		SecurityToken:   os.Getenv("PREVIEW_CI_ALIYUN_OSS_SECURITY_TOKEN"),
+		SignedURLMaxTTL: maxTTL,
+	}
 }
 
 func resource() map[string]any {

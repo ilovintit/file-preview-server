@@ -34,6 +34,20 @@ type Config struct {
 	TLSCert        string
 	TLSKey         string
 	TLSClientCA    string
+	AliyunOSS      AliyunOSSConfig
+}
+
+// AliyunOSSConfig holds one explicitly enabled OSS profile. Credentials are
+// supplied only through the process environment or CI secret injection.
+type AliyunOSSConfig struct {
+	Endpoint        string
+	Region          string
+	Bucket          string
+	PrefixBase      string
+	AccessKeyID     string
+	AccessKeySecret string
+	SecurityToken   string
+	SignedURLMaxTTL int64
 }
 
 var namespacePattern = regexp.MustCompile(`^[A-Za-z0-9:_-]{1,96}$`)
