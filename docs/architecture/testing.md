@@ -1,53 +1,54 @@
-# 测试与 CI
+# 测试与首版验收
 
-## 当前事实
+## 当前事实与权威入口
 
-`.gitea/workflows/pr-gate.yml` 已包含 PR Gate：无 `go.mod` 时快速层和重型层将明确记录“骨架期不适用”。这不是服务测试通过的证据。服务模块一旦出现，重型层会失败，直到对应交付 Issue 接入真实 API/E2E/VRT 命令和 Gotenberg 依赖。
+用户已在 [Issue #28](https://git.shw.top/shw-project/file-preview-server/issues/28) 明确：v1.0.0 不做人工真实验收，以 H5 自动化通过作为首版验收依据，交付业务系统接入使用后收集真实反馈。本规则覆盖此前的人工浏览器、微信开发者工具/真机、人工部署回滚与固定 24 小时生产观察建议。
 
-## Issue #1 的 CI 验收映射
+详细 AC↔TC 映射由 [v1.0.0 Milestone](https://git.shw.top/shw-project/file-preview-server/milestone/11) 和 #15–#27 维护，每条 AC 保留稳定编号。#1 仅为需求汇总。此文定义统一测试层级与边界，不复制各 Issue 的完整映射。
 
-| 能力 | 目标 CI 证据 |
-| --- | --- |
-| GoFrame 工程与无历史路由重构 | build、gofmt、vet、unit 用例；所有历史路由为 404 |
-| token 签发/参数/认证 | API 用例：HTTPS/mTLS 要求、HMAC 验签、key role、时间窗、nonce 重放、密钥轮换、双 TTL、内容 hash 和非法输入 |
-| `/v/{token}` | API 用例：对象存储短时重定向、PDF/安全图片校验后原样缓存预览、全格式转换、无效 404、可重复访问 |
-| 管理 API | API 用例：HTTPS HMAC 签名下的列表、撤销、过期懒清理、角色隔离 |
-| Valkey 锁、nonce 与 token 仓储 | Valkey service 下的集成/API 用例：内容 hash 锁、等待转换、nonce TTL 和缓存 TTL 延长 |
-| ObjectStorage 适配器 | 阿里云 OSS 与 silo profile 用例：写、删、签名 URL、CORS/Range 元数据和生命周期 |
-| Gotenberg 与格式矩阵 | 固定 Gotenberg 版本下 [formats.md](formats.md) 全部格式的转换用例、镜像构建和 manifest 校验 |
-| 预览跳转安全契约 | API 用例：302、HTTPS 签名目标、`Cache-Control: no-store`、`Referrer-Policy: no-referrer`、签名有效期不超过 token 剩余 TTL、撤销后的后续 token 访问 404 |
-| 运行探针 | API 用例：`/livez` 仅检查进程、`/readyz` 反映 Valkey/Gotenberg/storage profile 就绪状态 |
+当前 `.gitea/workflows/pr-gate.yml` 的文档链接/脚本语法与 8 项 jsdom DOM 检查已经存在，但仓库仍无 Go 服务或真实 H5 E2E。它们不能证明下述服务验收已通过；无 go.mod 时原有服务 job 仍是骨架期不适用。交付 Issue 出现服务模块后必须接入当前能力的真实自动测试，不允许成功占位。
 
-## 调用方人工验收
+## H5 自动化放行定义
 
-平台容器不是本仓库 CI 可以替代的运行环境。每个业务在上线前必须为其实际采用的模式留下验收记录：
+在对应 PR CI 中启动实际服务、Valkey、固定 Gotenberg 与所需真实 OSS/silo 测试 profile，用固定版本的真实浏览器引擎（首版基准为 Chromium）打开仓库内 H5 demo，并验证完整链路。不能使用静态 HTML 样稿、jsdom、mock provider 或手工截图替代 H5 E2E。
 
-1. 浏览器图片：`<img>` 经 `/v/{token}` 跳转后正常显示，token 失效后重新访问为 404。
-2. 浏览器 PDF：iframe/object 或选定的 PDF 阅读器正常展示；阅读器模式额外验证对象存储 CORS、Range 和文件头。
-3. 微信小程序：从本仓库 demo 附件 ID 打开时调用 demo 详情/预览 API，而非透传列表数据或裸资源 URL；接口仅返回 token、文件名、展示类型和过期时间。
-4. 微信小程序：在开发者工具与 iOS、Android 真机中验证本仓库 demo H5 `web-view` 的域名配置、fragment 清理、图片、PDF/Office、loading、404 失效反馈、5xx 重试以及缓存 profile 的 CORS/Range。
+自动覆盖附件 ID → demo API 签发 → fragment 清理 → token URL → 受控 profile → 图片/PDF 阅读，以及 Office 等待、翻页/缩放、取消/旧响应抑制、404/撤销、422、5xx/网络/CORS/Range、返回/重新获取和页面恢复失效。运行固定的桌面与 320/390 px 窄屏 viewport，保留截图、网络/控制台及失败 trace。浏览器版本与 viewport 是自动化环境记录，不等于实际 Safari/微信容器/真机验证。
 
-原生 App WebView、原生下载和本地查看器不在 v1.0.0 验收范围；下一版本定义该路径后再建立对应验收。未通过上述仓库内微信 demo 验收不得宣称支持，且不得用未验证的小程序文件 API 替代 H5 路径。
+H5 链路所依赖的签名/角色/nonce、双 TTL/hash、缓存/锁/清理、两 profile、完整格式与制品/声明正确性由同一交付 CI 的自动单元/集成/API/安全/边界测试支撑；不是额外人工验收。所有当前 Issue 承诺的自动检查成功，才可把其 AC 标为通过。完整 v1 候选需通过 H5 自动化放行组及全部适用自动检查，再交付制品和接入资料。
 
-所有 lint、单元、集成/API、E2E 和 VRT 结论以 PR CI 中当前 head 的 job 为准；本地只允许构建/类型级确认。PR Gate 使用每个 run 独立的 Valkey service，不能把 CI 指向共享的长寿缓存实例。
+## 分层映射
 
-## 本轮文档与原型审查
-
-[review.md](review.md) 记录三项已确认契约与用户原型交互验收；服务测试仍须实际执行才能宣称通过。PR Gate 的文档步骤实际运行 `.gitea/scripts/check-docs.py`，覆盖 docs 内文件链接目标和原型内联及外部脚本语法；另设 jsdom DOM 交互检查步骤，运行 `.gitea/checks/prototype.test.cjs`。它们不执行服务 API、真实浏览器导航或视觉/真机验收。
-
-#1 的 CI 需补充 nonce 未来 timestamp 在首次请求 300 秒后仍不能重放、窗口边界与双 key；缓存续期/清理竞争、lease 丢失/旧 owner 发布、转换期间撤销/过期、两 profile 同 hash、上传成功索引失败，以及签名 URL 到期不晚于有效缓存。新增断言必须覆盖 PDF/安全图片校验后原样上传、无源 URL 直跳、跨 profile 同 hash 独立准备、cache_ttl 小于 ttl 时签发 422，以及相同 profile 续期不缩短。
-
-真实 demo 浏览器用例应覆盖附件 ID 详情请求、重复点击和旧响应竞态、fragment 读取后清除、无 fragment 重入、图片/PDF/Office、等待、404、422、5xx 重试、不可辨识的网络/CORS 错误与返回列表。H5 的状态分类按 clients 中的同源方案验证，不能把图片 onerror 当作 HTTP 404。微信开发者工具及 iOS/Android 真机仍需本仓库人工验收记录。
-
-## 架构验收追踪
-
-| PRD / 原型目标 | 架构落点 | #1 必须提供的实现证据 |
+| 范围 | 责任 Issue | 自动化证据 |
 | --- | --- | --- |
-| 小程序按 ID 获取后进入 H5 | clients、demo、runtime 签发时序 | 真实 demo 详情鉴权、最小 DTO、fragment 清理、迟到响应丢弃；开发者工具/真机 |
-| 图片/PDF/Office 读取及错误反馈 | clients、formats、runtime；所有文件经过所选 profile | 固定镜像逐格式 fixture、正确媒体类型、真实 CORS/Range、源故障与 token 404 区分 |
-| HTTPS 签名、角色隔离、防重放 | apis、security、services 请求管道 | 验签先于 JSON 业务校验、原始字节向量、双 key、nonce 丢失恢复和伪造代理头 |
-| 内容 hash 缓存、同内容等待 | domains、data、runtime；profile 隔离且 cache_ttl ≥ ttl | 跨副本并发、锁续租丢失、条件发布、对象上传后索引失败、缓存/清理竞争 |
-| 有效 token 与幂等撤销 | data、runtime 撤销线性化 | 删除成功后开始的新解析为 404；先前在途与已发短链单独断言 |
-| 生命周期与运维可恢复 | quality、deployment | 有界清理、孤儿追踪、依赖失败关闭、readiness 与 liveness 区分、优雅退出、升级/回滚演练 |
+| 安全签发、查询、撤销 | #15 | 实际 API、Valkey、raw body 签名向量、角色/时间窗/nonce、双 key、双 TTL、状态恢复与日志脱敏 |
+| 原样受控预览、缓存生命周期 | #16 | 7 个原样扩展名，OSS 实际读写/签名/删除，浏览器导航、安全头、并发/期限/清理故障 |
+| 常用 Office 转换与恢复 | #17 | 固定 Gotenberg 核心 6 格式、预算/取消/超时/lease/撤销竞态，失败不写 ready |
+| 两种 profile 一致性 | #18 | OSS/silo 真实行为、同 hash 隔离、配置代次、CORS/Range 与生命周期 |
+| 全格式扩展 | #19–#24 | 逐扩展名固定 fixture/hash/内容预期，两个 profile 真实转换与读取；缺项或失败阻断 |
+| H5 实际交互 | #25 | 真实浏览器 H5 E2E、适用自动 VRT/可访问性、fixture ID/DTO/fragment/错误恢复 |
+| 可运行制品与环境交付 | #26 | 镜像/声明/配置自动检查、CI 容器运行/探针/恢复、预算报告及接入配置模板；不要求实际业务/Fleet 环境人工演练 |
+| 小程序接入交付 | #27 | 小程序工程构建/契约检查、H5 窄屏与入口 DTO 自动回归、接入包和说明；真实微信运行反馈在业务接入后 |
 
-所有性能与可靠性结论需注明 commit、镜像 digest、配置、环境规格、fixture、负载和失败注入方式；固定配置缺失时只记录未验证，不填“通过”。结构/链接检查、DOM 检查、服务 API、真实浏览器、微信真机、镜像与 Fleet/K8s 证据分别记录，互不替代。
+## 数据、环境与判据
+
+所有 fixture 在本仓库维护，记录真实格式、sha256、来源/生成方式以及期望页数、文本/数值/图形；不靠改后缀伪造文件。最终正向最小矩阵为 7 种原样 + 123 种转换格式，各覆盖两 profile，共 260 个格式/profile 组合。H5 端用所有原样类型、核心 Office 与扩展家族代表转换 PDF 验证展示；不能用代表展示替代逐格式转换矩阵。
+
+错误数据覆盖内容/hash/类型不符、损坏/适用的密码保护、源过期/重定向/TLS、超限/慢依赖、并发 nonce、lease 失效、上传发布/清理失败、CORS/Range 和页面生命周期。预期内容、截图/差异规则与错误判据在对应 Issue 实现前冻结，不从被测实现动态读取，不通过删用例或重录失败快照掩盖问题。
+
+CI 每 run 使用独立 Valkey、固定 Gotenberg/字体和隔离 provider 测试资源，凭据仅由环境注入。受控 HTTPS/Origin 配置由自动化环境准备，未取得真实业务域名/Fleet/真机不阻塞首版验收；本项所需 CI provider/fixture/证书环境缺失仍是阻断，不能因此只用 mock。
+
+#15 的管理 DTO/分页/code 与 #16/#17 的预算参数在各自编码前固定为协议/数据常量并纳入边界测试。性能报告记录环境规格、负载、p50/p95/p99、错误率、内存/空间/等待/清理数据；没有批准的数值 SLO 不宣称性能达标，但必须验证已确定资源限制下的受控失败。
+
+## 执行、失败与豁免
+
+本轮只制定计划，不在本地运行测试或编写自动化测试代码。测试由对应 /work 在实现前写入同一 Issue 分支；实现、测试、必要文档与声明在同一 PR 交付。
+
+状态区分 pending、pass、fail、blocked、阶段不适用。未到后续实施阶段的能力可记不适用但不算通过；当前 AC 内的失败、缺 fixture/CI 环境、缺证据都阻断。无人工真实验收前置，也不设置人工验收豁免审批。自动失败不能由手工点击、泛化的排版豁免或静态原型通过替代；范围/规则确需变化时走产品裁决。
+
+未合并缺陷在当前 Issue 修复并重验；交付后业务使用不符合 PRD/AC 的反馈进入 /bug，新增能力回产品定义。保留原失败与修复后当前 head 的证据，P0/P1 阻断当前候选自动放行。已交付首版不等待人工真实使用结论或固定观察期，后续反馈进入下一次维护/迭代。
+
+## 首版交付与版本状态
+
+用户需要先获得可用的第一版。H5 自动化与相关自动检查通过后，交付可运行制品、接入示例、配置/错误契约与测试数据说明；不修改外部业务仓库来完成“接入”。正式发布仍记录 commit/tag/制品与交付事实，main 仍只由用户 Web UI 合并，该权限动作不是人工功能验收。
+
+Milestone 在开发阶段保持 open；实际首版交付完成后可据自动化与交付证据执行版本关闭流程，不附加人工真机/生产观察条件。现在的测试计划或文档 CI 通过都不构成版本完成。

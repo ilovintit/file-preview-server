@@ -1,8 +1,8 @@
 # 文件预览服务产品真相
 
-> 当前状态：`v1.0.0` 产品定义已获用户确认（[Issue #13](https://git.shw.top/shw-project/file-preview-server/issues/13)）；功能实现仍由 [Issue #1](https://git.shw.top/shw-project/file-preview-server/issues/1) 交付，尚未进入 `dev`。本文不将目标架构表述为已上线能力。
+> 当前状态：`v1.0.0` 产品定义已获用户确认（[Issue #13](https://git.shw.top/shw-project/file-preview-server/issues/13)）；功能实现由 #15–#27 交付，[Issue #1](https://git.shw.top/shw-project/file-preview-server/issues/1) 保留需求汇总，尚未进入 `dev`。本文不将目标架构表述为已上线能力。
 
-> 用户已采纳三项契约与 v1.0.0 范围，并确认小程序/H5 两入口交互逻辑通过。产品基线经当前 PR CI 与合入 dev 后用于版本规划；真实服务和平台验收仍待交付，见 [综合审查](../architecture/review.md)。
+> 用户已采纳三项契约与 v1.0.0 范围，并确认原型交互。最新 [Issue #28](https://git.shw.top/shw-project/file-preview-server/issues/28) 裁决：首版只需 H5 自动化验证通过后交付业务接入，不要求人工真实验收；实际使用反馈在交付后收集。服务实现尚未完成，见 [综合审查](../architecture/review.md)。
 
 ## 用户、问题与价值
 
@@ -22,7 +22,7 @@
 - 缓存与锁按 `storage_profile` 及其配置身份隔离，`content_sha256` 是 profile 内的内容身份，输出版本隔离不同处理规则；`cache_ttl` 由每次 token 签发请求显式给出，命中缓存时延长到请求允许的最长有效期；同 profile、同内容、同输出版本的并发预览等待首个准备过程完成；不同 profile 独立下载/处理，不做跨 profile 复制。
 - 为编排提供新的 `/livez` 和 `/readyz` 探针；它们不是历史 `/health` 兼容接口，也不属于用户预览入口。
 - 微信小程序是 v1.0.0 必须支持的调用方：它通过本仓库 demo H5 预览页和 `web-view` 使用 `/v/{token}`；图片经 H5 图片元素展示，PDF/Office 经 H5 PDF 阅读器展示。
-- 本仓库维护完整微信小程序测试环境与 demo：`demo/wechat-miniprogram/`、`demo/preview-h5/` 和 `demo/fixtures/`；开发者工具和真机验收不依赖任何其他项目。
+- 本仓库维护微信小程序接入 demo、H5 自动化环境与 fixture：`demo/wechat-miniprogram/`、`demo/preview-h5/` 和 `demo/fixtures/`。v1.0.0 交付接入代码并验证 H5 链路，微信开发者工具/真机实际运行反馈留到业务接入后，不作为首版门槛。
 - 交付文档处理镜像及同 Pod 的 Gotenberg sidecar 部署声明。
 
 ### 明确非目标
@@ -71,9 +71,15 @@
 - HTTPS/mTLS 要求、HMAC 签名、nonce 重放、时间窗、密钥轮换、必填双 TTL、内容 hash 校验、可复用与失效 404 均有 CI API 用例。
 - 阿里云 OSS 与 silo 两个 storage profile、PDF/安全图片原样受控存储、全格式转换、内容 hash 缓存、缓存 TTL 和等待转换均有 CI 覆盖；其他供应商不在 v1.0.0 验收范围。
 - 管理端列出、撤销、过期懒清理及签名认证均有 CI 覆盖。
-- 302 响应不缓存、不泄露 token 至跳转目标；本仓库 demo 的微信小程序 API、H5 `web-view`、图片、PDF/Office、失效反馈、域名/CORS 配置均有开发者工具和真机验收证据。原生 App 不在 v1.0.0 验收范围。
+- 302 响应不缓存、不泄露 token 至跳转目标；本仓库 H5 在真实浏览器引擎中自动验证附件 ID 获取、图片/PDF/Office、fragment 生命周期、失效/错误恢复和两 profile 的 CORS/Range。小程序入口提供接入工程与构建/契约检查，不宣称微信容器和真机已经验收。原生 App 不在 v1.0.0 范围。
 - 构建镜像和双容器 Deployment 声明进入同一交付 PR；真实部署、Fleet 同步和运行健康度由发布/部署流程独立取证。
 
-本仓库 demo 的两个交互入口、角色与跨入口旅程见 [产品原型索引](../design/index.html)，逐入口交互验收见 [验收清单](../design/acceptance.md)。原型只覆盖已确认展示流程，不替代真实 demo 或平台验收。
+本仓库 demo 的两个交互入口、角色与跨入口旅程见 [产品原型索引](../design/index.html)，既有原型确认见 [验收记录](../design/acceptance.md)。首版验收依赖真实 H5 自动化，不用静态原型或 jsdom 结果代替。
+
+## 首版交付与真实反馈
+
+v1.0.0 以 H5 自动化验收和必要的自动 API/安全/存储/制品检查完成后，提供可运行制品、接入说明、测试 fixture 与小程序/H5 接入 demo，供业务系统使用。不要求人工浏览器验收、微信开发者工具/真机验收、人工部署回滚或固定生产观察时长；交付后业务使用才是本版本的真实测试反馈来源。
+
+自动测试失败或本期范围缺失不能被人工豁免为通过。业务接入发现违反当前契约时形成 Bug，新增能力回产品定义；已关闭版本不因后续反馈被追溯为“当时已验证”。本项目不修改外部业务仓库，不以对方的接入完成作为首版交付前置。发布/制品与接入交付事实仍需记录，H5 自动化通过不代表已经部署到生产或取得真实用户效果。
 
 实现目录、端点字段、数据键和部署契约见 [architecture index](../architecture/index.md)。
