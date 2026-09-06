@@ -25,10 +25,9 @@ flowchart LR
     API -->|写入 / 清理 / 签名| Store[aliyun-oss 或 silo profile]
     API -->|302 导航| H5
     H5 -->|跟随跳转读取资源| Store
-    H5 -.->|源直跳是否保留：D1 待裁决| Source
 ```
 
-图中均为目标组件关系，不是当前已部署拓扑。demo API 是仓库内测试适配层，不能混进生产服务的六条路由；小程序和 H5 不能持有 Internal/Admin 密钥。源下载、跨 profile 产物身份与双 TTL 对应 D1–D3，未裁决的连接和行为不构成放行承诺。
+图中均为目标组件关系，不是当前已部署拓扑。demo API 是仓库内测试适配层，不能混进生产服务的六条路由；小程序和 H5 不能持有 Internal/Admin 密钥。所有文件先下载校验后存入指定 profile，再对用户签发短链；原样 PDF/安全图片不调用转换器。缓存和锁按 profile/config 身份隔离，签发必须 cache_ttl ≥ ttl。
 
 ## 组件与运行边界
 
@@ -46,7 +45,7 @@ flowchart LR
 
 | 边界 | 权威文档 | 当前实现状态 |
 | --- | --- | --- |
-| 综合审查与待裁决 | [review.md](review.md) | D1–D3 未裁决，产品基线未放行 |
+| 综合审查与用户裁决 | [review.md](review.md) | 三项契约及两个原型入口已确认，产品定义复审零阻断 |
 | 调用方与浏览器 | [clients.md](clients.md) | 生产调用方外置；本仓库的 demo 是 v1 验收入口 |
 | Demo 与测试环境 | [demo.md](demo.md) | 目标已定义，尚未创建 demo 代码 |
 | 运行时主流程 | [runtime.md](runtime.md) | 签发、转换、等待、撤销与清理设计 |
@@ -57,7 +56,7 @@ flowchart LR
 | HTTP API | [apis.md](apis.md) | 目标已定义，未注册路由 |
 | 安全 | [security.md](security.md) | 目标已定义，未实现中间件 |
 | 质量与失败恢复 | [quality.md](quality.md) | 非功能约束与验证要求，未测容量 |
-| 架构决策 | [decisions.md](decisions.md) | 已确认约束、技术权衡及待裁决引用 |
+| 架构决策 | [decisions.md](decisions.md) | 已确认约束、技术权衡与实施边界 |
 | 测试与 CI | [testing.md](testing.md) | 文档/原型 DOM 检查存在；服务与平台用例待 Issue #1 |
 | 部署 | [deployment.md](deployment.md) | `deploy/` 尚不存在，未取得 Fleet 目标或健康证据 |
 
@@ -67,4 +66,4 @@ flowchart LR
 
 ## 当前结论
 
-单 GoFrame 服务、同 Pod Gotenberg、Valkey、两种 profile、项目内 demo 与 Fleet 只读观测是已确认方向。D1–D3 和原型用户验收仍未完成，所有架构新增细节是可审阅设计，不是实现或部署证据；关键契约落文档并再次审查后才允许放行产品基线。
+单 GoFrame 服务、同 Pod Gotenberg、Valkey、两种 profile、项目内 demo 与 Fleet 只读观测是已确认方向。三项契约和原型交互已获用户确认，产品定义复审零阻断。当前 PR CI 和合入 dev 的基线 commit 由 #13 / PR #14 记录，版本规划使用已合入 commit；本架构不代替服务实现、真实平台或部署证据。

@@ -1,6 +1,6 @@
 # 运行时主流程
 
-本文件定义组件协作顺序；HTTP 与签名细节见 [apis](apis.md)，原子性和状态见 [data](data.md)，时间预算与异常恢复见 [quality](quality.md)。D1–D3 仍以 [review](review.md) 为准，不在流程图中默认选项。
+本文件定义组件协作顺序；HTTP 与签名细节见 [apis](apis.md)，原子性和状态见 [data](data.md)，时间预算与异常恢复见 [quality](quality.md)。已确认裁决见 [review](review.md)：所有文件校验后受控存储，profile 内去重，cache_ttl ≥ ttl。
 
 ## 签发与展示信息
 
@@ -41,7 +41,7 @@ sequenceDiagram
     A->>V: 读取 token 与缓存状态
     alt token 无效
         A-->>C: 404
-    else 需要受控转换产物
+    else token 有效
         alt 已有有效产物
             A->>O: 确认引用可用
         else 未命中
@@ -49,8 +49,12 @@ sequenceDiagram
             alt 成为持有者
                 A->>V: 再检查缓存，避免重复工作
                 A->>S: 有界下载并验证 HTTPS / hash / 类型
-                A->>G: 在剩余预算内转换
-                G-->>A: 已验证的 PDF
+                alt PDF 或安全图片
+                    A->>A: 保留已校验原文件字节
+                else 其他支持格式
+                    A->>G: 在剩余预算内转换
+                    G-->>A: 已验证的 PDF
+                end
                 A->>V: 登记 generation 的对象维护记录
                 A->>O: 写入不可变 generation 对象
                 A->>V: 校验 owner 和期限后发布 ready
@@ -65,7 +69,7 @@ sequenceDiagram
     end
 ```
 
-图展开转换格式的成功协作顺序：持有者二次检查若已命中，直接复用，不再下载转换；任一阶段失败立即退出对应分支，按 quality 返回错误，不继续上传或发布 ready。PDF/安全图片是直跳源站还是校验入库后短签名，由 D1 决定；同 hash 不同 profile 的缓存与锁身份由 D2 决定；token 有效而缓存期限耗尽时由 D3 决定。未裁决前不能把图中的受控存储路径自动推广到所有输入。
+图适用于全部支持文件：持有者二次检查若已命中，直接复用本 profile 已校验的产物，不再下载转换；任一阶段失败立即退出对应分支，按 quality 返回错误，不继续上传或发布 ready。不同 profile 的同 hash 请求独立准备，不复用或复制其他 profile 的对象。PDF/安全图片原样入库，不调用 Gotenberg；所有 302 均指向所选 profile，绝不返回源 URL。签发时即保证缓存期限不早于 token 期限，读取和重建都不能重新起算授权。
 
 进程内取消不是分布式事务：请求中断后应取消下载/转换并释放自身资源；已经完成的上传可能成为孤儿，按维护索引回收。等待者取消只退出自己的等待，不能释放他人的 lease。持有者失败后其他请求仅在 lease 可安全重新获取且仍有请求预算时重新检查，不无限自动重试坏文件。所有请求都受独立的 token 有效性约束。
 

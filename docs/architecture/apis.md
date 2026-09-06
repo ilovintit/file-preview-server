@@ -1,7 +1,5 @@
 # HTTP API 契约
 
-> 审查未放行：与任意源直跳、跨 profile 缓存及双 TTL 有关的原始条款存在 D1–D3 冲突，见 [审查裁决表](review.md)。裁决前不能据此开始相关实现。
-
 以下为 Issue #1 按当前产品真相重构的目标契约，尚未在 `dev` 注册：
 
 | 端点 | 认证 | 结果 |
@@ -13,7 +11,7 @@
 | `GET /livez` | 无 | 仅供编排存活探针；进程可服务时为 200 |
 | `GET /readyz` | 无 | 仅供编排就绪探针；Valkey、Gotenberg 与所需 storage profile 就绪时为 200，否则为 503 |
 
-签发 JSON body：`url` 为任意 HTTPS 源 URL；因调用方签名已验证身份，服务不对源域名作 allowlist 限制。`storage_profile` 必须是 `aliyun-oss` 或 `silo`，仅用作转换缓存目的地；`content_sha256` 为 64 位小写十六进制 SHA-256，`filename` 必须含 [支持扩展名](formats.md)，`ttl` 为 60–86400 秒的必填整数，`cache_ttl` 为不超过 `MAX_CACHE_TTL` 的必填正整数，`MAX_CACHE_TTL` 默认 86400 秒且仅可通过启动环境覆盖，`metadata` 可选且仅用于管理展示。服务端不接受调用方传入对象存储 endpoint、bucket 或凭据。签发成功的 data 为 `token` 和 Unix 时间戳 `expires_at`。
+签发 JSON body：`url` 为任意 HTTPS 源 URL；因调用方签名已验证身份，服务不对源域名作 allowlist 限制。`storage_profile` 必须是 `aliyun-oss` 或 `silo`，作为所有预览产物的受控缓存目的地；`content_sha256` 为 64 位小写十六进制 SHA-256，`filename` 必须含 [支持扩展名](formats.md)，`ttl` 为 60–86400 秒的必填整数，`cache_ttl` 为满足 `ttl ≤ cache_ttl ≤ MAX_CACHE_TTL` 的必填整数，不满足返回 422，`MAX_CACHE_TTL` 默认 86400 秒且仅可通过启动环境覆盖，`metadata` 可选且仅用于管理展示。服务端不接受调用方传入对象存储 endpoint、bucket 或凭据。签发成功的 data 为 `token` 和 Unix 时间戳 `expires_at`。
 
 ## 内部签名请求
 
@@ -23,7 +21,7 @@
 
 ## 预览跳转契约
 
-`GET /v/{token}` 仅支持正常 HTTP 导航：浏览器安全图片和 PDF 以 302 和 `Location` 指向调用方提供的源 URL；转换格式则指向缓存 profile 中短时签名的 HTTPS PDF URL。它不返回文件字节、JSON、跨域可读取的 `Location`，也不提供客户端解析跳转目标的替代接口。302 响应必须发送 `Cache-Control: no-store` 与 `Referrer-Policy: no-referrer`。
+`GET /v/{token}` 仅支持正常 HTTP 导航：所有文件在缓存未命中时先由服务下载并校验内容，PDF/安全图片原样存储、其余支持格式转换为 PDF，最后以 302 和 `Location` 指向所选 profile 的短时签名 HTTPS URL，禁止返回源 URL。它不返回文件字节、JSON、跨域可读取的 `Location`，也不提供客户端解析跳转目标的替代接口。302 响应必须发送 `Cache-Control: no-store` 与 `Referrer-Policy: no-referrer`。
 
 签名目标 URL 的有效期不得超过 token 剩余 TTL。撤销只保证后续 `GET /v/{token}` 返回 404：此前已经取得目标 URL 的客户端可访问到该签名 URL 自己过期。调用方只能缓存 `/v/{token}`，不能将目标 URL 写入业务数据、分享链路或日志。
 
@@ -47,11 +45,11 @@
 
 | 字段 | 类型与验证 | 消费方 |
 | --- | --- | --- |
-| url | HTTPS URL；解析时拒绝无 host、控制字符或内嵌 userinfo；所有重定向继续满足 HTTPS 约束 | 只供服务下载/待裁决直跳，不返回 demo DTO |
-| storage_profile | 固定支持名称，是否实际启用由部署环境决定 | 缓存/存储编排，D1/D2 未裁决部分不能默认扩张 |
+| url | HTTPS URL；解析时拒绝无 host、控制字符或内嵌 userinfo；所有重定向继续满足 HTTPS 约束 | 只供服务下载，不返回 demo DTO |
+| storage_profile | 固定支持名称，是否实际启用由部署环境决定 | 所有文件的受控存储；缓存与锁按 profile/config 身份隔离 |
 | content_sha256 | 固定编码的声明内容 hash；下载后重新计算 | 内容身份与完整性校验，不是授权凭据 |
 | filename | 含支持扩展名的显示文件名；不得作为本地路径，拒绝控制字符/路径穿越；响应头安全编码 | 展示、格式初筛与输出文件名 |
-| ttl / cache_ttl | 必填整数，边界见前文；两者大小关系待 D3 | token 与缓存期限，不能由客户端展示状态续期 |
+| ttl / cache_ttl | 必填整数，边界见前文；必须 cache_ttl ≥ ttl | token 与缓存期限，不能由客户端展示状态续期 |
 | metadata | 可选管理展示信息，不参与签名身份/数据范围/格式选择 | 仅管理员展示；结构、体积限额在 #1 编码前细化，不向 H5 透传 |
 
 请求、文件名与 metadata 都需有资源上限，预算归 [quality](quality.md)。签发时不接收转换器参数、对象存储 endpoint/bucket/密钥或客户端伪造的操作者 role；拒绝未知控制字段，不能悄悄透传给 provider。业务 body 只允许 JSON，不解析表单兼容格式。

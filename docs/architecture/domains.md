@@ -1,15 +1,13 @@
 # Preview 领域
 
-> 审查未放行：与任意源直跳、跨 profile 缓存及双 TTL 有关的原始条款存在 D1–D3 冲突，见 [审查裁决表](review.md)。裁决前不能据此开始相关实现。
-
 `PreviewFile` 是核心领域对象，负责由 `filename`、受检内容类型及 hash 校验结果判定 PDF、可浏览器直接显示的图片、需转换的 Gotenberg 格式或不支持格式。完整集合以 [formats.md](formats.md) 为准。领域层定义以下抽象而不绑定具体驱动：
 
 - `TokenStore`：保存、读取、列出与删除预览 token。
 - `ConvertLock`：同一转换资源的互斥获取与安全释放。
-- `ObjectStorage`：按配置 profile 上传/删除转换产物、执行缓存生命周期并签名访问；v1 仅实现阿里 OSS 与 silo 两个 profile。原文件从签名调用方提交的 HTTPS URL 读取。
+- `ObjectStorage`：按配置 profile 上传/删除预览产物、执行缓存生命周期并签名访问；v1 仅实现阿里 OSS 与 silo 两个 profile。所有文件从签名调用方提交的 HTTPS URL 下载校验，PDF/安全图片原样上传，其余支持格式转换后上传。
 - `DocConverter`：Gotenberg 支持的文档、图形与图片→PDF 转换及健康检查。
 
-Token 签发、预览解析、管理列表/撤销和转换缓存检查是 application UseCase；HTTP 路由是 interfaces；Valkey、阿里 OSS、silo 和 Gotenberg 适配器属于 infrastructure。业务规则包括双 TTL 必传、内容 hash、token 可复用、撤销幂等与失效 404，详见 [PRD](../prd/product.md)。
+Token 签发、预览解析、管理列表/撤销和预览缓存检查是 application UseCase；HTTP 路由是 interfaces；Valkey、阿里 OSS、silo 和 Gotenberg 适配器属于 infrastructure。业务规则包括双 TTL 必传、内容 hash、token 可复用、撤销幂等与失效 404，详见 [PRD](../prd/product.md)。
 
 ## 领域对象与授权
 
@@ -28,10 +26,10 @@ hash 标识内容，不是权限证明。只有有效 TokenGrant 才能解析缓
 | 端口 | 应用层需要的能力 | 实现约束 |
 | --- | --- | --- |
 | TokenStore | 签发并登记索引、读取有效记录、列表、幂等撤销 | 主记录与索引原子性见 data；生成碰撞时拒绝覆盖 |
-| CacheRepository | 读取状态、原子延长绝对期限、校验 owner 发布、条件失效、认领清理 | 缓存状态不靠若干独立读写拼接；跨 profile 身份待 D2 |
+| CacheRepository | 读取状态、原子延长绝对期限、校验 owner 发布、条件失效、认领清理 | 缓存状态不靠若干独立读写拼接；profile 内去重，跨 profile 独立准备 |
 | ConvertLock | 获取、续租、释放指定 owner 的 lease | 原子验证持有者；不允许等待者释放他人锁 |
 | SourceFetcher | 受控 HTTPS 下载与临时文件句柄 | 上限、证书、重定向、取消与 hash 校验流程受质量/安全契约约束 |
-| ObjectStorage | 上传不可变对象、验证引用、签名、幂等删除 | 仅配置的 profile；签名不写回 CacheRecord；D1 未裁决前不扩张为所有源文件入库 |
+| ObjectStorage | 上传不可变对象、验证引用、签名、幂等删除 | 仅配置的 profile；签名不写回 CacheRecord；所有支持文件均校验后入库，PDF/安全图片不转换 |
 | DocConverter | 受检输入转换、输出验证、健康状态 | 固定版本；参数不由未信任的 URL 或任意 body 透传 |
 
 这些是职责端口，不是本轮发布的 Go interface 签名。副作用具体由 infrastructure 实现，application 编排；过期、授权、可发布和可删除条件属于领域规则。临时文件和 SDK 对象不作为领域实体泄漏。相同字节不能只因展示文件名变化就复用不相容的转换输出；转换器/固定参数变更隔离规则见 data。

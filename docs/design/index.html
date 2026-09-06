@@ -11,15 +11,15 @@
   <section class="panel"><p class="eyebrow">CONNECTED JOURNEY</p><h2>跨入口主流程</h2><div class="journey">
     <article><span class="muted">01</span><h3>选择附件</h3><p>小程序用户从本仓库示例附件进入，只传附件 ID。</p><a href="wechat-miniprogram/index.html">查看入口</a></article>
     <article><span class="muted">02</span><h3>获取预览</h3><p>demo API 以服务端身份签发 token，返回最小展示信息；页面展示等待。</p><span class="muted">服务端动作，无独立 UI</span></article>
-    <article><span class="muted">03</span><h3>进入阅读</h3><p>H5 读取并清除 fragment，再通过 token URL 加载图片或 PDF。</p><a href="preview-h5/index.html#sample=office">体验 Office 等待</a></article>
+    <article><span class="muted">03</span><h3>进入阅读</h3><p>H5 读取并清除 fragment，通过 token URL 加载；服务在所选 profile 内校验并缓存原样图片/PDF 或转换 PDF 后签发短链。</p><a href="preview-h5/index.html#sample=office">体验 Office 等待</a></article>
     <article><span class="muted">04</span><h3>失败后恢复</h3><p>失效返回附件列表重新获取；暂时故障重试预览，不暴露资源 URL。</p><a href="preview-h5/index.html#sample=pdf&state=expired">体验失效返回</a></article>
   </div></section>
   <section class="panel"><h2>入口、角色与验收边界</h2><div class="matrix-wrap"><table class="matrix"><thead><tr><th>入口 / 角色</th><th>页面与动作</th><th>当前验收状态</th></tr></thead><tbody>
-    <tr><td>微信小程序 demo 用户</td><td>附件列表 → 获取预览 → H5；重试、取消、返回</td><td>待用户逐入口验收</td></tr>
-    <tr><td>H5 / 浏览器预览用户</td><td>图片 / PDF 阅读 → 错误恢复；宽窄屏</td><td>待用户逐入口验收</td></tr>
+    <tr><td>微信小程序 demo 用户</td><td>附件列表 → 获取预览 → H5；重试、取消、返回</td><td>用户已确认入口交互通过</td></tr>
+    <tr><td>H5 / 浏览器预览用户</td><td>图片 / PDF 阅读 → 错误恢复；宽窄屏</td><td>用户已确认入口交互通过</td></tr>
     <tr><td>Internal API 调用方</td><td>签发 token；HTTPS HMAC 服务端调用</td><td>无独立界面，见 API 契约</td></tr>
     <tr><td>Admin API 调用方</td><td>列出 / 撤销 token；独立角色服务端调用</td><td>无本仓库管理 UI，撤销后与失效同屏</td></tr>
     <tr><td>原生 App</td><td>下一版本再定义</td><td>本期不适用</td></tr>
   </tbody></table></div><p class="muted">只读阅读无提交或删除行为，无需虚构确认弹窗。取消在途等待直接返回；撤销属于 Admin API，原型仅模拟其用户可见结果。</p></section>
-  <details><summary>设计依据、产品裁决与实现边界</summary><p>业务真相见 <a href="../prd/product.md">唯一 PRD</a>，技术支撑见 <a href="../architecture/clients.md">客户端契约</a>、<a href="../architecture/demo.md">仓库内 demo</a> 与 <a href="../architecture/apis.md">API 契约</a>。</p><p><a href="../architecture/review.md">D1–D3 仍待裁决</a>：源 URL 与短链保证、跨 profile 缓存、双 TTL。原型不替这些公开契约作选择；基线尚未放行。真实 demo、签名服务、fixture、微信开发者工具及真机验收属于 Issue #1。</p><p><a href="acceptance.md">逐入口验收清单与证据边界</a></p></details>
+  <details><summary>设计依据、产品裁决与实现边界</summary><p>业务真相见 <a href="../prd/product.md">唯一 PRD</a>，技术支撑见 <a href="../architecture/clients.md">客户端契约</a>、<a href="../architecture/demo.md">仓库内 demo</a> 与 <a href="../architecture/apis.md">API 契约</a>。</p><p><a href="../architecture/review.md">三项契约已确认</a>：所有文件校验后受控存储、profile 内去重、cache_ttl ≥ ttl。两个原型入口交互均已获用户确认；基线 CI 与合入状态见产品定义 PR。真实 demo、签名服务、fixture、微信开发者工具及真机验收属于 Issue #1。</p><p><a href="acceptance.md">逐入口验收清单与证据边界</a></p></details>
 </main></body></html>

@@ -1,8 +1,6 @@
 # 客户端与调用方边界
 
-> 审查未放行：与任意源直跳、跨 profile 缓存及双 TTL 有关的原始条款存在 D1–D3 冲突，见 [审查裁决表](review.md)。裁决前不能据此开始相关实现。
-
-生产调用方 UI 不在本服务范围内；本仓库必须交付微信小程序和 H5 demo，当前 `dev` 尚无其实现。`GET /v/{token}` 是 v1 唯一支持的公开预览契约：浏览器安全图片/PDF 302 到签名调用方提供的源 URL，转换格式 302 到 `aliyun-oss` 或 `silo` cache profile 的短时 PDF URL。`v1.0.0` 支持浏览器和微信小程序的 H5 `web-view` 路径；没有历史 `/preview` 或其他兼容入口。服务保证这个 HTTP 响应；不会保证未经验收的原生 App SDK 或控件自动跟随重定向。
+生产调用方 UI 不在本服务范围内；本仓库必须交付微信小程序和 H5 demo，当前 `dev` 尚无其实现。`GET /v/{token}` 是 v1 唯一支持的公开预览契约：全部文件经下载校验后进入 `aliyun-oss` 或 `silo` profile，PDF/安全图片原样存储，其他格式转为 PDF；302 只返回该 profile 的短时签名 URL。`v1.0.0` 支持浏览器和微信小程序的 H5 `web-view` 路径；没有历史 `/preview` 或其他兼容入口。服务保证这个 HTTP 响应；不会保证未经验收的原生 App SDK 或控件自动跟随重定向。
 
 API server 是唯一可以提交 HTTPS 源 URL 并签发 token 的调用方；管理后台服务以独立 Admin role 的 HTTPS HMAC 签名调用读取或撤销 token。所有展示层只得到 `/v/{token}`，不得得到调用方密钥，也不得持久化 302 的 `Location`。
 
@@ -10,9 +8,9 @@ API server 是唯一可以提交 HTTPS 源 URL 并签发 token 的调用方；�
 
 | 调用方与文件 | v1 推荐接入 | 必要条件 | 不应假设 |
 | --- | --- | --- | --- |
-| 浏览器图片 | `<img src="https://preview.example/v/{token}">` | 预览服务与调用方源 URL 都为 HTTPS；最终对象有正确图片 `Content-Type` | 用脚本读取跳转 `Location`，或把跨域图片绘制到 Canvas 后读取像素 |
+| 浏览器图片 | `<img src="https://preview.example/v/{token}">` | 预览服务与缓存 profile 都为 HTTPS；最终对象有正确图片 `Content-Type` | 用脚本读取跳转 `Location`，或把跨域图片绘制到 Canvas 后读取像素 |
 | 浏览器 PDF / Office | iframe、object 或新窗口直接导航到 `/v/{token}`；Office 最终得到 PDF | 最终对象返回 `application/pdf` 与 `Content-Disposition: inline`；目标浏览器自身须支持内置 PDF 查看 | 所有浏览器都有相同 PDF 查看器；不支持时调用方需提供自己的阅读器或下载入口 |
-| 浏览器 JavaScript PDF 阅读器 | 阅读器加载 `/v/{token}`，但仅在源 URL 或转换缓存 profile 已对调用方 Web Origin 开放 CORS 时采用 | 最终域名允许该 Origin 的 `GET`、`HEAD` 与单个 `Range` 请求，并暴露 `Accept-Ranges`、`Content-Length`、`Content-Range` | 初始预览服务同源即可绕过最终域名的 CORS |
+| 浏览器 JavaScript PDF 阅读器 | 阅读器加载 `/v/{token}`，但仅在缓存 profile 已对调用方 Web Origin 开放 CORS 时采用 | 最终域名允许该 Origin 的 `GET`、`HEAD` 与单个 `Range` 请求，并暴露 `Accept-Ranges`、`Content-Length`、`Content-Range` | 初始预览服务同源即可绕过最终域名的 CORS |
 | 微信小程序（v1 必须） | 小程序 demo 以 fixture 附件 ID 调用 demo API，再打开本仓库 H5 `web-view`；H5 按浏览器路径加载 `/v/{token}` | demo H5、预览服务与实际最终域名按调用方式完成微信域名配置；H5 PDF 阅读器满足 CORS/Range；开发者工具和 iOS/Android 真机验收 | 直接把 `/v/{token}` 交给 `wx.previewImage`、`wx.downloadFile` 或 `wx.openDocument` 在所有版本都能跟随跨域 302 |
 | 原生 App | **下一版本非目标**：届时再定义 WebView、原生下载或本地查看器路线 | 不在 v1.0.0 建立 SDK、OS 或网络策略验收承诺 | 当前微信小程序支持等同于原生 App 支持 |
 
@@ -38,11 +36,11 @@ H5 必须在调用期间展示 loading；404 显示“预览链接已失效”�
 
 ## 域名、CORS 与内容呈现
 
-302 会让客户端继续访问调用方源域名或转换缓存 profile 的目标域名。因此发布前必须同时检查预览服务和实际最终域名：
+302 只让客户端访问所选缓存 profile 的目标域名；调用方源域名只供服务端下载。因此发布前必须同时检查预览服务和实际最终域名：
 
-- 预览服务、调用方源 URL 与转换缓存 profile 均使用 HTTPS；微信小程序的 H5、预览服务和实际最终域名均按调用模式完成微信域名配置。
-- 源 URL 与缓存 profile 中转换 PDF 的元数据必须给出正确 `Content-Type`；文档预览使用 `Content-Disposition: inline`，而不是强制下载。
-- 仅当 JavaScript 阅读器需要读取 PDF 字节时配置最终源域名或缓存 profile CORS；只通过图片元素、iframe 或正常导航呈现时，不把 CORS 当作绕过安全模型的手段。
+- 预览服务、调用方源 URL 与缓存 profile 均使用 HTTPS；微信小程序的 H5、预览服务和实际最终域名均按调用模式完成微信域名配置。
+- profile 中原样图片/PDF 与转换 PDF 的元数据必须给出正确 `Content-Type`；文档预览使用 `Content-Disposition: inline`，而不是强制下载。
+- 仅当 JavaScript 阅读器需要读取 PDF 字节时配置最终缓存 profile CORS；只通过图片元素、iframe 或正常导航呈现时，不把 CORS 当作绕过安全模型的手段。
 - CORS 白名单只列实际业务 Web Origin，允许 `GET`、`HEAD` 与单个 `Range`；不得使用带凭据的通配 Origin。
 - 微信小程序的域名登记与开发者工具、真机验收是 v1.0.0 上线前置条件，不由本服务用兼容路由规避；原生 App 规则留待下一版本。
 
@@ -68,7 +66,7 @@ H5 必须在调用期间展示 loading；404 显示“预览链接已失效”�
 | 原型入口 / 动作 | 客户端责任 | 服务支撑 |
 | --- | --- | --- |
 | 小程序附件点击 | 只传 ID；请求期间防重复，取消后忽略旧回调 | 仓库内 demo 适配层鉴权后请求 Internal 签发 |
-| 图片阅读 / 缩放 | 展示容器的本地状态，不签发新 token、不向源站泄漏 HMAC | token 导航与媒体类型；D1 决定最终资源路线 |
+| 图片阅读 / 缩放 | 展示容器的本地状态，不签发新 token、不向源站泄漏 HMAC | token 导航与媒体类型；所有最终资源来自所选 profile |
 | PDF 翻页 / 缩放 | 阅读器加载字节与页面状态；不可用时明确报错 | 最终对象 CORS/Range、内联 PDF 与有效短链 |
 | Office 等待 | 不显示虚构百分比，不调用未定义任务 API | 同步转换与有界等待，见 runtime |
 | 过期 / 撤销 | 两种结果使用相同提示，不推断底层存在性 | 404 与 token 状态边界 |

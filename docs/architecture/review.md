@@ -1,57 +1,38 @@
 # 产品基线综合审查
 
-审查载体：[Issue #13](https://git.shw.top/shw-project/file-preview-server/issues/13)。输入为 `dev@52d52a0`，最新已确认裁决为 #11（PR #12 已合并）。当前结论：**未放行**，D1–D3 待用户裁决；本轮修正不代表 #1 已实现。
+产品定义载体：[Issue #13](https://git.shw.top/shw-project/file-preview-server/issues/13) / [PR #14](https://git.shw.top/shw-project/file-preview-server/pulls/14)。输入基线为 dev@52d52a0，产品/原型/架构在同一分支审查修订。本次用户明确“采纳”三项建议与 v1.0.0 范围，并单独确认“小程序和 H5 两个入口均通过”。
 
-## 阻断与需用户裁决
+## 用户裁决与复审结论
 
-| 编号 | 矛盾与影响 | 待选契约 | 状态 |
-| --- | --- | --- | --- |
-| D1 | 任意 HTTPS 源 URL 无服务持有的签名凭据，PDF/图片直跳时不能保证目标到期时间或 hash 校验。HMAC 只证明调用方身份。 | 推荐所有文件下载校验，PDF/图片原样存入所选 profile 后签短链；或保留直跳，明确源签名有效期与内容一致性由调用方负责。前者扩大缓存范围与首读开销，后者降低服务保证。 | 已询问，未裁决 |
-| D2 | 全局 hash 缓存键不包含 profile；同内容指定两种 profile 时，无法同时保证目的 profile 与单份全局产物。 | 推荐 profile 内 hash 去重和锁；或全局转换去重后按请求 profile 复制产物并编排失败恢复。converter_version 是输出版本隔离，不是另一种资源身份。 | 已询问，未裁决 |
-| D3 | 双 TTL 独立，cache_ttl 小于 ttl 时，token 尚有效而缓存过期，重复预览行为未定义。 | 推荐签发要求 cache_ttl ≥ ttl；或允许提前过期后返回 422 并重新签发；或允许 token 有效期间重建并重新起算缓存期限（改变当前签发起算规则）。 | 已询问，未裁决 |
-
-裁决前，PRD/API/数据/客户端中与 D1–D3 对应的原始规则仅用于展示冲突，不能作为已收敛实施契约。本轮不猜测答案、不把默认选项当作用户确认。裁决后必须同时更新上述文档、领域存储接口、原型索引、测试映射、部署 CORS/清理范围及 #1 摘要，再全量复审。
-
-## 确定性修正与双向映射
-
-| 需求 / 证据 | 原型 / 架构结果 | 复审结论 |
+| 项目 | 已确认契约 | 权威落点 |
 | --- | --- | --- |
-| PRD 仓库内 demo，旧 clients 却称无 UI | [小程序入口](../design/wechat-miniprogram/index.html)、[H5 入口](../design/preview-h5/index.html)、[demo](demo.md)、[clients](clients.md) | 补齐设计入口；服务端 Admin 无 UI，不扩张管理页面范围 |
-| 详情通过附件 ID 获取 | 小程序模拟详情读取后再进入 H5；原型只有合成 ID，不包含真实密钥/URL | 字段与动作可回指 PRD；真实 DTO/网络鉴权由 #1 验收 |
-| 300 秒双向时间窗，但 nonce 固定 300 秒 | [apis](apis.md)、[data](data.md)、[security](security.md) 定义 timestamp + 301 的绝对过期、原子占用、依赖失败关闭 | 未来 timestamp 在旧 nonce 过期后仍可验签的漏洞已在设计中消除，服务测试待 #1 |
-| HMAC 规范串编码不明；Controller 自相矛盾 | 明确 LF/raw bytes/hex/role/错误；[services](services.md) 中间件验签、Controller 只调 UseCase | 仅架构定义，不能替代跨语言 CI 签名向量 |
-| 缓存续期、锁失效、发布/清理并发 | data 补原子 max、owner、generation、发布前 token 重检、孤儿回收与清理边界 | D2/D3 未定部分显式保留；无新增任务 API 或事件总线 |
-| 图片 onerror 不能区分 HTTP 状态 | clients 定义 H5 与 /v/ 同源、失败后只对原 token URL 分类；opaque redirect 不读 Location | 404/422/5xx/网络反馈进入 H5 样稿；真实浏览器与真机证据待 #1 |
-| 单一 Go 镜像与 Gotenberg sidecar 混写 | [deployment](deployment.md) 固定双独立镜像、可信 TLS 入口、Fleet 记录与回滚、日志脱敏 | 无部署声明/目标/集群健康证据；仍属 #1 |
-| 格式矩阵把目标当支持保证 | [formats](formats.md) 标注目标集合、官方资料核查与固定版本 fixture 验收边界 | 官网列表不能证明实际镜像、字体或渲染成功 |
+| D1：源文件与短链 | 所有支持文件下载校验后进入所选 profile；PDF/安全图片原样存储，其他格式转 PDF；302 只指向该 profile 的短时签名对象，源 URL 不暴露给用户 | [PRD](../prd/product.md)、[API](apis.md)、[运行时](runtime.md) |
+| D2：跨 profile 缓存 | 缓存、准备锁、期限与清理记录按 profile/config 身份隔离；profile 内以内容 hash/输出版本去重；不同 profile 独立下载/准备，不做全局转换复制 | [数据](data.md)、[领域](domains.md) |
+| D3：双 TTL | 签发必须 ttl ≤ cache_ttl ≤ MAX_CACHE_TTL；不满足返回 422；两个 TTL 均从签发时计算，读取/重建不重新起算 | [PRD](../prd/product.md)、[API](apis.md)、[数据](data.md) |
+| 双入口原型 | 用户确认小程序与 H5 两入口交互逻辑均通过 | [原型索引](../design/index.html)、[验收记录](../design/acceptance.md) |
+| 版本范围 | 用户采纳 v1.0.0 独立文件预览服务范围、非目标、依赖与发布门槛 | 合入后由唯一 Gitea Milestone 承载，version 不另建范围文件 |
 
-## 验证与可改进
+**产品定义复审：零阻断。** 三项关键裁决已同步 PRD、全部相关架构、原型旅程和测试映射；用户原型交互验收已记录。当前 head CI 成功并合入 dev 后完成基线放行，具体 commit/run 以 Issue/PR 回写为准，不用旧 CI 替代。
 
-- 本轮 CI 增加文档本地链接、原型 JavaScript 语法与 jsdom DOM 状态迁移检查；不改变原有服务模块出现后重型层强制真实测试的规则。CI 成功只能证明这些实际运行的检查。
-- 自动浏览器的 URL 安全策略拒绝访问本地原型文件。本轮没有渲染、点击、E2E/VRT 或真机通过证据；保留原型视觉/交互人工审阅项，不能声称高保真验收已完成。
-- Go module、服务、真实 demo、两种存储的集成测试、镜像/部署和平台验收均由 [Issue #1](https://git.shw.top/shw-project/file-preview-server/issues/1) 交付，属于已知实施缺口，不伪装成此次文档 PR 的通过结果。
-- 原生 App 明确延期到下一版本，尚未排期建交付 Issue；产品范围确定后由 version/split 建单。本轮没有其他静默延期项。
-- #1 进入实现前细化管理 API 分页/DTO/错误码、资源预算和固定 CI fixture；它们不改变本轮已确认角色或公开路由。
+## 双向审查
 
-只有 D1–D3 落文档、全部基线阻断清零、原型审阅完成且当前 PR CI 取证后，才可放行并进入 `/version`。
-
-## prototype 续跑
-
-用户随后执行 `/prototype`，在同一 #13 / PR #14 中继续完善两入口。索引已明确用户、API 调用方及跨入口旅程，阅读页新增图片缩放、三页 PDF 翻页与宽窄屏展示，获取/阅读在途均可返回且忽略迟到响应。新增 [逐入口验收清单](../design/acceptance.md)，用户验收仍未完成。DOM 检查不证明渲染或平台通过；D1–D3 保持待裁决，未新增产品契约。
-
-## architecture 续跑与设计复审
-
-用户随后执行 `/architecture`，继续在同一 #13 / PR #14 中完善整体入口与文档族。以下为本轮可审阅设计结果，未经实现、平台或部署验收：
-
-| 检查维度 | 修正 / 证据位置 | 剩余界限 |
+| 用户价值 / 约束 | 原型与架构支撑 | 结论 |
 | --- | --- | --- |
-| 系统上下文与组件 | index 增加双入口、测试适配层、生产调用方、Pod/Valkey/存储组件图和职责表 | 拓扑是目标，没有实际集群证据 |
-| 运行时主流程 | runtime 增加签发、转换/等待、撤销、清理和退出顺序 | D1–D3 对应分支显式保留，不默选 |
-| 领域与数据 | domains 区分声明/已验证 hash，补 CacheRepository/SourceFetcher；data 补 ObjectMaintenance、条件发布/清理和逻辑键范围 | 具体复合键待 D2；预算与部署拓扑需实施取证 |
-| API 与安全 | apis 补字段消费边界、响应包装与错误优先级；services 明确验签在解码前、302 不二次包装 | 管理 DTO/分页限额/业务 code 在 #1 编码前仍需细化审查 |
-| 非功能与恢复 | quality 定义预算关系、逐阶段故障、Valkey nonce/token 恢复风险 | 无容量/延迟 SLO/RPO/RTO 测量，不虚构数字 |
-| 部署与回滚 | deployment 增加制品/Harbor/Fleet/config 清单、凭据隔离、就绪/存活和数据兼容 | 实际值由环境提供，Agent 只读观察 |
-| 技术栈适用 | decisions 记录已确认约束与通用 GoFrame 范式的适用边界 | 不重命名 snake_case，不引入 Bearer/SQL 任务或替换真实 HTTP 状态 |
-| 原型双向映射 | clients/demo/testing 将附件获取、阅读、等待、失效、返回映射到组件和验收证据 | 原型用户验收、真实服务/平台测试仍待完成 |
+| 仓库内 demo 独立验收 | 小程序/H5 双入口；demo API 持有测试 Internal key，生产六条路由不注册测试入口 | 设计及原型交互已确认，真实 demo 仍由 #1 交付 |
+| 按附件 ID 获取预览 | 小程序获取/取消/重试；H5 fragment 清理、返回后重新获取 | 不把列表数据或源 URL 当详情，不携带密钥 |
+| 所有文件受控短链 | 源下载校验、PDF/图片原样上传、其他格式转换、profile 内准备锁 | 客户端只接触所选 profile，CORS/Range 与签名期限闭环 |
+| 安全签发与撤销 | nonce 完整时间窗、原子占用、角色隔离、raw body 验签、真实 HTTP 状态 | 新解析与并发在途/已发短链的撤销界限明确 |
+| 生命周期与失败恢复 | 绝对期限、owner/generation、发布前复查、独立对象维护记录、条件清理 | 不复活已撤销 token，不用清空 nonce 恢复服务 |
+| 整体架构与部署 | 组件关系与时序、领域端口、质量故障矩阵、双独立镜像、Harbor/Fleet/config 清单与回滚 | 子文档均由 index 索引；Agent 只读观察集群 |
+| 工程规范 | 保留 snake_case/HMAC/同步导航与项目 HTTP 语义 | 通用框架示例不覆盖产品已确认契约 |
 
-确定性架构缺口已形成文档修订；关键公开契约依旧未收敛，本轮不得称产品基线零阻断。新增子文档均由整体 index 索引，具体字段/状态/预算/部署继续保持各自唯一权威位置。
+## 验证层级与明确延期
+
+- 当前 PR Gate 检查文档链接、原型脚本语法和 8 项 DOM 状态；CI 输出与 SHA 在 #13 / PR #14 记录。DOM 检查不证明浏览器 CSS 渲染、真实服务、微信 SDK 或真机。
+- 用户确认的是两份原型的交互逻辑；Agent 之前打开本地 HTML 被 URL 策略阻止，未绕过，也未将用户确认伪装成 Agent 渲染/真机测试证据。
+- Go module、服务、真实 demo/fixture、两 profile 集成、格式矩阵、镜像/声明、平台验收与发布/生产观察仍由 #1 及版本交付承担，不属于本次产品文档完成证明。
+- 管理 API 的字段/分页限额/业务 code、资源预算、依赖版本与环境值在 #1 编码前细化并核对实际库契约；这些是已标明的实施参数，不扩大产品边界，若改变对外保证必须重新裁决。
+- 原生 App 明确延期下一版本；其他供应商、旧接口/旧键兼容、跨仓库依赖不在 v1.0.0。
+- 历史审查过程和被否选项保存在 Git 与 [journal](../journal/issue-13.md)，当前文档只维护已确认规则。
+
+合入 dev 后可创建已确认范围的 v1.0.0 Milestone。Milestone 保持 open，后续由 split/test-plan 建立独立交付与验收映射；tag 不等于版本完成。

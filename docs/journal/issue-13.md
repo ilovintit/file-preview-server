@@ -1,5 +1,7 @@
 # Issue #13：产品基线综合审查
 
+> 当前恢复点：用户已采纳三项契约与 v1.0.0 范围，并明确两个原型入口均通过。以下旧阶段“待裁决/待验收”仅为历史过程记录，最新规则以 PRD 与 architecture/review.md 为准。
+
 ## 输入与作用域
 
 - 2026-09-05 从最新 `origin/dev@52d52a0` 建立 `codex/13-product-review`，worktree 为项目内 `.worktrees/13/`。
@@ -41,3 +43,11 @@ D1–D3 尚无用户答复，原型与 PR 继续保持待逐入口验收，不�
 新增 runtime、quality、decisions 并由 index 索引，补组件/时序、失败恢复、领域端口、数据记录、配置制品与测试追踪。重点修订：声明 hash 不等于下载已验证；nonce 丢失不可当普通缓存重建；对象维护记录须独立于过期索引；撤销的新请求与并发在途短链须区分；通用 GoFrame lowerCamelCase/Bearer/HTTP 200/SQL 任务示例不能覆盖项目已确认契约。
 
 未改服务、demo 或原型交互代码，未读取或修改其他仓库实现，未操作集群。D1–D3、用户逐入口验收、#1 的字段/预算/依赖版本与真实平台/部署证据都保持明确边界。新提交由现有 PR Gate 重新验证链接、脚本与原型 DOM；具体 SHA/run 回写 Issue/PR，不复用旧 CI 放行。
+
+## 用户确认与 version 收口（2026-09-06）
+
+用户回复“采纳”，确认 v1.0.0 范围与三项推荐契约；随后单独回复“小程序和 H5 两个入口均通过”。据此同步 PRD、API/data/clients/domains/formats/runtime/quality/deployment、索引与验收记录：所有支持文件校验后受控存储，PDF/安全图片原样入库；缓存与准备锁按 profile/config 身份隔离；签发要求 ttl ≤ cache_ttl ≤ MAX_CACHE_TTL。
+
+全量复审不保留当前有效文档中的候选分支。产品定义零阻断，用户原型交互通过；真实服务/平台/部署验证仍未交付。当前 head CI 通过后合入 dev、回填并关闭 #13，再创建唯一 v1.0.0 Milestone，使用真实 dev 基线 commit；不在 version 阶段创建新交付 Issue，#1 摘要同步新契约，后续拆分归 /split。
+
+被否路线：源 PDF/图片直接 302、跨 profile 全局转换复制、允许 cache_ttl 小于 ttl 并提前失效/重新起算。它们不再是 v1 合同。候选 SHA、CI、合并与 Milestone 结果由 Issue/PR/Milestone 回写，不把尚未发生的合并写成完成。
