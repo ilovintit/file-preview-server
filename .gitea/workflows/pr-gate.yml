@@ -55,7 +55,7 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
-      - name: S01 实际 TLS API 与 Valkey 集成
+      - name: 实际 TLS API、Valkey 与 OSS 集成
         env:
           VALKEY_TEST_ADDR: valkey:6379
           PREVIEW_CI_ALIYUN_OSS_ENDPOINT: ${{ vars.PREVIEW_CI_ALIYUN_OSS_ENDPOINT }}
@@ -63,6 +63,7 @@ jobs:
           PREVIEW_CI_ALIYUN_OSS_BUCKET: ${{ vars.PREVIEW_CI_ALIYUN_OSS_BUCKET }}
           PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE: ${{ vars.PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE }}/${{ github.run_id }}
           PREVIEW_CI_OSS_SIGNED_URL_MAX_TTL_SECONDS: ${{ vars.PREVIEW_CI_OSS_SIGNED_URL_MAX_TTL_SECONDS }}
+          PREVIEW_CI_OSS_CORS_ALLOWED_ORIGIN: ${{ vars.PREVIEW_CI_OSS_CORS_ALLOWED_ORIGIN }}
           PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_ID: ${{ secrets.PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_ID }}
           PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_SECRET: ${{ secrets.PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_SECRET }}
           PREVIEW_CI_ALIYUN_OSS_SECURITY_TOKEN: ${{ secrets.PREVIEW_CI_ALIYUN_OSS_SECURITY_TOKEN }}
