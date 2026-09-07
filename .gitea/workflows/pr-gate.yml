@@ -13,7 +13,7 @@ jobs:
     name: 快速层（lint/typecheck/build）
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: https://git.shw.top/actions/checkout@v4.2.2
       - name: 文档链接与原型脚本语法
         run: python3 .gitea/scripts/check-docs.py
       - name: 原型 DOM 交互检查（不代替视觉与真机验收）
@@ -22,7 +22,7 @@ jobs:
           node --test .gitea/checks/prototype.test.cjs
       - name: 设置 Go
         if: ${{ hashFiles('go.mod') != '' }}
-        uses: actions/setup-go@v5.0.2
+        uses: https://git.shw.top/actions/setup-go@v5.0.2
         with:
           go-version-file: go.mod
           cache: false
@@ -50,8 +50,8 @@ jobs:
         ports:
           - 6379:6379
     steps:
-      - uses: actions/checkout@v4.2.2
-      - uses: actions/setup-go@v5.0.2
+      - uses: https://git.shw.top/actions/checkout@v4.2.2
+      - uses: https://git.shw.top/actions/setup-go@v5.0.2
         with:
           go-version-file: go.mod
           cache: false
