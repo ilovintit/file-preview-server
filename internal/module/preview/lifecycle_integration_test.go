@@ -70,6 +70,28 @@ func TestTC_S02_AC05_LeaseLossFencesPublication(t *testing.T) {
 	if err != nil || len(ready.Strings()) != 0 {
 		t.Fatal("lost owner published cache")
 	}
+	ctx := context.Background()
+	count, err := f.db.Do(ctx, "HLEN", f.cfg.Namespace+":objects")
+	if err != nil || count.Int() != 1 {
+		t.Fatal("unpublished upload must retain its maintenance record")
+	}
+	store, err := infrastructure.NewValkeyStore(f.cfg, func() time.Time { return time.Unix(f.now.Load(), 0) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close(ctx)
+	preparer, err := infrastructure.NewAliyunPreviewStore(f.cfg, store, func() time.Time { return time.Unix(f.now.Load(), 0) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.now.Add(121)
+	if err = preparer.Cleanup(ctx); err != nil {
+		t.Fatal(err)
+	}
+	count, err = f.db.Do(ctx, "HLEN", f.cfg.Namespace+":objects")
+	if err != nil || count.Int() != 0 {
+		t.Fatal("unpublished upload was not reclaimed")
+	}
 }
 
 func TestTC_S02_AC04_DeadlineAndCleanup(t *testing.T) {

@@ -34,6 +34,7 @@ func ossProfileIdentity(c AliyunOSSConfig) string {
 
 type AliyunPreviewStore struct {
 	bucket       *oss.Bucket
+	signer       *oss.Bucket
 	cache        *ValkeyStore
 	clock        func() time.Time
 	sourceClient *http.Client
@@ -61,6 +62,19 @@ func NewAliyunPreviewStore(cfg Config, cache *ValkeyStore, clock func() time.Tim
 	if err != nil {
 		return nil, gerror.Wrap(entity.ErrUnavailable, "open OSS bucket")
 	}
+	signer := bucket
+	if c.PreviewEndpoint != "" {
+		previewOptions := append(append([]oss.ClientOption(nil), options...), oss.UseCname(true))
+		previewClient, err := oss.New(c.PreviewEndpoint, c.AccessKeyID, c.AccessKeySecret, previewOptions...)
+		if err != nil {
+			return nil, entity.ErrUnavailable
+		}
+		previewClient.SetRegion(c.Region)
+		signer, err = previewClient.Bucket(c.Bucket)
+		if err != nil {
+			return nil, entity.ErrUnavailable
+		}
+	}
 	if c.SignedURLMaxTTL < 1 || c.PrefixBase == "" {
 		return nil, gerror.Wrap(entity.ErrUnavailable, "invalid OSS configuration")
 	}
@@ -78,7 +92,7 @@ func NewAliyunPreviewStore(cfg Config, cache *ValkeyStore, clock func() time.Tim
 		return nil
 	}
 	source = &copyClient
-	return &AliyunPreviewStore{bucket: bucket, cache: cache, clock: clock, sourceClient: source, prefix: strings.Trim(c.PrefixBase, "/"), identity: ossProfileIdentity(c), signedURLMax: c.SignedURLMaxTTL, slots: make(chan struct{}, 4)}, nil
+	return &AliyunPreviewStore{bucket: bucket, signer: signer, cache: cache, clock: clock, sourceClient: source, prefix: strings.Trim(c.PrefixBase, "/"), identity: ossProfileIdentity(c), signedURLMax: c.SignedURLMaxTTL, slots: make(chan struct{}, 4)}, nil
 }
 
 func (s *AliyunPreviewStore) Prepare(ctx context.Context, grant entity.Grant) (string, error) {
@@ -221,7 +235,7 @@ func (s *AliyunPreviewStore) sign(ctx context.Context, objectKey string, grant e
 	if remaining < 1 {
 		return "", entity.ErrNotFound
 	}
-	url, err := s.bucket.SignURL(objectKey, oss.HTTPGet, remaining)
+	url, err := s.signer.SignURL(objectKey, oss.HTTPGet, remaining)
 	if err != nil {
 		return "", gerror.Wrap(entity.ErrUnavailable, "sign OSS object")
 	}
