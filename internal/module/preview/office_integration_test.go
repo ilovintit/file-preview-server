@@ -28,6 +28,14 @@ type officeFixture struct {
 }
 
 func TestTC_S03_AC01_CoreOfficeConversion(t *testing.T) {
+	testCoreOfficeConversion(t, "aliyun-oss")
+}
+
+func TestTC_S04_AC01_SiloCoreOfficeConversion(t *testing.T) {
+	testCoreOfficeConversion(t, "silo")
+}
+
+func testCoreOfficeConversion(t *testing.T, profile string) {
 	endpoint := os.Getenv("GOTENBERG_TEST_URL")
 	if endpoint == "" {
 		t.Fatal("S03 requires actual GOTENBERG_TEST_URL")
@@ -72,8 +80,17 @@ func TestTC_S03_AC01_CoreOfficeConversion(t *testing.T) {
 				_, _ = w.Write(body)
 			}))
 			defer source.Close()
-			f := setupWithOSS(t, testAliyunOSS(t), source.Client(), func(c *infrastructure.Config) { c.GotenbergURL = endpoint })
+			var f *fixture
+			objectClient := http.DefaultClient
+			if profile == "silo" {
+				var silo *siloFixture
+				f, silo = setupSilo(t, source.Client())
+				objectClient = silo.proxy.Client()
+			} else {
+				f = setupWithOSS(t, testAliyunOSS(t), source.Client(), func(c *infrastructure.Config) { c.GotenbergURL = endpoint })
+			}
 			input := resource()
+			input["storage_profile"] = profile
 			input["url"], input["filename"], input["content_sha256"] = source.URL, tc.File, tc.SHA256
 			token := issueResource(t, f, input)
 			client := f.server.Client()
@@ -86,7 +103,7 @@ func TestTC_S03_AC01_CoreOfficeConversion(t *testing.T) {
 			if r.StatusCode != http.StatusFound {
 				t.Fatalf("Office conversion expected302 got%d", r.StatusCode)
 			}
-			object, err := http.Get(r.Header.Get("Location"))
+			object, err := objectClient.Get(r.Header.Get("Location"))
 			if err != nil {
 				t.Fatal("converted object request failed")
 			}

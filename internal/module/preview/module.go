@@ -34,18 +34,13 @@ func New(cfg infrastructure.Config, clock func() time.Time) (*Module, error) {
 	if err != nil {
 		return nil, err
 	}
-	preparer, err := infrastructure.NewAliyunPreviewStore(cfg, store, clock)
+	preparer, err := infrastructure.NewProfilePreparer(cfg, store, clock)
 	if err != nil {
 		_ = store.Close(context.Background())
 		return nil, err
 	}
 	// 只有已实际装配的存储适配器才能用于签发；声明名称不能替代配置。
-	var configuredProfiles []string
-	for _, profile := range cfg.Profiles {
-		if profile == "aliyun-oss" && preparer != nil {
-			configuredProfiles = append(configuredProfiles, profile)
-		}
-	}
+	configuredProfiles := preparer.Profiles()
 	service := application.New(store, preparer, clock, cfg.MaxCacheTTL, configuredProfiles)
 	controller := interfaces.New(service)
 	auth := infrastructure.NewAuthenticator(cfg, store, clock)

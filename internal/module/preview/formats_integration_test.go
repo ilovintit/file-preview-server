@@ -76,6 +76,14 @@ func rawFixtures(t *testing.T) map[string]struct {
 }
 
 func TestTC_S02_AC01_RawFormatMatrix(t *testing.T) {
+	testRawFormatMatrix(t, "aliyun-oss")
+}
+
+func TestTC_S04_AC01_SiloRawFormatMatrix(t *testing.T) {
+	testRawFormatMatrix(t, "silo")
+}
+
+func testRawFormatMatrix(t *testing.T, profile string) {
 	for ext, value := range rawFixtures(t) {
 		t.Run(ext, func(t *testing.T) {
 			source := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -83,8 +91,17 @@ func TestTC_S02_AC01_RawFormatMatrix(t *testing.T) {
 				_, _ = w.Write(value.body)
 			}))
 			defer source.Close()
-			f := setupS02(t, source.Client())
+			var f *fixture
+			objectClient := http.DefaultClient
+			if profile == "silo" {
+				var silo *siloFixture
+				f, silo = setupSilo(t, source.Client())
+				objectClient = silo.proxy.Client()
+			} else {
+				f = setupS02(t, source.Client())
+			}
 			input := resource()
+			input["storage_profile"] = profile
 			input["url"] = source.URL
 			input["filename"] = "fixture." + ext
 			input["content_sha256"] = sha256Hex(value.body)
@@ -99,7 +116,7 @@ func TestTC_S02_AC01_RawFormatMatrix(t *testing.T) {
 			if r.StatusCode != 302 {
 				t.Fatalf("format %s expected302 got%d", ext, r.StatusCode)
 			}
-			object, err := http.Get(r.Header.Get("Location"))
+			object, err := objectClient.Get(r.Header.Get("Location"))
 			if err != nil {
 				t.Fatal("object request failed")
 			}

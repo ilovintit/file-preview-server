@@ -12,7 +12,7 @@
 
 `GET` 或列表发现主 token 键不存在时，必须清理索引中的残留 member。缓存命中以 profile 配置身份、内容 hash 和输出版本为准；服务从签名调用方给出的源 URL 下载时必须重新计算 SHA-256 并拒绝不匹配内容，防止调用方错误或对象被替换。缓存过期后不可重用，物理对象由 profile 的生命周期规则或应用有界清理删除。token 是服务端状态而非 JWT，所以撤销会立即阻止后续 `/v/{token}` 解析；已经由此前 302 取得的对象存储签名目标仍受其自身短时有效期控制。
 
-每个 storage profile 的 endpoint、bucket、访问凭据和生命周期策略只由部署环境注入；`MAX_CACHE_TTL` 默认 86400 秒，可在启动时用环境变量覆盖。仓库不保存访问密钥或生产对象。S01/S02 已实现 Valkey 与实际 OSS 链路；silo 和完整版本能力仍按后续 Issue 交付。
+每个 storage profile 的 endpoint、bucket、访问凭据和生命周期策略只由部署环境注入；`MAX_CACHE_TTL` 默认 86400 秒，可在启动时用环境变量覆盖。仓库不保存访问密钥或生产对象。S01/S02 已实现 Valkey 与实际 OSS 链路；S04 的双 profile 实施与配置见 [storage-profiles](storage-profiles.md)，完整版本能力仍按后续 Issue 交付。
 
 ## 缓存时间与并发不变量
 

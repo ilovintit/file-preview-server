@@ -40,6 +40,21 @@ type Config struct {
 	SourceHTTPClient *http.Client
 	OSSHTTPClient    *http.Client
 	GotenbergURL     string
+	Silo             SiloConfig
+	SiloTransport    http.RoundTripper
+}
+
+type SiloConfig struct {
+	Endpoint        string
+	PreviewEndpoint string
+	Region          string
+	Bucket          string
+	PrefixBase      string
+	Generation      string
+	AccessKeyID     string
+	AccessKeySecret string
+	SecurityToken   string
+	SignedURLMaxTTL int64
 }
 
 // AliyunOSSConfig holds one explicitly enabled OSS profile. Credentials are
@@ -59,6 +74,9 @@ type AliyunOSSConfig struct {
 var namespacePattern = regexp.MustCompile(`^[A-Za-z0-9:_-]{1,96}$`)
 
 func (c Config) Validate() error {
+	if err := c.Silo.validate(); err != nil {
+		return err
+	}
 	if c.GotenbergURL != "" {
 		u, err := url.Parse(c.GotenbergURL)
 		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
@@ -114,6 +132,19 @@ func (c Config) Validate() error {
 func LoadConfig() (Config, error) {
 	c := Config{ValkeyAddress: os.Getenv("VALKEY_ADDR"), ValkeyUser: os.Getenv("VALKEY_USERNAME"), ValkeyPassword: os.Getenv("VALKEY_PASSWORD"), Namespace: os.Getenv("KEY_NAMESPACE"), Address: os.Getenv("LISTEN_ADDR"), TLSCert: os.Getenv("TLS_CERT_FILE"), TLSKey: os.Getenv("TLS_KEY_FILE"), TLSClientCA: os.Getenv("TLS_CLIENT_CA_FILE"), MaxCacheTTL: 86400}
 	c.GotenbergURL = os.Getenv("GOTENBERG_URL")
+	c.Silo = SiloConfig{
+		Endpoint: os.Getenv("SILO_ENDPOINT"), PreviewEndpoint: os.Getenv("SILO_PREVIEW_ENDPOINT"),
+		Region: os.Getenv("SILO_REGION"), Bucket: os.Getenv("SILO_BUCKET"), PrefixBase: os.Getenv("SILO_PREFIX_BASE"),
+		Generation: os.Getenv("SILO_CONFIG_GENERATION"), AccessKeyID: os.Getenv("SILO_ACCESS_KEY_ID"),
+		AccessKeySecret: os.Getenv("SILO_ACCESS_KEY_SECRET"), SecurityToken: os.Getenv("SILO_SECURITY_TOKEN"),
+	}
+	if raw := os.Getenv("SILO_SIGNED_URL_MAX_TTL_SECONDS"); raw != "" {
+		n, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil {
+			return c, gerror.New("invalid SILO_SIGNED_URL_MAX_TTL_SECONDS")
+		}
+		c.Silo.SignedURLMaxTTL = n
+	}
 	if c.Namespace == "" {
 		c.Namespace = "preview:v1"
 	}
@@ -192,4 +223,35 @@ func LoadConfig() (Config, error) {
 		c.AliyunOSS.SignedURLMaxTTL = n
 	}
 	return c, c.Validate()
+}
+
+func (c SiloConfig) configured() bool {
+	return c.Endpoint != "" || c.PreviewEndpoint != "" || c.Region != "" || c.Bucket != "" || c.PrefixBase != "" || c.Generation != "" || c.AccessKeyID != "" || c.AccessKeySecret != "" || c.SecurityToken != "" || c.SignedURLMaxTTL != 0
+}
+
+func (c SiloConfig) validate() error {
+	if !c.configured() {
+		return nil
+	}
+	if c.Endpoint == "" || c.Bucket == "" || c.PrefixBase == "" || c.AccessKeyID == "" || c.AccessKeySecret == "" || c.SignedURLMaxTTL < 1 || c.SignedURLMaxTTL > 604800 || strings.Contains(c.PrefixBase, "..") || strings.HasPrefix(c.PrefixBase, "/") || strings.TrimSpace(c.PrefixBase) != c.PrefixBase || (c.Generation != "" && !namespacePattern.MatchString(c.Generation)) {
+		return gerror.New("incomplete or invalid silo configuration")
+	}
+	for _, endpoint := range []string{c.Endpoint, c.previewEndpoint()} {
+		u, err := url.Parse(endpoint)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
+			return gerror.New("invalid silo endpoint")
+		}
+	}
+	preview, _ := url.Parse(c.previewEndpoint())
+	if preview.Scheme != "https" {
+		return gerror.New("silo preview endpoint requires HTTPS")
+	}
+	return nil
+}
+
+func (c SiloConfig) previewEndpoint() string {
+	if c.PreviewEndpoint != "" {
+		return c.PreviewEndpoint
+	}
+	return c.Endpoint
 }
