@@ -11,6 +11,7 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
+	"mime"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -109,6 +110,10 @@ func TestTC_S02_AC01_RawFormatMatrix(t *testing.T) {
 			}
 			if object.Header.Get("Content-Type") != value.mime {
 				t.Fatal("incorrect MIME")
+			}
+			disposition, _, err := mime.ParseMediaType(object.Header.Get("Content-Disposition"))
+			if err != nil || disposition != "inline" {
+				t.Errorf("inline preview required: Content-Disposition=%q", object.Header.Get("Content-Disposition"))
 			}
 		})
 	}
