@@ -41,18 +41,18 @@ func TestTC_S02_BrowserNavigation(t *testing.T) {
 			}
 			spki := sha256.Sum256(cert.RawSubjectPublicKeyInfo)
 			options := append([]chromedp.ExecAllocatorOption(nil), chromedp.DefaultExecAllocatorOptions[:]...)
-			options = append(options, chromedp.ExecPath(matches[0]), chromedp.NoSandbox, chromedp.UserDataDir(t.TempDir()), chromedp.Flag("disable-extensions", false), chromedp.Flag("ignore-certificate-errors-spki-list", base64.StdEncoding.EncodeToString(spki[:])))
+			options = append(options, chromedp.ExecPath(matches[0]), chromedp.NoSandbox, chromedp.Flag("disable-extensions", false), chromedp.Flag("ignore-certificate-errors-spki-list", base64.StdEncoding.EncodeToString(spki[:])))
 			allocator, stop := chromedp.NewExecAllocator(context.Background(), options...)
 			defer stop()
 			browser, closeBrowser := chromedp.NewContext(allocator)
+			ctx, cancel := context.WithTimeout(browser, 25*time.Second)
 			defer func() {
-				closing, cancel := context.WithTimeout(browser, 5*time.Second)
-				defer cancel()
+				closing, finishClosing := context.WithTimeout(browser, 5*time.Second)
+				defer finishClosing()
 				_ = chromedp.Cancel(closing)
+				cancel()
 				closeBrowser()
 			}()
-			ctx, cancel := context.WithTimeout(browser, 25*time.Second)
-			defer cancel()
 			// Pin only the generated preview-server certificate; OSS TLS is verified normally.
 			if err = chromedp.Run(ctx, chromedp.Navigate(f.server.URL+"/livez")); err != nil {
 				t.Fatal("browser fixture origin navigation failed")
@@ -71,8 +71,19 @@ func TestTC_S02_BrowserNavigation(t *testing.T) {
 				t.Fatalf("browser %s preview failed", ext)
 			}
 			if ext == "pdf" {
-				if err = chromedp.Run(ctx, chromedp.Navigate(f.server.URL+path), chromedp.WaitReady(`embed[type="application/pdf"]`, chromedp.ByQuery)); err != nil {
-					t.Fatal("browser PDF viewer navigation failed")
+				if err = chromedp.Run(ctx, chromedp.Navigate(f.server.URL+path)); err != nil {
+					t.Fatal("PDF navigation failed before viewer check")
+				}
+				var shape string
+				_ = chromedp.Run(ctx, chromedp.Evaluate(`JSON.stringify(Array.from(document.querySelectorAll('*')).map(e=>({tag:e.tagName,type:e.getAttribute('type')})).slice(0,30))`, &shape))
+				t.Logf("PDF viewer DOM: %s", shape)
+				var debug []byte
+				if chromedp.Run(ctx, chromedp.CaptureScreenshot(&debug)) == nil {
+					_ = os.MkdirAll("../../../.cache/browser-artifacts", 0755)
+					_ = os.WriteFile("../../../.cache/browser-artifacts/pdf-before-check.png", debug, 0644)
+				}
+				if err = chromedp.Run(ctx, chromedp.WaitReady(`embed[type="application/pdf"]`, chromedp.ByQuery)); err != nil {
+					t.Fatal("PDF viewer element unavailable")
 				}
 			}
 			var screenshot []byte

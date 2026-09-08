@@ -49,7 +49,7 @@ type response struct {
 }
 
 func setup(t *testing.T) *fixture {
-	return setupWithOSS(t, infrastructure.AliyunOSSConfig{}, nil)
+	return setupWithOSS(t, testAliyunOSS(t), nil)
 }
 
 func setupS02(t *testing.T, sourceClient *http.Client) *fixture {
