@@ -72,4 +72,7 @@ jobs:
           PREVIEW_CI_ALIYUN_OSS_SECURITY_TOKEN: ${{ secrets.PREVIEW_CI_ALIYUN_OSS_SECURITY_TOKEN }}
         run: |
           source .gitea/scripts/go-env.sh
+          for browser in chromium chromium-browser google-chrome google-chrome-stable; do
+            if command -v "$browser" >/dev/null 2>&1; then "$browser" --version; fi
+          done
           go test -race -tags integration -count=1 -v ./internal/module/preview/...
