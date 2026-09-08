@@ -31,7 +31,7 @@ silo 使用固定的 S3 Go SDK，兼容 import 路径包含 `minio-go`，不表�
 
 `/readyz` 检查声明的 profile 是否完整装配、Internal/Admin key 是否具备、Valkey 授权状态是否连续，以及所选 bucket 的只读可达性；配置了 Gotenberg 时也检查其 health。缺失依赖返回通用 503，不暴露凭据/内部错误。首次授权状态冷启动仍遵守 601 秒保护窗口，不能为 ready 跳过。
 
-OSS 就绪使用 GetBucketLocation，需要对应只读权限；不能将一个不存在对象的 HEAD 404 当作 bucket 存在的证明。silo 使用认证 BucketExists。对象操作需要所选前缀的写入、读取/HEAD 和删除权限。liveness 不依赖外部存储。就绪检查不修改生产 CORS、bucket 或 ACL。
+OSS 就绪对已授权前缀内的保留探测对象做 HEAD：成功或供应商明确返回 `404/NoSuchKey` 才通过；`NoSuchBucket`、403 和无法分类的 404 均失败。不能只凭 HTTP 404 猜测桶存在，也不要求额外的 GetBucketLocation 权限。silo 使用认证 BucketExists。对象操作需要所选前缀的写入、读取/HEAD 和删除权限。liveness 不依赖外部存储。就绪检查不修改生产 CORS、bucket、对象或 ACL。
 
 ## CI 环境与证据边界
 

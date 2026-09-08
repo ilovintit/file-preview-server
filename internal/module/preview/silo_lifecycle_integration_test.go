@@ -172,12 +172,12 @@ func TestTC_S04_AC03_ReadinessChecksActualProfiles(t *testing.T) {
 	r.Body.Close()
 	if r.StatusCode != 200 {
 		bucket := fixtureOSSBucket(t, f.cfg.AliyunOSS)
-		_, err := bucket.Client.GetBucketLocation(bucket.BucketName)
+		_, err := bucket.GetObjectDetailedMeta(strings.TrimSuffix(f.cfg.AliyunOSS.PrefixBase, "/") + "/.preview-readiness")
 		var serviceError oss.ServiceError
 		if errors.As(err, &serviceError) {
-			t.Logf("readiness OSS location status=%d code=%s", serviceError.StatusCode, serviceError.Code)
+			t.Logf("readiness OSS object probe status=%d code=%s", serviceError.StatusCode, serviceError.Code)
 		} else {
-			t.Logf("readiness OSS location ok=%t", err == nil)
+			t.Logf("readiness OSS object probe ok=%t", err == nil)
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()

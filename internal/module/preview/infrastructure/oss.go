@@ -110,10 +110,15 @@ func (s *aliyunObjectStorage) SignGet(ctx context.Context, key string, ttl int64
 func (s *aliyunObjectStorage) Check(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
-	// A missing object's HEAD may omit its error code, so it cannot prove
-	// the configured bucket exists. Read the bucket's location instead.
-	if _, err := s.bucket.Client.GetBucketLocation(s.bucket.BucketName, oss.WithContext(ctx)); err != nil {
-		return entity.ErrUnavailable
+	// Stay within the application's object-read permissions. Only an explicit
+	// NoSuchKey proves the bucket exists; an unclassified 404 is not healthy.
+	_, err := s.bucket.GetObjectDetailedMeta(s.prefix+"/.preview-readiness", oss.WithContext(ctx))
+	if err == nil {
+		return nil
 	}
-	return nil
+	var providerError oss.ServiceError
+	if errors.As(err, &providerError) && providerError.StatusCode == 404 && providerError.Code == "NoSuchKey" {
+		return nil
+	}
+	return entity.ErrUnavailable
 }

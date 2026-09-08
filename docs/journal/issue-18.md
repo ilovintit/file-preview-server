@@ -25,3 +25,9 @@ Harbor ci-cache/library 首页未发现 silo 镜像；开始按用户已授权�
 PR #33，head `39678f93408fe4518c8490830182fe8679bb9035`，CI10700/job18229：`TestTC_S04_AC01_SiloPreviewContract` 在签发 silo 时失败 `expected 200/code0, got 503/code50301`，证明当前缺少该 profile 装配。前序 S03 的合并 dev CI10693 亦成功。
 
 首轮实现提取 domain ObjectStorage 端口与公共 PreviewStore，OSS SDK 保留原签名行为；silo 使用 S3 SDK v7.0.95（仅客户端，不部署 MinIO 服务端）。两 profile 统一调度上限、转换、lease、期限和签名前复查。配置/签发身份按 profile 分开，清理按当前身份过滤。仍需补完整矩阵与队列隔离边界，当前不可合并。
+
+## CI 与就绪诊断
+
+- CI10717 首轮 silo 实际签发/上传/HTTPS 签名读取成功；CI10730 双 profile 的 7 原样+6 Office、缓存/期限/撤销/清理隔离、配置切换、真实签名到期、删除失败/旧配置积压和 Chromium 均通过，唯一失败为 readyz503。
+- CI10740 脱敏诊断确认：OSS GetBucketLocation 返回 403/AccessDenied；silo BucketExists=true，Gotenberg health=200。根因是新就绪探测要求了应用原本不需要的 bucket-location 权限，不是 silo 或预览失败。
+- 改为已有前缀内 HEAD，严格要求成功或明确 `404/NoSuchKey`；权限错误、不存在 bucket 或未分类404仍关闭就绪。不增加IAM权限，也不创建探测对象；新head需真实CI验证。
