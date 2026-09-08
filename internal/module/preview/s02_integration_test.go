@@ -93,8 +93,21 @@ func TestTC_S02_AC02_ControlledOSSNavigation(t *testing.T) {
 		t.Fatal(err)
 	}
 	rangeResponse.Body.Close()
-	if rangeResponse.StatusCode != http.StatusPartialContent || rangeResponse.Header.Get("Access-Control-Allow-Origin") != "*" || !strings.Contains(rangeResponse.Header.Get("Access-Control-Expose-Headers"), "Content-Range") {
-		t.Fatal("OSS CORS wildcard or single-range contract is not configured for the shared test bucket")
+	if rangeResponse.StatusCode != http.StatusPartialContent {
+		t.Errorf("single Range: expected 206, got %d", rangeResponse.StatusCode)
+	}
+	if origin := rangeResponse.Header.Get("Access-Control-Allow-Origin"); origin != "*" {
+		t.Errorf("CORS: expected wildcard response, got %q", origin)
+	}
+	exposed := rangeResponse.Header.Get("Access-Control-Expose-Headers")
+	readable := false
+	for _, header := range strings.Split(exposed, ",") {
+		if strings.EqualFold(strings.TrimSpace(header), "Content-Range") || strings.TrimSpace(header) == "*" {
+			readable = true
+		}
+	}
+	if !readable {
+		t.Errorf("CORS: Content-Range is not exposed; exposed headers=%q", exposed)
 	}
 
 	secondToken := issueResource(t, f, resource)
