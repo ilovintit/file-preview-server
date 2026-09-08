@@ -321,3 +321,35 @@ func TestTC_S03_AC03_CancellationBoundsConversion(t *testing.T) {
 		t.Fatal("cancel exceeded bound")
 	}
 }
+
+func TestTC_S03_AC03_ConverterDeadlineAndRecovery(t *testing.T) {
+	var calls atomic.Int32
+	stopped := make(chan struct{})
+	converter := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body)
+		if calls.Add(1) == 1 {
+			<-r.Context().Done()
+			close(stopped)
+			return
+		}
+		w.Header().Set("Content-Type", "application/pdf")
+		_, _ = w.Write(rawPDF)
+	}))
+	defer converter.Close()
+	f, token := officeSetup(t, officeInput(t, "document.docx"), "file.docx", converter.URL)
+	start := time.Now()
+	code, err := officeStatus(f, token, context.Background())
+	elapsed := time.Since(start)
+	if err != nil || code != 503 || elapsed < 29*time.Second || elapsed > 35*time.Second {
+		t.Fatalf("converter deadline expected503 at30s got%d after%s", code, elapsed)
+	}
+	select {
+	case <-stopped:
+	case <-time.After(time.Second):
+		t.Fatal("timed-out converter remained active")
+	}
+	code, err = officeStatus(f, token, context.Background())
+	if err != nil || code != 302 || calls.Load() != 2 {
+		t.Fatal("failed conversion did not release owner and recover")
+	}
+}
