@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -147,6 +148,47 @@ func TestTC_S02_AC01_RejectSpoofedPDF(t *testing.T) {
 	defer r.Body.Close()
 	if r.StatusCode != 422 {
 		t.Fatalf("spoofed PDF expected422 got%d", r.StatusCode)
+	}
+}
+
+func TestTC_S02_AC04_ConcurrentPreparation(t *testing.T) {
+	var downloads atomic.Int32
+	source := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		downloads.Add(1)
+		select {
+		case <-time.After(200 * time.Millisecond):
+		case <-r.Context().Done():
+			return
+		}
+		w.Header().Set("Content-Type", "application/pdf")
+		_, _ = w.Write(rawPDF)
+	}))
+	defer source.Close()
+	f := setupS02(t, source.Client())
+	input := resource()
+	input["url"], input["content_sha256"] = source.URL, sha256Hex(rawPDF)
+	token := issueResource(t, f, input)
+	client := f.server.Client()
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			r, err := client.Get(f.server.URL + "/v/" + token)
+			if err != nil {
+				t.Error("preview request failed")
+				return
+			}
+			r.Body.Close()
+			if r.StatusCode != 302 {
+				t.Errorf("preview expected302 got%d", r.StatusCode)
+			}
+		}()
+	}
+	wg.Wait()
+	if n := downloads.Load(); n != 1 {
+		t.Fatalf("same identity downloaded %d times, want1", n)
 	}
 }
 
