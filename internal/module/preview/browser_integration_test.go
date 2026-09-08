@@ -45,7 +45,7 @@ func TestTC_S02_BrowserNavigation(t *testing.T) {
 			allocator, stop := chromedp.NewExecAllocator(context.Background(), options...)
 			defer stop()
 			browser, closeBrowser := chromedp.NewContext(allocator)
-			defer closeBrowser()
+			defer func() { _ = chromedp.Cancel(browser); closeBrowser() }()
 			ctx, cancel := context.WithTimeout(browser, 25*time.Second)
 			defer cancel()
 			// Pin only the generated preview-server certificate; OSS TLS is verified normally.
@@ -64,6 +64,11 @@ func TestTC_S02_BrowserNavigation(t *testing.T) {
 			}
 			if err != nil || !passed {
 				t.Fatalf("browser %s preview failed", ext)
+			}
+			if ext == "pdf" {
+				if err = chromedp.Run(ctx, chromedp.Navigate(f.server.URL+path), chromedp.WaitReady(`embed[type="application/pdf"]`, chromedp.ByQuery)); err != nil {
+					t.Fatal("browser PDF viewer navigation failed")
+				}
 			}
 			var screenshot []byte
 			if err = chromedp.Run(ctx, chromedp.CaptureScreenshot(&screenshot)); err != nil {

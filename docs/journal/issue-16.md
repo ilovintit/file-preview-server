@@ -19,3 +19,5 @@
 ## 新测试 bucket 就绪
 
 用户更换为专用测试 bucket，并配置 HTTPS 预览域名；Region 已按 V1 签名实际需求改为可选。PR head 7f2b6e9 的 CI #10312 已通过七格式 inline、CORS/Range、并发/锁/撤销、期限/清理、对象重建、HEAD及签名过期检查。当前继续补齐实际浏览器证据，不将上述 API 检查当作浏览器已通过。
+
+浏览器 job 使用 Harbor 已有 `ci-playwright-toolchain:1.61.1-noble` 的不可变 digest，用户已配置 CI_HARBOR_USERNAME/CI_HARBOR_PASSWORD 拉取凭据。按用户授权新建并同步 Gitea `actions/upload-artifact`，来自 GitHub v3.1.3 / a8a3f3ad30e3422c9c7b888a15615d19a852ae32，保留上游 MIT 许可证与完整提交历史；用于保存浏览器截图。容器默认 sh，已显式设置 Bash 加载项目 Go 环境。
