@@ -41,11 +41,16 @@ func TestTC_S02_BrowserNavigation(t *testing.T) {
 			}
 			spki := sha256.Sum256(cert.RawSubjectPublicKeyInfo)
 			options := append([]chromedp.ExecAllocatorOption(nil), chromedp.DefaultExecAllocatorOptions[:]...)
-			options = append(options, chromedp.ExecPath(matches[0]), chromedp.NoSandbox, chromedp.UserDataDir(t.TempDir()), chromedp.Flag("ignore-certificate-errors-spki-list", base64.StdEncoding.EncodeToString(spki[:])))
+			options = append(options, chromedp.ExecPath(matches[0]), chromedp.NoSandbox, chromedp.UserDataDir(t.TempDir()), chromedp.Flag("disable-extensions", false), chromedp.Flag("ignore-certificate-errors-spki-list", base64.StdEncoding.EncodeToString(spki[:])))
 			allocator, stop := chromedp.NewExecAllocator(context.Background(), options...)
 			defer stop()
 			browser, closeBrowser := chromedp.NewContext(allocator)
-			defer func() { _ = chromedp.Cancel(browser); closeBrowser() }()
+			defer func() {
+				closing, cancel := context.WithTimeout(browser, 5*time.Second)
+				defer cancel()
+				_ = chromedp.Cancel(closing)
+				closeBrowser()
+			}()
 			ctx, cancel := context.WithTimeout(browser, 25*time.Second)
 			defer cancel()
 			// Pin only the generated preview-server certificate; OSS TLS is verified normally.

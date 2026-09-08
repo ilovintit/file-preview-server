@@ -4,6 +4,7 @@ package preview_test
 
 import (
 	"context"
+	"git.shw.top/shw-project/file-preview-server/internal/module/preview/infrastructure"
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,14 @@ import (
 	"testing"
 	"time"
 )
+
+func TestTC_S02_AC06_UnconfiguredStorageFailsClosed(t *testing.T) {
+	f := setupWithOSS(t, infrastructure.AliyunOSSConfig{}, nil)
+	r, _, _ := f.call("/internal/tokens", "internal", resource())
+	if r.StatusCode != 503 {
+		t.Fatalf("unconfigured OSS must reject issuance: expected503 got%d", r.StatusCode)
+	}
+}
 
 func TestTC_S02_AC05_MissingObjectRebuildKeepsDeadline(t *testing.T) {
 	var missing atomic.Bool
