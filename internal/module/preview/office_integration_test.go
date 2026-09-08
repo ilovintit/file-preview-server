@@ -10,8 +10,12 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
+	"git.shw.top/shw-project/file-preview-server/internal/module/preview/infrastructure"
+	pdftext "github.com/ledongthuc/pdf"
 	pdfapi "github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 )
@@ -24,6 +28,25 @@ type officeFixture struct {
 }
 
 func TestTC_S03_AC01_CoreOfficeConversion(t *testing.T) {
+	endpoint := os.Getenv("GOTENBERG_TEST_URL")
+	if endpoint == "" {
+		t.Fatal("S03 requires actual GOTENBERG_TEST_URL")
+	}
+	probe := &http.Client{Timeout: 2 * time.Second}
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		r, err := probe.Get(endpoint + "/health")
+		if err == nil {
+			r.Body.Close()
+			if r.StatusCode == 200 {
+				break
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("Gotenberg did not become healthy")
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
 	manifest, err := os.ReadFile("testdata/office/manifest.json")
 	if err != nil {
 		t.Fatal(err)
@@ -49,7 +72,7 @@ func TestTC_S03_AC01_CoreOfficeConversion(t *testing.T) {
 				_, _ = w.Write(body)
 			}))
 			defer source.Close()
-			f := setupS02(t, source.Client())
+			f := setupWithOSS(t, testAliyunOSS(t), source.Client(), func(c *infrastructure.Config) { c.GotenbergURL = endpoint })
 			input := resource()
 			input["url"], input["filename"], input["content_sha256"] = source.URL, tc.File, tc.SHA256
 			token := issueResource(t, f, input)
@@ -80,6 +103,21 @@ func TestTC_S03_AC01_CoreOfficeConversion(t *testing.T) {
 			pages, err := pdfapi.PageCount(bytes.NewReader(data), config)
 			if err != nil || pages != tc.Pages {
 				t.Fatalf("expected %d pages got %d", tc.Pages, pages)
+			}
+			pdf, err := pdftext.NewReader(bytes.NewReader(data), int64(len(data)))
+			if err != nil {
+				t.Fatal("cannot parse converted PDF text")
+			}
+			plain, err := pdf.GetPlainText()
+			if err != nil {
+				t.Fatal("cannot extract converted PDF text")
+			}
+			text, err := io.ReadAll(plain)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(strings.Join(strings.Fields(string(text)), " "), tc.Text) {
+				t.Fatalf("PDF content mismatch: expected %q got %q", tc.Text, string(text))
 			}
 		})
 	}

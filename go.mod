@@ -9,7 +9,9 @@ require (
 	github.com/gen2brain/avif v0.4.4
 	github.com/gogf/gf/contrib/nosql/redis/v2 v2.10.3
 	github.com/gogf/gf/v2 v2.10.3
+	github.com/ledongthuc/pdf v0.0.0-20220302134840-0c2507a12d80
 	github.com/pdfcpu/pdfcpu v0.11.0
+	github.com/richardlehane/mscfb v1.0.4
 	golang.org/x/image v0.27.0
 )
 
@@ -44,6 +46,7 @@ require (
 	github.com/olekukonko/tablewriter v1.1.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/redis/go-redis/v9 v9.12.1 // indirect
+	github.com/richardlehane/msoleps v1.0.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/tetratelabs/wazero v1.9.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect

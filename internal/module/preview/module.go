@@ -49,7 +49,11 @@ func New(cfg infrastructure.Config, clock func() time.Time) (*Module, error) {
 	query := auth.Wrap("admin", controller.Query, controller.Error)
 	revoke := auth.Wrap("admin", controller.Revoke, controller.Error)
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+		budget := 10 * time.Second
+		if cfg.GotenbergURL != "" && r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/v/") {
+			budget = 45 * time.Second
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), budget)
 		defer cancel()
 		r = r.WithContext(ctx)
 		switch {

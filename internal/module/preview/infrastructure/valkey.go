@@ -157,7 +157,7 @@ func (s *ValkeyStore) Create(ctx context.Context, g entity.Grant) (bool, error) 
 		return false, entity.ErrInvalid
 	}
 	prefix := s.epochPrefix(st)
-	identity := s.profileIdentity + ":" + rawOutputVersion + ":" + g.ContentSHA256
+	identity := s.profileIdentity + ":" + outputVersion(g.Filename) + ":" + g.ContentSHA256
 	result, err := s.db.Do(ctx, "EVAL", `if redis.call('GET',KEYS[1]) ~= ARGV[1] then return -1 end
 for _,id in ipairs(redis.call('ZRANGE',KEYS[2],0,-1)) do if not redis.call('GET',ARGV[6]..id) then redis.call('ZREM',KEYS[2],id) end end
 if redis.call('ZCARD',KEYS[2]) >= 10000 then return -1 end

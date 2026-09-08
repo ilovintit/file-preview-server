@@ -39,6 +39,7 @@ type Config struct {
 	AliyunOSS        AliyunOSSConfig
 	SourceHTTPClient *http.Client
 	OSSHTTPClient    *http.Client
+	GotenbergURL     string
 }
 
 // AliyunOSSConfig holds one explicitly enabled OSS profile. Credentials are
@@ -58,6 +59,12 @@ type AliyunOSSConfig struct {
 var namespacePattern = regexp.MustCompile(`^[A-Za-z0-9:_-]{1,96}$`)
 
 func (c Config) Validate() error {
+	if c.GotenbergURL != "" {
+		u, err := url.Parse(c.GotenbergURL)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
+			return gerror.New("invalid GOTENBERG_URL")
+		}
+	}
 	if c.MaxCacheTTL < 60 || c.MaxCacheTTL > 31536000 || !namespacePattern.MatchString(c.Namespace) || c.ValkeyDB < 0 || c.ValkeyDB > 15 {
 		return gerror.New("invalid namespace, cache TTL or Valkey DB configuration")
 	}
@@ -106,6 +113,7 @@ func (c Config) Validate() error {
 
 func LoadConfig() (Config, error) {
 	c := Config{ValkeyAddress: os.Getenv("VALKEY_ADDR"), ValkeyUser: os.Getenv("VALKEY_USERNAME"), ValkeyPassword: os.Getenv("VALKEY_PASSWORD"), Namespace: os.Getenv("KEY_NAMESPACE"), Address: os.Getenv("LISTEN_ADDR"), TLSCert: os.Getenv("TLS_CERT_FILE"), TLSKey: os.Getenv("TLS_KEY_FILE"), TLSClientCA: os.Getenv("TLS_CLIENT_CA_FILE"), MaxCacheTTL: 86400}
+	c.GotenbergURL = os.Getenv("GOTENBERG_URL")
 	if c.Namespace == "" {
 		c.Namespace = "preview:v1"
 	}

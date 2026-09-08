@@ -44,6 +44,8 @@ type AliyunPreviewStore struct {
 	identity     string
 	signedURLMax int64
 	slots        chan struct{}
+	admission    chan struct{}
+	converter    *officeConverter
 }
 
 func NewAliyunPreviewStore(cfg Config, cache *ValkeyStore, clock func() time.Time) (*AliyunPreviewStore, error) {
@@ -97,11 +99,17 @@ func NewAliyunPreviewStore(cfg Config, cache *ValkeyStore, clock func() time.Tim
 		return nil
 	}
 	source = &copyClient
-	return &AliyunPreviewStore{bucket: bucket, signer: signer, cache: cache, clock: clock, sourceClient: source, prefix: strings.Trim(c.PrefixBase, "/"), identity: ossProfileIdentity(c), signedURLMax: c.SignedURLMaxTTL, slots: make(chan struct{}, 4)}, nil
+	return &AliyunPreviewStore{bucket: bucket, signer: signer, cache: cache, clock: clock, sourceClient: source, prefix: strings.Trim(c.PrefixBase, "/"), identity: ossProfileIdentity(c), signedURLMax: c.SignedURLMaxTTL, slots: make(chan struct{}, 4), admission: make(chan struct{}, 36), converter: newOfficeConverter(cfg.GotenbergURL)}, nil
 }
 
 func (s *AliyunPreviewStore) Prepare(ctx context.Context, grant entity.Grant) (string, error) {
 	if s == nil {
+		return "", entity.ErrUnavailable
+	}
+	select {
+	case s.admission <- struct{}{}:
+		defer func() { <-s.admission }()
+	default:
 		return "", entity.ErrUnavailable
 	}
 	select {
@@ -110,7 +118,8 @@ func (s *AliyunPreviewStore) Prepare(ctx context.Context, grant entity.Grant) (s
 	case <-ctx.Done():
 		return "", entity.ErrUnavailable
 	}
-	cacheKey := s.identity + ":" + rawOutputVersion + ":" + grant.ContentSHA256
+	version := outputVersion(grant.Filename)
+	cacheKey := s.identity + ":" + version + ":" + grant.ContentSHA256
 	var entropy [16]byte
 	if _, err := rand.Read(entropy[:]); err != nil {
 		return "", entity.ErrUnavailable
@@ -118,7 +127,7 @@ func (s *AliyunPreviewStore) Prepare(ctx context.Context, grant entity.Grant) (s
 	owner := hex.EncodeToString(entropy[:])
 	for {
 		if record, err := s.cache.GetCache(ctx, cacheKey); err == nil {
-			if !rawMIME(path.Ext(grant.Filename), record.MediaType) {
+			if !outputMIME(grant.Filename, record.MediaType) {
 				return "", entity.ErrInvalid
 			}
 			if _, headErr := s.bucket.GetObjectDetailedMeta(record.ObjectKey, oss.WithContext(ctx)); headErr == nil {
@@ -152,7 +161,7 @@ func (s *AliyunPreviewStore) Prepare(ctx context.Context, grant entity.Grant) (s
 	}()
 	// 取锁后再次检查，避免前一持有者刚发布时重复准备。
 	if record, err := s.cache.GetCache(ctx, cacheKey); err == nil {
-		if !rawMIME(path.Ext(grant.Filename), record.MediaType) {
+		if !outputMIME(grant.Filename, record.MediaType) {
 			return "", entity.ErrInvalid
 		}
 		if _, err = s.bucket.GetObjectDetailedMeta(record.ObjectKey, oss.WithContext(ctx)); err == nil {
@@ -184,7 +193,10 @@ func (s *AliyunPreviewStore) Prepare(ctx context.Context, grant entity.Grant) (s
 	if err != nil {
 		return "", err
 	}
-	objectKey := fmt.Sprintf("%s/%s/%s/%s/%s", s.prefix, s.identity, rawOutputVersion, grant.ContentSHA256, owner)
+	if _, err = s.cache.Get(ctx, grant.Token); err != nil {
+		return "", err
+	}
+	objectKey := fmt.Sprintf("%s/%s/%s/%s/%s", s.prefix, s.identity, version, grant.ContentSHA256, owner)
 	if err = s.cache.registerObject(ctx, cacheKey, objectKey, grant.CacheExpiresAt); err != nil {
 		return "", err
 	}
@@ -226,7 +238,7 @@ func (s *AliyunPreviewStore) sign(ctx context.Context, objectKey string, grant e
 	if _, err := s.cache.Get(ctx, grant.Token); err != nil {
 		return "", err
 	}
-	record, err := s.cache.GetCache(ctx, s.identity+":"+rawOutputVersion+":"+grant.ContentSHA256)
+	record, err := s.cache.GetCache(ctx, s.identity+":"+outputVersion(grant.Filename)+":"+grant.ContentSHA256)
 	if err != nil || record.ObjectKey != objectKey {
 		return "", entity.ErrUnavailable
 	}
@@ -279,6 +291,13 @@ func (s *AliyunPreviewStore) download(ctx context.Context, grant entity.Grant) (
 	sum := sha256.Sum256(body)
 	if hex.EncodeToString(sum[:]) != grant.ContentSHA256 {
 		return nil, "", entity.ErrInvalid
+	}
+	if coreOffice(grant.Filename) {
+		if err := validateOffice(ctx, body, strings.ToLower(path.Ext(grant.Filename))); err != nil {
+			return nil, "", err
+		}
+		converted, err := s.converter.convert(ctx, body, grant.Filename)
+		return converted, "application/pdf", err
 	}
 	contentType := strings.ToLower(strings.TrimSpace(strings.Split(response.Header.Get("Content-Type"), ";")[0]))
 	if !rawMIME(path.Ext(grant.Filename), contentType) {

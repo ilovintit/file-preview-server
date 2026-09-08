@@ -46,6 +46,22 @@ jobs:
     runs-on: ubuntu-latest
     needs: fast
     services:
+      gotenberg:
+        image: reg.shw.top/ci-cache/ci-gotenberg@sha256:0ec4b0a125c55ff1dfaed071cab30e0f37cc4326f7d53d903ee5b24e4f27fd85
+        credentials:
+          username: ${{ secrets.CI_HARBOR_USERNAME }}
+          password: ${{ secrets.CI_HARBOR_PASSWORD }}
+        env:
+          API_TIMEOUT: 30s
+          API_BODY_LIMIT: 34MB
+          API_DISABLE_DOWNLOAD_FROM: 'true'
+          LIBREOFFICE_AUTO_START: 'true'
+          LIBREOFFICE_MAX_QUEUE_SIZE: '4'
+          LIBREOFFICE_DENY_LIST: '.*'
+          LIBREOFFICE_DENY_PRIVATE_IPS: 'true'
+          LIBREOFFICE_DENY_PUBLIC_IPS: 'true'
+          CHROMIUM_DISABLE_ROUTES: 'true'
+        options: --memory 2g --cpus 2 --pids-limit 256 --tmpfs /tmp:rw,nosuid,nodev,size=536870912
       valkey:
         image: valkey/valkey:8
         ports:
@@ -60,6 +76,7 @@ jobs:
       - name: 实际 TLS API、Valkey 与 OSS 集成
         env:
           VALKEY_TEST_ADDR: valkey:6379
+          GOTENBERG_TEST_URL: http://gotenberg:3000
           PREVIEW_CI_ALIYUN_OSS_ENDPOINT: ${{ vars.PREVIEW_CI_ALIYUN_OSS_ENDPOINT }}
           PREVIEW_CI_ALIYUN_OSS_PREVIEW_ENDPOINT: ${{ vars.PREVIEW_CI_ALIYUN_OSS_PREVIEW_ENDPOINT }}
           PREVIEW_CI_ALIYUN_OSS_REGION: ${{ vars.PREVIEW_CI_ALIYUN_OSS_REGION }}
