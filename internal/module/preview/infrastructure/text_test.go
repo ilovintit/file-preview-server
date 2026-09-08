@@ -1,13 +1,94 @@
 package infrastructure
 
 import (
+	"archive/zip"
 	"bytes"
 	"compress/gzip"
 	"context"
+	"io"
 	"os"
 	"strings"
 	"testing"
 )
+
+func TestTC_S05_AC04_LegacyDocumentDTD(t *testing.T) {
+	original, err := os.ReadFile("../testdata/text/source.sxw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name, declaration string
+		bundled, accepted bool
+	}{
+		{"standard", `<!DOCTYPE office:document-content PUBLIC "-//OpenOffice.org//DTD OfficeDocument 1.0//EN" "office.dtd">`, false, true},
+		{"external", `<!DOCTYPE office:document-content SYSTEM "https://resource.invalid/office.dtd">`, false, false},
+		{"local", `<!DOCTYPE office:document-content SYSTEM "file:///etc/passwd">`, false, false},
+		{"bundled", "", true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			archive, err := zip.NewReader(bytes.NewReader(original), int64(len(original)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var buffer bytes.Buffer
+			writer := zip.NewWriter(&buffer)
+			for _, entry := range archive.File {
+				stream, err := entry.Open()
+				if err != nil {
+					t.Fatal(err)
+				}
+				payload, err := io.ReadAll(stream)
+				stream.Close()
+				if err != nil {
+					t.Fatal(err)
+				}
+				if entry.Name == "content.xml" {
+					payload = bytes.Replace(payload, []byte("?>"), []byte("?>"+tc.declaration), 1)
+				}
+				part, err := writer.Create(entry.Name)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := part.Write(payload); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if tc.bundled {
+				part, err := writer.Create("office.dtd")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := io.WriteString(part, `<!ENTITY external SYSTEM "file:///etc/passwd">`); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := writer.Close(); err != nil {
+				t.Fatal(err)
+			}
+			prepared, _, err := prepareText(context.Background(), buffer.Bytes(), "source.sxw")
+			if (err == nil) != tc.accepted {
+				t.Fatalf("accepted=%t, error=%v", tc.accepted, err)
+			}
+			if tc.accepted {
+				archive, err := zip.NewReader(bytes.NewReader(prepared), int64(len(prepared)))
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, entry := range archive.File {
+					stream, err := entry.Open()
+					if err != nil {
+						t.Fatal(err)
+					}
+					body, err := io.ReadAll(stream)
+					stream.Close()
+					if err != nil || bytes.Contains(body, []byte("<!DOCTYPE")) {
+						t.Fatal("DTD survived normalization")
+					}
+				}
+			}
+		})
+	}
+}
 
 func TestTC_S05_AC04_TextEscapingAndLimits(t *testing.T) {
 	for _, input := range []string{`<xml><image href="file:///etc/passwd"/></xml>`, `{\rtf1 suspicious}`} {

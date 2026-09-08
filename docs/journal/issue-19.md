@@ -21,7 +21,7 @@ LibreOffice core 的总递归树被API截断，不能把首屏当完整fixture�
 
 现已建立全部28种：17份本仓库合成格式 + 11份版本固定/原始Git blob校验的历史格式。VOR来自Apache Tika；SGL来自freedesktop官方shared-mime-info，是区别于SDW的真实主文档，不是改后缀。上游SGL为空，已按原生N/T段落、d统计记录及CFB stream长度补写合成文字，保留主文档CLSID/header，使用原分配mini-sector的24字节空余，生成器可重现。
 
-MacWrite两个后缀均属于同一真实格式族，分别采用4.5/Pro1.0原件；libmwaw参考记录明确2/3页，ClarisWorks为1页。HWP和LWP源结构分别为1/2页，LWP有显式分页符；Pages活动正文和自带预览为一页Document Liberation链接，不能误读XML里的Lorem模板内容。
+MacWrite两个后缀均属于同一真实格式族，分别采用4.5/Pro1.0原件；初读libmwaw参考记录时曾将页跨度误作页数，后续源码核实为1/3页（依据见下方修正记录），ClarisWorks为1页。HWP和LWP源结构分别为1/2页，LWP有显式分页符；Pages活动正文和自带预览为一页Document Liberation链接，不能误读XML里的Lorem模板内容。
 
 本机精简LibreOffice对WPS/WPD/PSW/VOR/SGL会退回乱码纯文本，这些结果未用于预期、更不算Gotenberg验收。WordPerfect改用有上游明确文字断言的Tika原件；Works选用能直接核对文本记录的DOS2原件。manifest冻结28种hash、页数与关键/完整文字；CI必须拒绝源码/二进制乱码作为PDF正文。
 
@@ -40,3 +40,7 @@ CI10857已有23种×两profile通过。其余5种逐项处理：
 - MacWrite4.5：libmwaw源09e615baa557a528b259687e49e4057969af563f的MacWrtParser::createDocument使用numPages+1填页跨度，原span=2并不意味着两页内容；实际文档是一页。按该源码依据修正预期，全部文字断言保留。
 - SXW/STW：对比Tika原生包，旧格式没有现代ODF的mimetype成员，而有styles/meta/settings。修正作者包结构，补旧manifest判定，严格移除已知标准DTD声明，拒绝自带DTD或未知外部声明。
 - Chromium中OSS GIF单项首次解码失败，文本格式改动未改变raw路径；加脱敏HTTP状态/网络错误诊断，在新head重新验证，不直接放宽浏览器检查。
+
+## 修正候选验证
+
+候选 `34a84d33ebc712b20404e2fd53d1d88059fb2c67` 已推送 PR #34，CI10901 快速层通过，真实转换/浏览器层仍在运行。新增空白 Works 断言要求真实 PDF 仅一页且无正文；补充已知标准 DTD、未知网络/本地 DTD 与包内 DTD 的边界断言。本地仅 `go build` 和 `go test -c` 编译成功，未执行本地测试；不能据此宣称转换或安全验收通过。
