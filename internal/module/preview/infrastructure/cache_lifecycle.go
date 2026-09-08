@@ -78,10 +78,15 @@ func (s *ValkeyStore) cleanupCandidates(ctx context.Context) ([]maintenanceRecor
 			return nil, unavailable()
 		}
 		var record maintenanceRecord
+		if raw.String() == "" {
+			_, _ = s.db.Do(ctx, "ZREM", s.namespace+":objects:due", object)
+			continue
+		}
 		if json.Unmarshal([]byte(raw.String()), &record) != nil {
 			return nil, unavailable()
 		}
-		claim, err := s.db.Do(ctx, "EVAL", `local raw=redis.call('GET',KEYS[1]);local deadline=tonumber(redis.call('GET',KEYS[2]) or '0')
+		claim, err := s.db.Do(ctx, "EVAL", `local due=redis.call('ZSCORE',KEYS[3],ARGV[1]);if not due or tonumber(due)>tonumber(ARGV[2]) then return 0 end
+local raw=redis.call('GET',KEYS[1]);local deadline=tonumber(redis.call('GET',KEYS[2]) or '0')
 if raw then local current=cjson.decode(raw)
  if current.object_key==ARGV[1] then
   if deadline>tonumber(ARGV[2]) then redis.call('ZADD',KEYS[3],deadline,ARGV[1]);return 0 end

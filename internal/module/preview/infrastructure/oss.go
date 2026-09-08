@@ -40,6 +40,7 @@ type AliyunPreviewStore struct {
 	prefix       string
 	identity     string
 	signedURLMax int64
+	slots        chan struct{}
 }
 
 func NewAliyunPreviewStore(cfg Config, cache *ValkeyStore, clock func() time.Time) (*AliyunPreviewStore, error) {
@@ -77,11 +78,17 @@ func NewAliyunPreviewStore(cfg Config, cache *ValkeyStore, clock func() time.Tim
 		return nil
 	}
 	source = &copyClient
-	return &AliyunPreviewStore{bucket: bucket, cache: cache, clock: clock, sourceClient: source, prefix: strings.Trim(c.PrefixBase, "/"), identity: ossProfileIdentity(c), signedURLMax: c.SignedURLMaxTTL}, nil
+	return &AliyunPreviewStore{bucket: bucket, cache: cache, clock: clock, sourceClient: source, prefix: strings.Trim(c.PrefixBase, "/"), identity: ossProfileIdentity(c), signedURLMax: c.SignedURLMaxTTL, slots: make(chan struct{}, 4)}, nil
 }
 
 func (s *AliyunPreviewStore) Prepare(ctx context.Context, grant entity.Grant) (string, error) {
 	if s == nil {
+		return "", entity.ErrUnavailable
+	}
+	select {
+	case s.slots <- struct{}{}:
+		defer func() { <-s.slots }()
+	case <-ctx.Done():
 		return "", entity.ErrUnavailable
 	}
 	cacheKey := s.identity + ":" + rawOutputVersion + ":" + grant.ContentSHA256
@@ -126,6 +133,9 @@ func (s *AliyunPreviewStore) Prepare(ctx context.Context, grant entity.Grant) (s
 	}()
 	// 取锁后再次检查，避免前一持有者刚发布时重复准备。
 	if record, err := s.cache.GetCache(ctx, cacheKey); err == nil {
+		if !rawMIME(path.Ext(grant.Filename), record.MediaType) {
+			return "", entity.ErrInvalid
+		}
 		if _, err = s.bucket.GetObjectDetailedMeta(record.ObjectKey, oss.WithContext(ctx)); err == nil {
 			return s.sign(ctx, record.ObjectKey, grant)
 		}
@@ -196,6 +206,10 @@ func (s *AliyunPreviewStore) Cleanup(ctx context.Context) error {
 func (s *AliyunPreviewStore) sign(ctx context.Context, objectKey string, grant entity.Grant) (string, error) {
 	if _, err := s.cache.Get(ctx, grant.Token); err != nil {
 		return "", err
+	}
+	record, err := s.cache.GetCache(ctx, s.identity+":"+rawOutputVersion+":"+grant.ContentSHA256)
+	if err != nil || record.ObjectKey != objectKey {
+		return "", entity.ErrUnavailable
 	}
 	remaining := grant.ExpiresAt - s.clock().Unix()
 	if cacheRemaining := grant.CacheExpiresAt - s.clock().Unix(); cacheRemaining < remaining {

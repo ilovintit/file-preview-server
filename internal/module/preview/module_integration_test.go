@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -79,6 +80,26 @@ func setupWithOSS(t *testing.T, ossConfig infrastructure.AliyunOSSConfig, source
 	t.Cleanup(func() {
 		f.server.Close()
 		_ = f.module.Close(context.Background())
+		if f.cfg.AliyunOSS.Bucket != "" {
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+			objects, e := f.db.Do(ctx, "HKEYS", f.cfg.Namespace+":objects")
+			if e != nil {
+				t.Error("cannot read fixture cleanup records")
+				return
+			}
+			bucket := fixtureOSSBucket(t, f.cfg.AliyunOSS)
+			for _, object := range objects.Strings() {
+				if !strings.HasPrefix(object, strings.TrimSuffix(f.cfg.AliyunOSS.PrefixBase, "/")+"/") {
+					t.Error("fixture object escaped CI prefix")
+					continue
+				}
+				if err := bucket.DeleteObject(object, oss.WithContext(ctx)); err != nil {
+					t.Error("fixture OSS deletion failed")
+					return
+				}
+			}
+		}
 		keys, e := f.db.Do(context.Background(), "KEYS", f.cfg.Namespace+":*")
 		if e == nil {
 			for _, key := range keys.Strings() {
@@ -88,6 +109,24 @@ func setupWithOSS(t *testing.T, ossConfig infrastructure.AliyunOSSConfig, source
 		_ = f.db.Close(context.Background())
 	})
 	return f
+}
+
+func fixtureOSSBucket(t *testing.T, c infrastructure.AliyunOSSConfig) *oss.Bucket {
+	t.Helper()
+	options := []oss.ClientOption{oss.Timeout(3, 8)}
+	if c.SecurityToken != "" {
+		options = append(options, oss.SecurityToken(c.SecurityToken))
+	}
+	client, err := oss.New(c.Endpoint, c.AccessKeyID, c.AccessKeySecret, options...)
+	if err != nil {
+		t.Fatal("invalid fixture OSS client")
+	}
+	client.SetRegion(c.Region)
+	bucket, err := client.Bucket(c.Bucket)
+	if err != nil {
+		t.Fatal("invalid fixture OSS bucket")
+	}
+	return bucket
 }
 
 func testAliyunOSS(t *testing.T) infrastructure.AliyunOSSConfig {
