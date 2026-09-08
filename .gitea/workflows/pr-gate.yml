@@ -112,7 +112,7 @@ jobs:
           PREVIEW_CI_ALIYUN_OSS_SECURITY_TOKEN: ${{ secrets.PREVIEW_CI_ALIYUN_OSS_SECURITY_TOKEN }}
         run: |
           source .gitea/scripts/go-env.sh
-          go test -tags 'integration browser' -count=1 -v -run '^TestTC_S02_BrowserNavigation$' ./internal/module/preview
+          xvfb-run -a go test -tags 'integration browser' -count=1 -v -run '^TestTC_S02_BrowserNavigation$' ./internal/module/preview
       - uses: https://git.shw.top/actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32
         if: always()
         with:

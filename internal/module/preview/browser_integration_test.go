@@ -43,7 +43,7 @@ func TestTC_S02_BrowserNavigation(t *testing.T) {
 			}
 			spki := sha256.Sum256(cert.RawSubjectPublicKeyInfo)
 			options := append([]chromedp.ExecAllocatorOption(nil), chromedp.DefaultExecAllocatorOptions[:]...)
-			options = append(options, chromedp.ExecPath(matches[0]), chromedp.NoSandbox, chromedp.Flag("disable-extensions", false), chromedp.Flag("ignore-certificate-errors-spki-list", base64.StdEncoding.EncodeToString(spki[:])))
+			options = append(options, chromedp.ExecPath(matches[0]), chromedp.NoSandbox, chromedp.Flag("headless", false), chromedp.Flag("disable-extensions", false), chromedp.Flag("ignore-certificate-errors-spki-list", base64.StdEncoding.EncodeToString(spki[:])))
 			allocator, stop := chromedp.NewExecAllocator(context.Background(), options...)
 			defer stop()
 			browser, closeBrowser := chromedp.NewContext(allocator)
