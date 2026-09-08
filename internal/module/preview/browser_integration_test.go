@@ -102,6 +102,19 @@ func TestTC_S02_BrowserNavigation(t *testing.T) {
 							return
 						}
 						t.Logf("PDF node=%s children=%d shadow=%d", n.NodeName, len(n.Children), len(n.ShadowRoots))
+						if n.NodeName == "IFRAME" {
+							for i := 0; i+1 < len(n.Attributes); i += 2 {
+								key, val := n.Attributes[i], n.Attributes[i+1]
+								if key == "src" {
+									u, _ := url.Parse(val)
+									if u != nil {
+										t.Logf("PDF iframe source scheme=%s host=%s", u.Scheme, u.Host)
+									}
+								} else if key == "type" || key == "id" || key == "name" {
+									t.Logf("PDF iframe %s=%q", key, val)
+								}
+							}
+						}
 						for _, child := range n.Children {
 							walk(child)
 						}
@@ -111,6 +124,10 @@ func TestTC_S02_BrowserNavigation(t *testing.T) {
 						walk(n.ContentDocument)
 					}
 					walk(root)
+					var pdfInfo string
+					if err := chromedp.Evaluate(`JSON.stringify({enabled:navigator.pdfViewerEnabled,mime:document.contentType,plugins:Array.from(navigator.plugins).map(p=>p.name)})`, &pdfInfo).Do(ctx); err == nil {
+						t.Logf("PDF browser capability %s", pdfInfo)
+					}
 					return nil
 				}))
 				var debug []byte
