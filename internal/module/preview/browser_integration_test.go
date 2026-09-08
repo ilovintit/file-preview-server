@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/chromedp/cdproto/cdp"
+	"github.com/chromedp/cdproto/dom"
 	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
 )
@@ -82,7 +84,7 @@ func TestTC_S02_BrowserNavigation(t *testing.T) {
 					_ = os.MkdirAll("../../../.cache/browser-artifacts", 0755)
 					_ = os.WriteFile("../../../.cache/browser-artifacts/pdf-before-check.png", debug, 0644)
 				}
-				if err = chromedp.Run(ctx, chromedp.WaitReady(`embed[type="application/pdf"]`, chromedp.ByQuery)); err != nil {
+				if err = chromedp.Run(ctx, chromedp.ActionFunc(waitPDFViewer)); err != nil {
 					t.Fatal("PDF viewer element unavailable")
 				}
 			}
@@ -98,4 +100,48 @@ func TestTC_S02_BrowserNavigation(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Chromium's PDF MediaDocument puts the viewer inside user-agent shadow DOM.
+func waitPDFViewer(ctx context.Context) error {
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		root, err := dom.GetDocument().WithDepth(-1).WithPierce(true).Do(ctx)
+		if err != nil {
+			return err
+		}
+		if hasPDFPlugin(root) {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+	}
+}
+
+func hasPDFPlugin(n *cdp.Node) bool {
+	if n == nil {
+		return false
+	}
+	if n.NodeName == "EMBED" || n.NodeName == "OBJECT" {
+		for i := 0; i+1 < len(n.Attributes); i += 2 {
+			if n.Attributes[i] == "type" && (n.Attributes[i+1] == "application/pdf" || n.Attributes[i+1] == "application/x-google-chrome-pdf") {
+				return true
+			}
+		}
+	}
+	for _, child := range n.Children {
+		if hasPDFPlugin(child) {
+			return true
+		}
+	}
+	for _, shadow := range n.ShadowRoots {
+		if hasPDFPlugin(shadow) {
+			return true
+		}
+	}
+	return hasPDFPlugin(n.ContentDocument)
 }
