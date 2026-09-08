@@ -1,0 +1,30 @@
+# Issue 17 — S03 Office conversion
+
+## 恢复点
+
+- 前序 #16 / PR #31 已合入 dev：`1950a82ef23793681f1a4314677dcd10b0c8bb56`。候选 `21ef001afbdee1bd69ca068b55873635a9cf60d9` 的 CI 10559 三个 job 成功。
+- 本 Issue 工作区 `.worktrees/17`，分支 `codex/17-core-office-conversion`，从上述 dev 创建。项目明确要求项目内工作树，不能采用插件默认的项目外目录。
+- 测试先行红色证据：PR #32，head `1eac5191f3da30fec07928cdc3909e7e4ae3f28b`，CI 10582 / job 18099 六种 Office 均 `Office conversion expected302 got422`。快速 job 18098 成功，失败不是编译或环境问题。不运行本地测试。
+- Gotenberg 版本按产品基线固定 8.34.0，现有 Harbor `ci-gotenberg:8` 为 8.36.0，不能冒充所需版本。8.34.0 linux/amd64 已同步至 Harbor，digest `sha256:0ec4b0a125c55ff1dfaed071cab30e0f37cc4326f7d53d903ee5b24e4f27fd85`，CI 与组件固定此 digest。首次同步 HTTP/2 连接关闭，强制 HTTP/1.1 续传后完成；跨仓 layer mount 拒绝不等于 push 拒绝，普通 blob 上传成功。
+- Harbor Actions 拉取凭据已由用户配置并通过 S02 Chromium job；不回显值。
+
+## 计划
+
+1. PR CI 证明核心格式转换缺失。
+2. 扩展统一缓存输出版本、输入类型验证及 Gotenberg 有界调用，保留现有 lease/发布/签名授权重检。
+3. 实际 Gotenberg + Valkey + OSS 检查六格式的页数、关键内容及错误/取消/并发契约，补充固定镜像和同 Pod 声明。
+4. 当前 head CI 全绿后自审、合入 dev、回填关闭本 Issue，再推进 #18。
+
+## 实际转换首轮
+
+CI 10664 / job 18183（head `d38e6bbd80b92b9a76583c768b0edcb4f4f1433b`）六格式均真实转换并经 OSS 返回可解析的一页 PDF。DOC/DOCX/PPT/PPTX 关键文字通过；XLS/XLSX 的提取结果为 `FixturePage 1S03Sheet42`，预期来自两个单元格 `S03Sheet` 与 `42`，不是转换丢失内容。断言仅归一化空白，仍要求全部预期字符及顺序，不修改 fixture 或删掉关键内容检查。
+
+## 自审修正
+
+- Gotenberg 开启后应用预览总预算 45 秒，但原 GoFrame 写超时为 15 秒，调整为 50 秒以允许返回受控超时响应。
+- Module 关闭同时取消并排空在途转换，拒绝新增请求；不只停止清理循环。
+- 检查 mscfb v1.0.4 源码发现其分配容量来自不可信 CFB header，进入库前按实际文件大小约束目录/FAT/mini-FAT/DIFAT 数量；另对 ZIP 解压读取传播取消。
+- 新增真实加密 DOCX 负向样例、同内容 8 并发只转换一次、原样 7 格式旁路、实际转换后的撤销/到期/取消/失租/关闭，以及输出镜像身份、满队列/取消等待者测试。
+- 本地只运行 `go build ./...` 及 `go test -c -tags integration` 编译测试二进制，不执行本地测试。最终当前 head CI 证据待完成后回填 Issue/PR。
+
+CI 10673 / job 18194 在 `e9949dc0804e24bc36cd761a9f240c57dcbe92d3` 上通过六格式页数/关键文字、真实转换授权竞态、并发复用、取消和负向样例；Chromium 回归 job 18195 通过。随后新增 CFB 分配边界、队列边界及超大输出检查，必须等待新 head 重新取证，不沿用此 run 合并。

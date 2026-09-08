@@ -1,0 +1,8 @@
+[
+  {"file":"document.doc","sha256":"ff603fc85fd81bda1466f07c82708d1e7afa9a112122d05851113cbe86f490d4","pages":1,"text":"File preview S03 Document 42"},
+  {"file":"document.docx","sha256":"7b244ee2318a6bfd8c81ece41719f6093d582998537f5299afe9f6f2bba72500","pages":1,"text":"File preview S03 Document 42"},
+  {"file":"sheet.xls","sha256":"4804e6cff9e124e6128093633ff166d9c43ab241cb1396bdc2d02fc7ba6973d8","pages":1,"text":"S03Sheet 42"},
+  {"file":"sheet.xlsx","sha256":"1ceeee3d7398863499b84621add0b3e7ac9f0852eb79a9a12cc4bd97d3c23e7c","pages":1,"text":"S03Sheet 42"},
+  {"file":"slides.ppt","sha256":"d3b3f6f5ab074fdcd9151c322991a4fdb1fdb58115c1f994e664bc323cc769e4","pages":1,"text":"File preview S03 Presentation 42"},
+  {"file":"slides.pptx","sha256":"a2d90e469ced07ff7c794eaa8997e16ed057c5d1ba07860131863dd94b7e4281","pages":1,"text":"File preview S03 Presentation 42"}
+]

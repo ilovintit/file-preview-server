@@ -36,7 +36,9 @@ func run(ctx context.Context) error {
 	s.SetErrorLogEnabled(false)
 	s.SetDumpRouterMap(false)
 	s.SetReadTimeout(5 * time.Second)
-	s.SetWriteTimeout(15 * time.Second)
+	// The transport must outlive the 45-second Office request budget so the
+	// application can return its controlled failure response.
+	s.SetWriteTimeout(50 * time.Second)
 	s.SetIdleTimeout(30 * time.Second)
 	s.SetMaxHeaderBytes(16 * 1024)
 	if cfg.TLSCert != "" {

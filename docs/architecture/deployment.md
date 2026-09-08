@@ -12,7 +12,7 @@
 
 ## 当前事实与待交付边界
 
-`dev` 中尚无 Dockerfile 或 `deploy/` 声明；当前文档未提供 Harbor 制品、Fleet GitRepo 目标、集群或 namespace，本轮未取得 Kubernetes 工作负载与部署健康证据。上述部署物属于 Issue #1 的交付范围；创建它们后由基础设施侧登记 Fleet 目标。
+S03 新增 [Gotenberg sidecar 组件](../../deploy/components/gotenberg/README.md)，固定已同步至 Harbor 的 8.34.0 linux/amd64 digest、原装字体、同 Pod 连接与资源上限。它是待组装的 Deployment patch，不是可独立部署的应用。应用 Dockerfile、完整部署/入口与发布制品仍由 S12 交付；当前未指定 Fleet 目标、集群或 namespace，未取得实际 Kubernetes 部署健康证据。
 
 项目 Agent 只能经统一只读 Kubernetes MCP 观察 Fleet、Deployment、Pod、Service、Events、日志、镜像 digest 和健康状态。禁止使用 kubeconfig、Token、kubectl 写操作、Helm 写操作或 Ansible。
 
