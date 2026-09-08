@@ -1,10 +1,10 @@
 [
   {
     "file": "legacy.wps",
-    "url": "https://raw.githubusercontent.com/LibreOffice/core/11ccf4230941895f97e4fb6987631b65b401858b/writerperfect/qa/unit/data/writer/libwps/pass/Works_2.00A_DOS.wps",
-    "gitBlob": "4bccbbd18ce685055e475105b750e78c47e25f0e",
-    "sha256": "65866a3e9c9716c05555277e8860e8a63be3126c3d8ed3e191f3b1252af2e611",
-    "license": "MPL-2.0"
+    "url": "https://sourceforge.net/p/libwps/libwps-reference/ci/bc9019bc453e173112f0b4ac1dee5bbb3aa4ecda/tree/Works-2.00A-DOS/LANDSCAP.WPS",
+    "gitBlob": "ca1fd9152864407cdb68b8b9254e6fdb1051b737",
+    "sha256": "ec1d765711736aa0a6b0e0f539dc5b710b7ea6c8de5b534233170bd75da6e057",
+    "license": "GPL-2.0 (upstream COPYING)"
   },
   {
     "file": "legacy.wpd",

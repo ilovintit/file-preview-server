@@ -13,11 +13,14 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/dom"
+	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/cdproto/target"
 	"github.com/chromedp/chromedp"
@@ -64,6 +67,28 @@ func browserNavigation(t *testing.T, profile string) {
 			defer stop()
 			browser, closeBrowser := chromedp.NewContext(allocator)
 			ctx, cancel := context.WithTimeout(browser, 25*time.Second)
+			var diagnosticMu sync.Mutex
+			var diagnostic []string
+			chromedp.ListenTarget(ctx, func(event any) {
+				switch value := event.(type) {
+				case *network.EventResponseReceived:
+					u, err := url.Parse(value.Response.URL)
+					if err != nil {
+						return
+					}
+					kind := "object"
+					if strings.HasPrefix(value.Response.URL, f.server.URL+"/v/") {
+						kind = "token"
+					}
+					diagnosticMu.Lock()
+					diagnostic = append(diagnostic, fmt.Sprintf("%s host=%s status=%d mime=%s", kind, u.Host, value.Response.Status, value.Response.MimeType))
+					diagnosticMu.Unlock()
+				case *network.EventLoadingFailed:
+					diagnosticMu.Lock()
+					diagnostic = append(diagnostic, "network="+value.ErrorText)
+					diagnosticMu.Unlock()
+				}
+			})
 			defer func() {
 				closing, finishClosing := context.WithTimeout(browser, 5*time.Second)
 				defer finishClosing()
@@ -72,7 +97,7 @@ func browserNavigation(t *testing.T, profile string) {
 				closeBrowser()
 			}()
 			// Pin only the generated preview-server certificate; OSS TLS is verified normally.
-			if err = chromedp.Run(ctx, chromedp.Navigate(f.server.URL+"/livez")); err != nil {
+			if err = chromedp.Run(ctx, network.Enable(), chromedp.Navigate(f.server.URL+"/livez")); err != nil {
 				t.Fatal("browser fixture origin navigation failed")
 			}
 			path := "/v/" + token
@@ -86,6 +111,9 @@ func browserNavigation(t *testing.T, profile string) {
 				err = chromedp.Run(ctx, chromedp.Evaluate(script, &passed, func(p *runtime.EvaluateParams) *runtime.EvaluateParams { return p.WithAwaitPromise(true) }))
 			}
 			if err != nil || !passed {
+				diagnosticMu.Lock()
+				t.Logf("browser response diagnostics: %v", diagnostic)
+				diagnosticMu.Unlock()
 				t.Fatalf("browser %s preview failed", ext)
 			}
 			if ext == "pdf" {

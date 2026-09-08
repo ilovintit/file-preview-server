@@ -102,3 +102,49 @@ func TestTC_S05_AC02_FormatProfileConversion(t *testing.T) {
 		}
 	}
 }
+
+// The original upstream Works sample is genuinely blank. Residual strings in
+// its binary must not become visible document content through a text fallback.
+func TestTC_S05_AC02_BlankWorksDoesNotExposeResidualBytes(t *testing.T) {
+	endpoint := os.Getenv("GOTENBERG_TEST_URL")
+	if endpoint == "" {
+		t.Fatal("S05 requires real Gotenberg")
+	}
+	body, err := os.ReadFile("testdata/text/negative/works-blank.wps")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sha256Hex(body) != "65866a3e9c9716c05555277e8860e8a63be3126c3d8ed3e191f3b1252af2e611" {
+		t.Fatal("blank Works fixture changed")
+	}
+	source := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write(body) }))
+	defer source.Close()
+	f := setupWithOSS(t, testAliyunOSS(t), source.Client(), func(c *infrastructure.Config) { c.GotenbergURL = endpoint })
+	input := resource()
+	input["url"], input["filename"], input["content_sha256"] = source.URL, "blank.wps", sha256Hex(body)
+	code, location := profileLocation(t, f, issueResource(t, f, input))
+	if code != 302 {
+		t.Fatalf("blank Works expected302 got%d", code)
+	}
+	response, err := http.Get(location)
+	if err != nil {
+		t.Fatal("blank Works PDF read failed")
+	}
+	defer response.Body.Close()
+	data, err := io.ReadAll(io.LimitReader(response.Body, 32<<20+1))
+	if err != nil || response.StatusCode != 200 || response.Header.Get("Content-Type") != "application/pdf" {
+		t.Fatal("expected actual blank Works PDF")
+	}
+	reader, err := pdftext.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil || reader.NumPage() != 1 {
+		t.Fatal("expected one blank PDF page")
+	}
+	plain, err := reader.GetPlainText()
+	if err != nil {
+		t.Fatal("cannot extract blank Works text")
+	}
+	visible, err := io.ReadAll(plain)
+	if err != nil || strings.TrimSpace(string(visible)) != "" {
+		t.Fatal("blank Works exposed residual content")
+	}
+}

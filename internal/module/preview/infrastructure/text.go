@@ -9,6 +9,7 @@ import (
 	"encoding/xml"
 	"io"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"unicode/utf16"
@@ -50,6 +51,12 @@ func prepareText(ctx context.Context, data []byte, filename string) (_ []byte, _
 	case ".dot":
 		err = validateOffice(ctx, data, ".doc")
 	case ".docm", ".dotm", ".dotx", ".odt", ".ott", ".sxw", ".stw", ".pages":
+		if ext == ".sxw" || ext == ".stw" {
+			data, err = normalizeLegacyOffice(ctx, data)
+			if err != nil {
+				return nil, "", err
+			}
+		}
 		err = validateTextArchive(ctx, data, ext)
 	case ".fodt", ".xml", ".uof", ".abw":
 		var root xml.Name
@@ -259,18 +266,26 @@ func validateTextXML(ctx context.Context, data []byte, zipPath ...string) (xml.N
 			if depth > 64 {
 				return root, entity.ErrInvalid
 			}
-			external := false
+			external, hyperlink := false, false
 			for _, attribute := range value.Attr {
 				if attribute.Name.Local == "TargetMode" && strings.EqualFold(attribute.Value, "External") {
 					external = true
 				}
+				if attribute.Name.Local == "Type" && strings.HasSuffix(attribute.Value, "/hyperlink") {
+					hyperlink = true
+				}
 			}
 			for _, attribute := range value.Attr {
 				name := strings.ToLower(attribute.Name.Local)
-				if name != "href" && name != "src" && name != "target" {
+				if name != "href" && name != "src" && name != "target" && !(name == "base" && attribute.Name.Space == "http://www.w3.org/XML/1998/namespace") {
 					continue
 				}
 				ref := strings.ToLower(strings.TrimSpace(attribute.Value))
+				if strings.HasPrefix(ref, "http:") || strings.HasPrefix(ref, "https:") || strings.HasPrefix(ref, "ftp:") {
+					if value.Name.Local != "a" && value.Name.Local != "link" && !(value.Name.Local == "Relationship" && hyperlink) {
+						return root, entity.ErrInvalid
+					}
+				}
 				if name == "target" && value.Name.Local == "Relationship" && !external && len(zipPath) > 0 {
 					if strings.Contains(ref, ":") || strings.Contains(ref, "\\") {
 						return root, entity.ErrInvalid
@@ -346,6 +361,28 @@ func validateTextArchive(ctx context.Context, data []byte, ext string) error {
 		if !seen["index.xml"] && !seen["index.xml.gz"] && !seen["Index/Document.iwa"] {
 			return entity.ErrInvalid
 		}
+	case ".sxw", ".stw":
+		if len(content["content.xml"]) == 0 || len(content["styles.xml"]) == 0 {
+			return entity.ErrInvalid
+		}
+		var manifest struct {
+			Files []struct {
+				Path  string `xml:"full-path,attr"`
+				Media string `xml:"media-type,attr"`
+			} `xml:"file-entry"`
+		}
+		if xml.Unmarshal(content["META-INF/manifest.xml"], &manifest) != nil {
+			return entity.ErrInvalid
+		}
+		valid := false
+		for _, entry := range manifest.Files {
+			if entry.Path == "/" && (entry.Media == "application/vnd.sun.xml.writer" || (ext == ".stw" && entry.Media == "application/vnd.sun.xml.writer.template")) {
+				valid = true
+			}
+		}
+		if !valid {
+			return entity.ErrInvalid
+		}
 	default:
 		mimes := map[string]string{".odt": "application/vnd.oasis.opendocument.text", ".ott": "application/vnd.oasis.opendocument.text-template", ".sxw": "application/vnd.sun.xml.writer", ".stw": "application/vnd.sun.xml.writer.template"}
 		if string(content["mimetype"]) != mimes[ext] || len(content["content.xml"]) == 0 {
@@ -353,6 +390,60 @@ func validateTextArchive(ctx context.Context, data []byte, ext string) error {
 		}
 	}
 	return nil
+}
+
+var legacyOfficeDTD = regexp.MustCompile(`(?s)<!DOCTYPE\s+(?:office:document-(?:content|styles|meta|settings)|manifest:manifest)\s+PUBLIC\s+"-//OpenOffice\.org//DTD (?:OfficeDocument|Manifest) 1\.0//EN"\s+"(?:office|Manifest)\.dtd"\s*>`)
+
+func normalizeLegacyOffice(ctx context.Context, data []byte) ([]byte, error) {
+	archive, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil || len(archive.File) > 4096 {
+		return nil, entity.ErrInvalid
+	}
+	var output bytes.Buffer
+	writer := zip.NewWriter(&output)
+	var total uint64
+	for _, entry := range archive.File {
+		if ctx.Err() != nil {
+			return nil, entity.ErrUnavailable
+		}
+		total += entry.UncompressedSize64
+		if entry.UncompressedSize64 > 64<<20 || total > 64<<20 || strings.HasSuffix(strings.ToLower(entry.Name), ".dtd") {
+			return nil, entity.ErrInvalid
+		}
+		stream, err := entry.Open()
+		if err != nil {
+			return nil, entity.ErrInvalid
+		}
+		payload, err := io.ReadAll(io.LimitReader(officeStreamReader{ctx: ctx, reader: stream}, 64<<20+1))
+		stream.Close()
+		if ctx.Err() != nil {
+			return nil, entity.ErrUnavailable
+		}
+		if err != nil || len(payload) > 64<<20 {
+			return nil, entity.ErrInvalid
+		}
+		if entry.Name == "mimetype" {
+			continue
+		}
+		if strings.HasSuffix(entry.Name, ".xml") {
+			payload = legacyOfficeDTD.ReplaceAll(payload, nil)
+		}
+		header := entry.FileHeader
+		part, err := writer.CreateHeader(&header)
+		if err != nil {
+			return nil, entity.ErrInvalid
+		}
+		if _, err = part.Write(payload); err != nil {
+			return nil, entity.ErrInvalid
+		}
+		if output.Len() > 32<<20 {
+			return nil, entity.ErrInvalid
+		}
+	}
+	if err := writer.Close(); err != nil || output.Len() > 32<<20 {
+		return nil, entity.ErrInvalid
+	}
+	return output.Bytes(), nil
 }
 
 func validateOOXMLTextType(content map[string][]byte, ext string) error {
@@ -421,7 +512,7 @@ func validateStarWriter(ctx context.Context, data []byte, ext string) error {
 		if !bytes.HasPrefix(header[:], []byte("SW3HDR")) && !bytes.HasPrefix(header[:], []byte("SW4HDR")) && !bytes.HasPrefix(header[:], []byte("SW5HDR")) {
 			return false
 		}
-		master := strings.EqualFold(compound.ID(), "c20cf9d3-85ae-11d1-aab4-006097da561a")
+		master := strings.EqualFold(strings.Trim(compound.ID(), "{}"), "c20cf9d3-85ae-11d1-aab4-006097da561a")
 		return (ext == ".sgl" && master) || (ext == ".vor" && !master)
 	})
 }

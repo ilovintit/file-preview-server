@@ -8,11 +8,13 @@ const extensions = 'docm dot dotm dotx odt fodt ott rtf txt wps wpd pages abw za
 const provenance = JSON.parse(await readFile(resolve(root, 'upstream.json'), 'utf8'));
 const common = 'File preview S05 Text 42';
 const expected = {
-  wps: { pages: 1, text: ["Here's a letter footnote", "Here's a bookmark name."] },
+  wps: { pages: 1, text: ['This page is 8.5" tall by 11" wide.', 'The first page number is 2.'] },
   wpd: { pages: 1, text: ['AND FURTHER', 'test1-2'] },
   pages: { pages: 1, text: ['Document Liberation link.'], exactText: 'Document Liberation link.' },
   lwp: { pages: 2, text: ['This document is created using Lotus Wordpro release 9.6 for Windows.', 'This is a pagebreak.', 'New Page'] },
-  mw: { pages: 2, text: ['Classe de première S', 'Exercice 1', 'Exercice 3'] },
+  // MacWrtParser::createDocument deliberately declares numPages+1 in its page
+  // span; the reference span of 2 represents this document's actual single page.
+  mw: { pages: 1, text: ['Classe de première S', 'Exercice 1', 'Exercice 3'] },
   mcw: { pages: 3, text: ['the header', 'the footer', 'line 1', 'yellow'] },
   hwp: { pages: 1, text: ['Hello OpenOffice.org!', '안녕하세요 오픈오피스!'], exactText: 'Hello OpenOffice.org! 안녕하세요 오픈오피스!' },
   sgl: { pages: 1, text: [common], exactText: common },

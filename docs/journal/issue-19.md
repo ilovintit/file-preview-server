@@ -30,3 +30,13 @@ MacWrite两个后缀均属于同一真实格式族，分别采用4.5/Pro1.0原�
 ## 测试先行红色证据
 
 PR #34 / head `90c21949a1ab5f13866e5bb915ca5823d8337175`，CI10840 / job18381：28种fixture完整性检查通过；56个文字格式/profile组合均 `text conversion expected302 got422`，确认失败是功能缺失，不是环境或样例hash错误。随后开始实现文字格式的有界识别/转换，TXT/BibTeX先作为转义文本封装为FODT，避免LibreOffice自动误读活动内容；原有raw/coreOffice输出身份保持不变。
+
+## 首轮真实转换与修正依据
+
+CI10857已有23种×两profile通过。其余5种逐项处理：
+
+- SGL：mscfb的GUID.String返回带大括号形式，代码裸GUID比较错误；修复为规范化括号，并增加主文档不能冒充VOR的断言。
+- Works：输入Git blob与libwps-reference的BLANK.WPS完全一致；上游raw参考确认只有空段落。此前strings读到的是不可见残留，不能作为正文。换用同一官方DOS2语料的LANDSCAP.WPS（明确的一页正文），保留BLANK负向回归，不删除WPS范围。
+- MacWrite4.5：libmwaw源09e615baa557a528b259687e49e4057969af563f的MacWrtParser::createDocument使用numPages+1填页跨度，原span=2并不意味着两页内容；实际文档是一页。按该源码依据修正预期，全部文字断言保留。
+- SXW/STW：对比Tika原生包，旧格式没有现代ODF的mimetype成员，而有styles/meta/settings。修正作者包结构，补旧manifest判定，严格移除已知标准DTD声明，拒绝自带DTD或未知外部声明。
+- Chromium中OSS GIF单项首次解码失败，文本格式改动未改变raw路径；加脱敏HTTP状态/网络错误诊断，在新head重新验证，不直接放宽浏览器检查。

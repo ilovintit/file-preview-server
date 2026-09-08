@@ -16,15 +16,16 @@
 
 SGL来自freedesktop官方的原生StarWriter5主文档。上游原件是空文档；`fill-starwriter-master.py` 在保留主文档CLSID、原始header和其余stream的前提下，写入本仓库合成文字，更新N/T原生记录、统计和CFB stream长度。新增文字恰好使用原已分配mini-sector的空余24字节，不改FAT、不改后缀冒充普通SDW。原始与修改后的hash分别保留，修改步骤可重现。该作者工具使用olefile0.47，仅在项目内缓存安装。
 
-完整编写顺序：原生导出 → Go容器生成 → `fetch-text-fixtures.mjs` → `fill-starwriter-master.py` → `freeze-text-manifest.mjs`。不能在CI失败后直接重跑冻结脚本来接受差异。
+完整编写顺序：原生导出 → Go容器生成 → `fetch-text-fixtures.mjs` → `fill-starwriter-master.py` → `freeze-text-manifest.mjs`。获取脚本的Works来源需先将官方 `https://git.code.sf.net/p/libwps/libwps-reference` 克隆到当前worktree的 `.cache/corpora/libwps-reference`，并保留脚本固定的revision；CI不访问该缓存，只读提交的样例。不能在CI失败后直接重跑冻结脚本来接受差异。
 
 ## 预期依据与失败边界
 
 - 自建文稿固定一页并核对全部可见文字，不允许XML/RTF源码被当作正文蒙混过关；BibTeX明确按其源文本阅读。
-- MacWrite4.5为2页、Pro1.0为3页、ClarisWorks为1页，依据对应libmwaw原始参考记录；关键文字覆盖标题/页眉页脚/表格。原始blob与LibreOffice所收录样例一致。
+- MacWrite4.5为1页、Pro1.0为3页、ClarisWorks为1页。MacWrtParser源码的createDocument在非隐藏首页分支故意设置 `numPages+1`，因此该原始记录的2页跨度不能当作实际页数；Pro1.0有两次显式分页。关键文字覆盖标题/页眉页脚/表格，原始blob与LibreOffice所收录样例一致。
 - Pages以活动正文和自带原始QuickLook预览为依据：一页 `Document Liberation link.`。其XML中还含模板的Lorem Ipsum，不能误当实际正文。
 - HWP为一页英文/韩文；LWP具有明确分页符、两页。源文字/结构读取只用于确定期望，不算固定Gotenberg验收。
-- WordPerfect关键文字沿用Apache Tika `WordPerfectTest` 对原件的断言；不要求恢复已删除文字。Pocket Word和Works关键文字来自原件文本记录。VOR的固定段落可直接在原始StarWriter stream中确认。
+- WordPerfect关键文字沿用Apache Tika `WordPerfectTest` 对原件的断言；不要求恢复已删除文字。Pocket Word关键文字来自原件。Works使用libwps-reference有明确正文/一页参考的LANDSCAP.WPS；原BLANK.WPS包含不可见残留字节，不把残留当正文，另留在negative目录验空。VOR固定段落可直接在原始StarWriter stream中确认。
+- SXW/STW遵循原生旧包结构，不添加现代ODF的mimetype成员，包含content/styles/meta/settings和旧manifest；真实STW也可使用writer的manifest媒体类型。标准旧DTD声明在送入转换器前移除，不允许外部DTD解析。
 - 本机精简LibreOffice对部分旧格式会退回乱码纯文本。该结果已识别为无效参考，未采用其页数或正文；不能把这种“成功导出”当作转换成功。
 
 最终必须通过28×两profile的真实转换、PDF解析、页数/文字、异常输入和已有能力回归；任何缺样例、损坏、乱码回退、固定镜像失败都阻断合并，不静默删减范围。

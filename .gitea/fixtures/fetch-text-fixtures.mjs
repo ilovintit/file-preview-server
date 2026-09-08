@@ -1,6 +1,7 @@
 // Vendor explicitly selected, version-pinned upstream regression fixtures.
 // Never execute upstream scripts; verify each original Git blob before writing.
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
@@ -10,7 +11,6 @@ const tika = 'https://raw.githubusercontent.com/apache/tika/e918be5e9d1031a37352
 const mime = 'https://gitlab.freedesktop.org/xdg/shared-mime-info/-/raw/dd8998f4edb0cf06afe2fc199e6ec0c8fda6e756/';
 const writer = 'writerperfect/qa/unit/data/writer/';
 const files = [
-  ['wps', lo, writer + 'libwps/pass/Works_2.00A_DOS.wps', '4bccbbd18ce685055e475105b750e78c47e25f0e', 'MPL-2.0'],
   ['wpd', tika, 'tika-parsers/tika-parsers-standard/tika-parsers-standard-modules/tika-parser-miscoffice-module/src/test/resources/test-documents/testWordPerfect.wpd', 'd577b1c1759f3d0594272dcd91ae95cf1adbeaf3', 'Apache-2.0'],
   ['pages', lo, writer + 'libetonyek/pass/Pages_4.pages', '43c9213922bd26f9242ae93ed6a5aabcc85df11f', 'MPL-2.0'],
   ['cwk', lo, writer + 'libmwaw/pass/ClarisWorks_6.0.cwk', '9162e3d2c69ec42d5f6bd53a00fecac2d9f07d07', 'MPL-2.0'],
@@ -25,6 +25,17 @@ const files = [
 
 await mkdir(root, { recursive: true });
 const provenance = [];
+// libwps publishes source-authored nonempty DOS fixtures with an explicit COPYING.
+const wpsRoot=resolve('.cache/corpora/libwps-reference');
+const wpsRevision='bc9019bc453e173112f0b4ac1dee5bbb3aa4ecda';
+const wpsPath='Works-2.00A-DOS/LANDSCAP.WPS';
+const wpsData=execFileSync('git',['-C',wpsRoot,'show',`${wpsRevision}:${wpsPath}`]);
+const wpsBlob=createHash('sha1').update(`blob ${wpsData.length}\0`).update(wpsData).digest('hex');
+if(wpsBlob!=='ca1fd9152864407cdb68b8b9254e6fdb1051b737')throw new Error('Works reference mismatch');
+await writeFile(resolve(root,'legacy.wps'),wpsData);
+provenance.push({file:'legacy.wps',url:`https://sourceforge.net/p/libwps/libwps-reference/ci/${wpsRevision}/tree/${wpsPath}`,gitBlob:wpsBlob,sha256:createHash('sha256').update(wpsData).digest('hex'),license:'GPL-2.0 (upstream COPYING)'});
+await mkdir(resolve(root,'negative'),{recursive:true});
+await writeFile(resolve(root,'negative/works-blank.wps'),execFileSync('git',['-C',wpsRoot,'show',`${wpsRevision}:Works-2.00A-DOS/BLANK.WPS`]));
 for (const [extension, base, path, expected, license] of files) {
   const response = await fetch(base + path, { signal: AbortSignal.timeout(30000) });
   if (!response.ok) throw new Error(`download failed for ${extension}: ${response.status}`);
@@ -38,6 +49,7 @@ for (const [extension, base, path, expected, license] of files) {
   console.log(`verified ${file} (${data.length} bytes)`);
 }
 await mkdir(resolve(root, 'licenses'), { recursive: true });
+for(const name of ['COPYING','README'])await writeFile(resolve(root,'licenses','libwps-'+name+'.txt'),execFileSync('git',['-C',wpsRoot,'show',`${wpsRevision}:Works-2.00A-DOS/${name}`]));
 for (const [name, url] of [['MPL-2.0.txt', lo + 'COPYING.MPL'], ['Apache-2.0.txt', tika + 'LICENSE.txt'], ['Tika-NOTICE.txt', tika + 'NOTICE.txt'], ['shared-mime-info-COPYING.txt', mime + 'COPYING']]) {
   const response = await fetch(url, { signal: AbortSignal.timeout(30000) });
   if (!response.ok) throw new Error(`license download failed: ${name}`);
