@@ -278,6 +278,9 @@ func (s *AliyunPreviewStore) download(ctx context.Context, grant entity.Grant) (
 		if !bytes.HasPrefix(body, []byte("%PDF-")) || !bytes.Contains(body, []byte("%%EOF")) {
 			return nil, "", entity.ErrInvalid
 		}
+		if err := validatePDF(ctx, body); err != nil {
+			return nil, "", err
+		}
 	case "image/jpeg", "image/png", "image/gif", "image/webp", "image/avif":
 		config, format, err := image.DecodeConfig(bytes.NewReader(body))
 		if err != nil || config.Width < 1 || config.Height < 1 || int64(config.Width)*int64(config.Height) > 40000000 || contentType != "image/"+format {
