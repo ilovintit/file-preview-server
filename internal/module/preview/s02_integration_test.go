@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 var rawPDF = []byte("%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Count 0/Kids[]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n")
@@ -124,6 +125,107 @@ func TestTC_S02_AC02_ControlledOSSNavigation(t *testing.T) {
 func sha256Hex(value []byte) string {
 	sum := sha256.Sum256(value)
 	return hex.EncodeToString(sum[:])
+}
+
+func TestTC_S02_AC01_RejectSpoofedPDF(t *testing.T) {
+	value := []byte("this is not a PDF")
+	source := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/pdf")
+		_, _ = w.Write(value)
+	}))
+	defer source.Close()
+	f := setupS02(t, source.Client())
+	input := resource()
+	input["url"], input["content_sha256"] = source.URL, sha256Hex(value)
+	token := issueResource(t, f, input)
+	client := f.server.Client()
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	r, err := client.Get(f.server.URL + "/v/" + token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Body.Close()
+	if r.StatusCode != 422 {
+		t.Fatalf("spoofed PDF expected422 got%d", r.StatusCode)
+	}
+}
+
+func TestTC_S02_AC05_RejectHTTPSDowngrade(t *testing.T) {
+	var plainRequests atomic.Int32
+	plain := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		plainRequests.Add(1)
+		w.Header().Set("Content-Type", "application/pdf")
+		_, _ = w.Write(rawPDF)
+	}))
+	defer plain.Close()
+	source := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, plain.URL, 302)
+	}))
+	defer source.Close()
+	f := setupS02(t, source.Client())
+	input := resource()
+	input["url"], input["content_sha256"] = source.URL, sha256Hex(rawPDF)
+	token := issueResource(t, f, input)
+	client := f.server.Client()
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	r, err := client.Get(f.server.URL + "/v/" + token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Body.Close()
+	if r.StatusCode < 500 || plainRequests.Load() != 0 {
+		t.Fatalf("downgrade must fail before HTTP request: status=%d requests=%d", r.StatusCode, plainRequests.Load())
+	}
+}
+
+func TestTC_S02_AC03_RevokeDuringDownload(t *testing.T) {
+	entered, release := make(chan struct{}), make(chan struct{})
+	source := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(entered)
+		select {
+		case <-release:
+		case <-r.Context().Done():
+			return
+		}
+		w.Header().Set("Content-Type", "application/pdf")
+		_, _ = w.Write(rawPDF)
+	}))
+	defer source.Close()
+	f := setupS02(t, source.Client())
+	input := resource()
+	input["url"], input["content_sha256"] = source.URL, sha256Hex(rawPDF)
+	token := issueResource(t, f, input)
+	client := f.server.Client()
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	result := make(chan int, 1)
+	go func() {
+		r, err := client.Get(f.server.URL + "/v/" + token)
+		if err != nil {
+			result <- 0
+			return
+		}
+		r.Body.Close()
+		result <- r.StatusCode
+	}()
+	select {
+	case <-entered:
+	case <-time.After(5 * time.Second):
+		close(release)
+		t.Fatal("download did not start")
+	}
+	r, _, _ := f.call("/admin/tokens/"+token+"/revoke", "admin", map[string]any{})
+	close(release)
+	if r.StatusCode != 200 {
+		t.Fatal("revoke failed")
+	}
+	select {
+	case code := <-result:
+		if code != 404 {
+			t.Fatalf("revoked download expected404 got%d", code)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("preview did not finish")
+	}
 }
 
 func issueResource(t *testing.T, f *fixture, resource map[string]any) string {
