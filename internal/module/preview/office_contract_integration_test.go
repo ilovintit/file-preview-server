@@ -10,6 +10,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -110,6 +111,7 @@ func TestTC_S03_AC04_ConverterFailureContract(t *testing.T) {
 		{"redirect", 302, 503, "text/plain", ""},
 		{"not-pdf", 200, 503, "application/pdf", "%PDF-1.7\ntruncated"},
 		{"wrong-mime", 200, 503, "text/html", "<html>failure</html>"},
+		{"oversized-output", 200, 503, "application/pdf", strings.Repeat("x", 32<<20+1)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var calls atomic.Int32
