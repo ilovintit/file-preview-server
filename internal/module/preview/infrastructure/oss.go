@@ -33,7 +33,10 @@ func NewAliyunPreviewStore(cfg Config, cache *ValkeyStore, clock func() time.Tim
 	if c.SignedURLMaxTTL < 1 || c.PrefixBase == "" {
 		return nil, entity.ErrUnavailable
 	}
-	options := []oss.ClientOption{oss.Timeout(3, 8)}
+	// OSS2 signs response-content-disposition into a presigned URL. V1 accepts
+	// the parameter in the SDK but the provider's public endpoint does not
+	// apply the inline response override consistently.
+	options := []oss.ClientOption{oss.Timeout(3, 8), oss.AuthVersion(oss.AuthV2)}
 	if cfg.OSSHTTPClient != nil {
 		options = append(options, oss.HTTPClient(cfg.OSSHTTPClient))
 	}
@@ -92,7 +95,11 @@ func (s *aliyunObjectStorage) SignGet(ctx context.Context, key string, ttl int64
 	if err != nil {
 		return "", 0, entity.ErrUnavailable
 	}
-	expires, err := strconv.ParseInt(u.Query().Get("Expires"), 10, 64)
+	expiresRaw := u.Query().Get("x-oss-expires")
+	if expiresRaw == "" {
+		expiresRaw = u.Query().Get("Expires")
+	}
+	expires, err := strconv.ParseInt(expiresRaw, 10, 64)
 	if err != nil {
 		return "", 0, entity.ErrUnavailable
 	}
