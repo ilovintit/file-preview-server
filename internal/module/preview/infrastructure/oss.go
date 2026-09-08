@@ -3,9 +3,15 @@ package infrastructure
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"net/http"
 	"path"
@@ -18,6 +24,11 @@ import (
 )
 
 const rawOutputVersion = "raw-v1"
+
+func ossProfileIdentity(c AliyunOSSConfig) string {
+	digest := sha256.Sum256([]byte(c.Endpoint + "\n" + c.Bucket + "\n" + c.PrefixBase))
+	return hex.EncodeToString(digest[:])
+}
 
 type AliyunPreviewStore struct {
 	bucket       *oss.Bucket
@@ -34,7 +45,7 @@ func NewAliyunPreviewStore(cfg Config, cache *ValkeyStore, clock func() time.Tim
 	if c.Endpoint == "" || c.Bucket == "" || c.AccessKeyID == "" || c.AccessKeySecret == "" {
 		return nil, nil
 	}
-	options := make([]oss.ClientOption, 0, 1)
+	options := []oss.ClientOption{oss.Timeout(3, 8)}
 	if c.SecurityToken != "" {
 		options = append(options, oss.SecurityToken(c.SecurityToken))
 	}
@@ -54,34 +65,136 @@ func NewAliyunPreviewStore(cfg Config, cache *ValkeyStore, clock func() time.Tim
 	if source == nil {
 		source = &http.Client{Timeout: 20 * time.Second}
 	}
-	configDigest := sha256.Sum256([]byte(c.Endpoint + "\n" + c.Bucket + "\n" + c.PrefixBase))
-	return &AliyunPreviewStore{bucket: bucket, cache: cache, clock: clock, sourceClient: source, prefix: strings.Trim(c.PrefixBase, "/"), identity: hex.EncodeToString(configDigest[:8]), signedURLMax: c.SignedURLMaxTTL}, nil
+	// 保留测试 CA 和连接池，但强制每一跳都使用 HTTPS。
+	copyClient := *source
+	copyClient.Timeout = 8 * time.Second
+	copyClient.CheckRedirect = func(r *http.Request, via []*http.Request) error {
+		if len(via) >= 5 || r.URL.Scheme != "https" || r.URL.User != nil {
+			return entity.ErrUnavailable
+		}
+		return nil
+	}
+	source = &copyClient
+	return &AliyunPreviewStore{bucket: bucket, cache: cache, clock: clock, sourceClient: source, prefix: strings.Trim(c.PrefixBase, "/"), identity: ossProfileIdentity(c), signedURLMax: c.SignedURLMaxTTL}, nil
 }
 
 func (s *AliyunPreviewStore) Prepare(ctx context.Context, grant entity.Grant) (string, error) {
-	cacheKey := s.identity + ":" + rawOutputVersion + ":" + grant.ContentSHA256
-	if record, err := s.cache.GetCache(ctx, cacheKey); err == nil {
-		if _, headErr := s.bucket.GetObjectDetailedMeta(record.ObjectKey); headErr == nil {
-			return s.sign(record.ObjectKey, grant)
-		}
-	} else if err != entity.ErrNotFound {
-		return "", err
+	if s == nil {
+		return "", entity.ErrUnavailable
 	}
+	cacheKey := s.identity + ":" + rawOutputVersion + ":" + grant.ContentSHA256
+	var entropy [16]byte
+	if _, err := rand.Read(entropy[:]); err != nil {
+		return "", entity.ErrUnavailable
+	}
+	owner := hex.EncodeToString(entropy[:])
+	for {
+		if record, err := s.cache.GetCache(ctx, cacheKey); err == nil {
+			if !rawMIME(path.Ext(grant.Filename), record.MediaType) {
+				return "", entity.ErrInvalid
+			}
+			if _, headErr := s.bucket.GetObjectDetailedMeta(record.ObjectKey, oss.WithContext(ctx)); headErr == nil {
+				return s.sign(ctx, record.ObjectKey, grant)
+			} else {
+				var serviceError oss.ServiceError
+				if !errors.As(headErr, &serviceError) || serviceError.StatusCode != 404 {
+					return "", entity.ErrUnavailable
+				}
+			}
+		} else if !errors.Is(err, entity.ErrNotFound) {
+			return "", err
+		}
+		acquired, err := s.cache.acquirePreparation(ctx, cacheKey, owner)
+		if err != nil {
+			return "", err
+		}
+		if acquired {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return "", entity.ErrUnavailable
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+	defer func() {
+		releaseCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = s.cache.updatePreparation(releaseCtx, cacheKey, owner, true)
+	}()
+	// 取锁后再次检查，避免前一持有者刚发布时重复准备。
+	if record, err := s.cache.GetCache(ctx, cacheKey); err == nil {
+		if _, err = s.bucket.GetObjectDetailedMeta(record.ObjectKey, oss.WithContext(ctx)); err == nil {
+			return s.sign(ctx, record.ObjectKey, grant)
+		}
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		ticker := time.NewTicker(preparationLease / 3)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if s.cache.updatePreparation(ctx, cacheKey, owner, false) != nil {
+					cancel()
+					return
+				}
+			}
+		}
+	}()
 	body, contentType, err := s.download(ctx, grant)
 	if err != nil {
 		return "", err
 	}
-	objectKey := fmt.Sprintf("%s/%s/%s/%s", s.prefix, s.identity, rawOutputVersion, grant.ContentSHA256)
-	if err = s.bucket.PutObject(objectKey, bytes.NewReader(body), oss.ContentType(contentType), oss.ContentDisposition("inline")); err != nil {
-		return "", gerror.Wrap(entity.ErrUnavailable, "upload OSS object")
-	}
-	if err = s.cache.PutCache(ctx, cacheKey, cacheRecord{ObjectKey: objectKey, ExpiresAt: grant.CacheExpiresAt}); err != nil {
+	objectKey := fmt.Sprintf("%s/%s/%s/%s/%s", s.prefix, s.identity, rawOutputVersion, grant.ContentSHA256, owner)
+	if err = s.cache.registerObject(ctx, cacheKey, objectKey, grant.CacheExpiresAt); err != nil {
 		return "", err
 	}
-	return s.sign(objectKey, grant)
+	if err = s.bucket.PutObject(objectKey, bytes.NewReader(body), oss.ContentType(contentType), oss.ContentDisposition("inline"), oss.WithContext(ctx)); err != nil {
+		return "", gerror.Wrap(entity.ErrUnavailable, "upload OSS object")
+	}
+	if _, err = s.bucket.GetObjectDetailedMeta(objectKey, oss.WithContext(ctx)); err != nil {
+		return "", entity.ErrUnavailable
+	}
+	if err = s.cache.PutCache(ctx, cacheKey, owner, cacheRecord{ObjectKey: objectKey, ExpiresAt: grant.CacheExpiresAt, MediaType: contentType}); err != nil {
+		return "", err
+	}
+	return s.sign(ctx, objectKey, grant)
 }
 
-func (s *AliyunPreviewStore) sign(objectKey string, grant entity.Grant) (string, error) {
+func (s *AliyunPreviewStore) Cleanup(ctx context.Context) error {
+	if s == nil || s.cache.db == nil {
+		return entity.ErrUnavailable
+	}
+	records, err := s.cache.cleanupCandidates(ctx)
+	if err != nil {
+		return err
+	}
+	for _, record := range records {
+		if !strings.HasPrefix(record.ObjectKey, s.prefix+"/"+s.identity+"/") {
+			continue
+		}
+		if err := s.bucket.DeleteObject(record.ObjectKey, oss.WithContext(ctx)); err != nil {
+			continue
+		}
+		if err := s.cache.forgetObject(ctx, record.ObjectKey); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *AliyunPreviewStore) sign(ctx context.Context, objectKey string, grant entity.Grant) (string, error) {
+	if _, err := s.cache.Get(ctx, grant.Token); err != nil {
+		return "", err
+	}
 	remaining := grant.ExpiresAt - s.clock().Unix()
 	if cacheRemaining := grant.CacheExpiresAt - s.clock().Unix(); cacheRemaining < remaining {
 		remaining = cacheRemaining
@@ -113,8 +226,11 @@ func (s *AliyunPreviewStore) download(ctx context.Context, grant entity.Grant) (
 		return nil, "", gerror.Wrap(entity.ErrUnavailable, "source response")
 	}
 	body, err := io.ReadAll(io.LimitReader(response.Body, 32<<20+1))
-	if err != nil || len(body) > 32<<20 {
+	if err != nil {
 		return nil, "", gerror.Wrap(entity.ErrUnavailable, "source body")
+	}
+	if len(body) > 32<<20 {
+		return nil, "", entity.ErrInvalid
 	}
 	sum := sha256.Sum256(body)
 	if hex.EncodeToString(sum[:]) != grant.ContentSHA256 {
@@ -123,6 +239,28 @@ func (s *AliyunPreviewStore) download(ctx context.Context, grant entity.Grant) (
 	contentType := strings.ToLower(strings.TrimSpace(strings.Split(response.Header.Get("Content-Type"), ";")[0]))
 	if !rawMIME(path.Ext(grant.Filename), contentType) {
 		return nil, "", entity.ErrInvalid
+	}
+	switch contentType {
+	case "application/pdf":
+		if !bytes.HasPrefix(body, []byte("%PDF-")) || !bytes.Contains(body, []byte("%%EOF")) {
+			return nil, "", entity.ErrInvalid
+		}
+	case "image/jpeg", "image/png", "image/gif":
+		config, format, err := image.DecodeConfig(bytes.NewReader(body))
+		if err != nil || config.Width < 1 || config.Height < 1 || int64(config.Width)*int64(config.Height) > 40000000 || contentType != "image/"+format {
+			return nil, "", entity.ErrInvalid
+		}
+		if _, _, err = image.Decode(bytes.NewReader(body)); err != nil {
+			return nil, "", entity.ErrInvalid
+		}
+	case "image/webp":
+		if len(body) < 12 || string(body[:4]) != "RIFF" || string(body[8:12]) != "WEBP" {
+			return nil, "", entity.ErrInvalid
+		}
+	case "image/avif":
+		if len(body) < 16 || string(body[4:8]) != "ftyp" || !bytes.Contains(body[8:min(len(body), 64)], []byte("avif")) {
+			return nil, "", entity.ErrInvalid
+		}
 	}
 	return body, contentType, nil
 }
