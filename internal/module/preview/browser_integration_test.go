@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -18,6 +19,7 @@ import (
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/dom"
 	"github.com/chromedp/cdproto/runtime"
+	"github.com/chromedp/cdproto/target"
 	"github.com/chromedp/chromedp"
 )
 
@@ -79,6 +81,38 @@ func TestTC_S02_BrowserNavigation(t *testing.T) {
 				var shape string
 				_ = chromedp.Run(ctx, chromedp.Evaluate(`JSON.stringify(Array.from(document.querySelectorAll('*')).map(e=>({tag:e.tagName,type:e.getAttribute('type')})).slice(0,30))`, &shape))
 				t.Logf("PDF viewer DOM: %s", shape)
+				_ = chromedp.Run(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
+					infos, err := target.GetTargets().Do(cdp.WithExecutor(ctx, chromedp.FromContext(ctx).Browser))
+					if err != nil {
+						return err
+					}
+					for _, info := range infos {
+						parsed, _ := url.Parse(info.URL)
+						if parsed != nil {
+							t.Logf("PDF target type=%s origin=%s://%s", info.Type, parsed.Scheme, parsed.Host)
+						}
+					}
+					root, err := dom.GetDocument().WithDepth(-1).WithPierce(true).Do(ctx)
+					if err != nil {
+						return err
+					}
+					var walk func(*cdp.Node)
+					walk = func(n *cdp.Node) {
+						if n == nil {
+							return
+						}
+						t.Logf("PDF node=%s children=%d shadow=%d", n.NodeName, len(n.Children), len(n.ShadowRoots))
+						for _, child := range n.Children {
+							walk(child)
+						}
+						for _, shadow := range n.ShadowRoots {
+							walk(shadow)
+						}
+						walk(n.ContentDocument)
+					}
+					walk(root)
+					return nil
+				}))
 				var debug []byte
 				if chromedp.Run(ctx, chromedp.CaptureScreenshot(&debug)) == nil {
 					_ = os.MkdirAll("../../../.cache/browser-artifacts", 0755)
