@@ -48,3 +48,9 @@ CI10857已有23种×两profile通过。其余5种逐项处理：
 CI10901 最终失败：silo 的全部28种文字格式转换/内容检查及7种浏览器原样格式通过；OSS 的原样、核心Office及文字转换后的读取共同失败（不是28种转换器全部退化）。浏览器显示 ORB/CORS 阻断，过期签名用例收到404而非OSS的403。对公开预览域名只读排查得到 nginx 404、正文 `{"error":"not_found"}`，DNS A 为112.74.37.78、未返回CNAME；已请求用户核查其DNS/反向代理目标与查询串保留，未变更CORS或外部基础设施。
 
 宏样例单独返回422，尚不能断言宏防护已通过。候选 `23a61d42e379b042cd2809a8939dd1a89d543b3f` / CI10917 加入真实转换器代理计数/状态和Chromium重定向/额外响应状态，以判定输入校验与转换器错误边界；不记录签名URL、Token或对象正文。
+
+CI10917 重试后28×双profile、空白Works通过；OSS的PNG原样读取及AVIF浏览器读取仍有间歇失败，浏览器确认token302后的目标404。宏失败为转换器调用1次返回400，不是应用输入校验拒绝。CI10938浏览器全绿，重型层仅宏失败；HTTP正文仅通用UnoException提示，故CI10960开启隔离Gotenberg调试日志，失败时只读取该job的转换器日志。
+
+补齐密码保护验收：由真实source.docm经msoffcrypto-tool5.4.2生成Agile加密样例，作者工具核对解密后字节一致；加入重复422、无Location、未进转换器/无对象发布断言。依赖只装在本worktree的.cache/fixture-python，未执行本地服务测试。
+
+宏样例修正假设：原manifest把Basic/目录标为扩展包媒体类型。LibreOffice固定源码 [namecont.cxx](https://github.com/LibreOffice/core/blob/11ccf4230941895f97e4fb6987631b65b401858b/basic/source/uno/namecont.cxx) 的ScriptExtensionIterator使用application/vnd.sun.star.basic-library识别扩展包，而文档宏库写入的是text/xml流。按原生文档包结构将Basic/和Basic/Standard/声明为空目录类型，宏代码/事件/原正文断言不变；需要下一轮真实CI确认，不能提前认定根因已修。

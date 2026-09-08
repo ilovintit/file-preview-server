@@ -104,7 +104,9 @@ func TestTC_S05_AC04_DocumentMacroCannotChangePreview(t *testing.T) {
 			payload = bytes.Replace(payload, marker, []byte(event), 1)
 		}
 		if entry.Name == "META-INF/manifest.xml" {
-			add := `<manifest:file-entry manifest:full-path="Basic/" manifest:media-type="application/vnd.sun.star.basic-library"/><manifest:file-entry manifest:full-path="Basic/script-lc.xml" manifest:media-type="text/xml"/><manifest:file-entry manifest:full-path="Basic/Standard/script-lb.xml" manifest:media-type="text/xml"/><manifest:file-entry manifest:full-path="Basic/Standard/Module1.xml" manifest:media-type="text/xml"/>`
+			// A document storage directory is not an extension package. The
+			// basic-library media type belongs to the latter, not Basic/ here.
+			add := `<manifest:file-entry manifest:full-path="Basic/" manifest:media-type=""/><manifest:file-entry manifest:full-path="Basic/Standard/" manifest:media-type=""/><manifest:file-entry manifest:full-path="Basic/script-lc.xml" manifest:media-type="text/xml"/><manifest:file-entry manifest:full-path="Basic/Standard/script-lb.xml" manifest:media-type="text/xml"/><manifest:file-entry manifest:full-path="Basic/Standard/Module1.xml" manifest:media-type="text/xml"/>`
 			payload = bytes.Replace(payload, []byte("</manifest:manifest>"), []byte(add+"</manifest:manifest>"), 1)
 		}
 		header := entry.FileHeader
