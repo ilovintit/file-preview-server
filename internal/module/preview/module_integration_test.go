@@ -124,7 +124,7 @@ func setupWithOSS(t *testing.T, ossConfig infrastructure.AliyunOSSConfig, source
 
 func fixtureOSSBucket(t *testing.T, c infrastructure.AliyunOSSConfig) *oss.Bucket {
 	t.Helper()
-	options := []oss.ClientOption{oss.Timeout(3, 8), oss.AuthVersion(oss.AuthV2)}
+	options := []oss.ClientOption{oss.Timeout(3, 8)}
 	if c.SecurityToken != "" {
 		options = append(options, oss.SecurityToken(c.SecurityToken))
 	}
