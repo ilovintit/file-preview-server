@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -130,6 +131,10 @@ func TestTC_S02_AC06_SignedHeadAndExpiry(t *testing.T) {
 		t.Fatal("invalid signed URL")
 	}
 	object := strings.TrimPrefix(parsed.Path, "/")
+	expires, err := strconv.ParseInt(parsed.Query().Get("Expires"), 10, 64)
+	if err != nil || expires > f.now.Load()+60 || expires > time.Now().Unix()+2 {
+		t.Fatal("signed URL exceeds token or provider lifetime")
+	}
 	bucket := fixtureOSSBucket(t, config)
 	headURL, err := bucket.SignURL(object, oss.HTTPHead, 5)
 	if err != nil {

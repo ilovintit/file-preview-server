@@ -14,7 +14,9 @@ import (
 	_ "image/png"
 	"io"
 	"net/http"
+	"net/url"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -238,11 +240,20 @@ func (s *AliyunPreviewStore) sign(ctx context.Context, objectKey string, grant e
 	if remaining < 1 {
 		return "", entity.ErrNotFound
 	}
-	url, err := s.signer.SignURL(objectKey, oss.HTTPGet, remaining)
+	signedURL, err := s.signer.SignURL(objectKey, oss.HTTPGet, remaining)
 	if err != nil {
 		return "", gerror.Wrap(entity.ErrUnavailable, "sign OSS object")
 	}
-	return url, nil
+	// SDK 自取时钟；跨秒/调度延迟不能让目标短链超出授权绝对期限。
+	parsed, err := url.Parse(signedURL)
+	if err != nil {
+		return "", entity.ErrUnavailable
+	}
+	expires, err := strconv.ParseInt(parsed.Query().Get("Expires"), 10, 64)
+	if err != nil || expires > grant.ExpiresAt || expires > record.ExpiresAt {
+		return "", entity.ErrUnavailable
+	}
+	return signedURL, nil
 }
 
 func (s *AliyunPreviewStore) download(ctx context.Context, grant entity.Grant) ([]byte, string, error) {

@@ -21,3 +21,10 @@
 用户更换为专用测试 bucket，并配置 HTTPS 预览域名；Region 已按 V1 签名实际需求改为可选。PR head 7f2b6e9 的 CI #10312 已通过七格式 inline、CORS/Range、并发/锁/撤销、期限/清理、对象重建、HEAD及签名过期检查。当前继续补齐实际浏览器证据，不将上述 API 检查当作浏览器已通过。
 
 浏览器 job 使用 Harbor 已有 `ci-playwright-toolchain:1.61.1-noble` 的不可变 digest，用户已配置 CI_HARBOR_USERNAME/CI_HARBOR_PASSWORD 拉取凭据。按用户授权新建并同步 Gitea `actions/upload-artifact`，来自 GitHub v3.1.3 / a8a3f3ad30e3422c9c7b888a15615d19a852ae32，保留上游 MIT 许可证与完整提交历史；用于保存浏览器截图。容器默认 sh，已显式设置 Bash 加载项目 Go 环境。
+
+## 交付自审
+
+- CI #10437 对 9a1ae62 的构建、API/OSS 和 Chromium 三组检查全部成功；包括七格式原样回读、全图片截断拒绝、畸形/超限 PDF、并发准备、锁失效、撤销竞态、绝对期限/清理/重建、失败删除恢复、HEAD/过期短链、配置缺失拒绝及浏览器图片解码/PDF 导航。
+- PDF 使用离线结构校验，禁用 pdfcpu 用户目录与链接检查，不改写上传字节。浏览器采用 Xvfb 普通 Chromium，其内置 PDF 表面为 UA shadow DOM 内的 application/pdf iframe；断言同时检查文档 MIME、PDF viewer capability 和跨域 Range。
+- 最终签名 URL 额外核验绝对 Expires，阻止 SDK 自取时钟跨秒造成超过 token/cache 到期边界。最终合并证据以该修复提交对应的 PR CI 及 Issue 回填为准。
+- 完整 H5 交互、Office 转换、silo 和部署制品由后续 Issue 串行交付；上述验证不是整个 v1.0.0 放行结论。
