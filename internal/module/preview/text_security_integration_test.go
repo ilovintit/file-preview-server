@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"git.shw.top/shw-project/file-preview-server/internal/module/preview/infrastructure"
 	pdftext "github.com/ledongthuc/pdf"
@@ -102,10 +103,12 @@ func checkMacroDocument(t *testing.T, eventEnabled, libraryEnabled bool) {
 	var buffer bytes.Buffer
 	writer := zip.NewWriter(&buffer)
 	for _, entry := range archive.File {
-		if entry.Name == "mimetype" {
-			// ODF requires the first stored entry to have no ZIP extra fields.
-			// CreateHeader adds an extended timestamp to a parsed FileHeader;
-			// Copy preserves the original valid local header and raw bytes.
+		modified := (entry.Name == "content.xml" && eventEnabled) || (entry.Name == "META-INF/manifest.xml" && libraryEnabled)
+		if !modified {
+			// LibreOffice relies on the original ODT package layout beyond the
+			// mandatory mimetype entry. Copy every unchanged local header and
+			// compressed stream verbatim; recreating them adds ZIP metadata that
+			// makes an otherwise valid ODT fail during import.
 			if err := writer.Copy(entry); err != nil {
 				t.Fatal(err)
 			}
@@ -135,6 +138,10 @@ func checkMacroDocument(t *testing.T, eventEnabled, libraryEnabled bool) {
 			payload = bytes.Replace(payload, []byte("</manifest:manifest>"), []byte(add+"</manifest:manifest>"), 1)
 		}
 		header := entry.FileHeader
+		// Modified XML cannot be raw-copied. Do not retain a parsed timestamp
+		// because archive/zip serializes it as an extra field in this fixture.
+		header.Extra = nil
+		header.Modified = time.Time{}
 		part, err := writer.CreateHeader(&header)
 		if err != nil {
 			t.Fatal(err)
@@ -144,29 +151,9 @@ func checkMacroDocument(t *testing.T, eventEnabled, libraryEnabled bool) {
 		}
 	}
 	for name, body := range map[string]string{
-		"Basic/script-lc.xml": `<?xml version="1.0" encoding="UTF-8"?>
-
-<!DOCTYPE library:libraries PUBLIC "-//OpenOffice.org//DTD OfficeDocument 1.0//EN" "libraries.dtd">
-
-<library:libraries xmlns:library="http://openoffice.org/2000/library" xmlns:xlink="http://www.w3.org/1999/xlink">
-
-<library:library library:name="Standard" library:link="false"/>
-
-</library:libraries>`,
-		"Basic/Standard/script-lb.xml": `<?xml version="1.0" encoding="UTF-8"?>
-
-<!DOCTYPE library:library PUBLIC "-//OpenOffice.org//DTD OfficeDocument 1.0//EN" "library.dtd">
-
-<library:library xmlns:library="http://openoffice.org/2000/library" library:name="Standard" library:readonly="false" library:passwordprotected="false">
-
-<library:element library:name="Module1"/>
-
-</library:library>`,
-		"Basic/Standard/Module1.xml": `<?xml version="1.0" encoding="UTF-8"?>
-
-<!DOCTYPE script:module PUBLIC "-//OpenOffice.org//DTD OfficeDocument 1.0//EN" "module.dtd">
-
-<script:module xmlns:script="http://openoffice.org/2000/script" script:name="Module1" script:language="StarBasic" script:moduleType="normal"><![CDATA[Sub Main
+		"Basic/script-lc.xml":          `<?xml version="1.0" encoding="UTF-8"?><library:libraries xmlns:library="http://openoffice.org/2000/library" xmlns:xlink="http://www.w3.org/1999/xlink"><library:library library:name="Standard" library:link="false"/></library:libraries>`,
+		"Basic/Standard/script-lb.xml": `<?xml version="1.0" encoding="UTF-8"?><library:library xmlns:library="http://openoffice.org/2000/library" library:name="Standard" library:readonly="false" library:passwordprotected="false"><library:element library:name="Module1"/></library:library>`,
+		"Basic/Standard/Module1.xml": `<?xml version="1.0" encoding="UTF-8"?><script:module xmlns:script="http://openoffice.org/2000/script" script:name="Module1" script:language="StarBasic" script:moduleType="normal"><![CDATA[Sub Main
 ThisComponent.Text.String = "MACRO_EXECUTED"
 End Sub]]></script:module>`,
 	} {
