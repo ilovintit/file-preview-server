@@ -105,14 +105,14 @@ func TestTC_S02_AC04_DeadlineAndCleanup(t *testing.T) {
 		t.Fatalf("preview got%d", r.StatusCode)
 	}
 	// 管理记录独立于缓存键，必须能定位并删除真实 OSS 对象。
-	objects, err := f.db.Do(ctx, "HGETALL", f.cfg.Namespace+":objects")
+	objects, err := f.db.Do(ctx, "HVALS", f.cfg.Namespace+":objects")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(objects.MapStrStr()) != 1 {
+	if len(objects.Strings()) != 1 {
 		t.Fatal("maintenance record missing")
 	}
-	for _, raw := range objects.MapStrStr() {
+	for _, raw := range objects.Strings() {
 		var v map[string]any
 		if json.Unmarshal([]byte(raw), &v) != nil || v["object_key"] == "" {
 			t.Fatal("invalid maintenance record")
