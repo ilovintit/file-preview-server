@@ -138,6 +138,10 @@ func TestTC_S02_BrowserNavigation(t *testing.T) {
 				if err = chromedp.Run(ctx, chromedp.ActionFunc(waitPDFViewer)); err != nil {
 					t.Fatal("PDF viewer element unavailable")
 				}
+				var viewerEnabled bool
+				if err = chromedp.Run(ctx, chromedp.Evaluate(`navigator.pdfViewerEnabled && document.contentType === 'application/pdf'`, &viewerEnabled)); err != nil || !viewerEnabled {
+					t.Fatal("native PDF document or viewer capability missing")
+				}
 			}
 			var screenshot []byte
 			if err = chromedp.Run(ctx, chromedp.CaptureScreenshot(&screenshot)); err != nil {
@@ -177,7 +181,7 @@ func hasPDFPlugin(n *cdp.Node) bool {
 	if n == nil {
 		return false
 	}
-	if n.NodeName == "EMBED" || n.NodeName == "OBJECT" {
+	if n.NodeName == "EMBED" || n.NodeName == "OBJECT" || n.NodeName == "IFRAME" {
 		for i := 0; i+1 < len(n.Attributes); i += 2 {
 			if n.Attributes[i] == "type" && (n.Attributes[i+1] == "application/pdf" || n.Attributes[i+1] == "application/x-google-chrome-pdf") {
 				return true
