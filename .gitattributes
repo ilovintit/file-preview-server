@@ -1,0 +1,3 @@
+# Fixtures are content-addressed inputs: preserve original bytes on every host.
+internal/module/preview/testdata/text/source.* -text
+internal/module/preview/testdata/text/legacy.* -text
