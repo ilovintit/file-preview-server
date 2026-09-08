@@ -65,4 +65,4 @@ CI10976证明仅修目录声明不足；CI10994中mimetype包头断言未报错�
 
 - 宏失败的根因不是应用输入校验或 LibreOffice 的宏执行策略：连完全不含宏的“仅重新封装”对照件也无法导入。最小复现证明，Go `archive/zip` 重建全部未修改 ODT 成员会改变包布局；改为逐项原样复制未修改的 local header/压缩流，只重写事件/manifest 成员，并移除 Basic XML 的外部 DTD 后，固定 LibreOffice 可导入含完整事件和文档 Basic 库的夹具，输出保留原文且没有 `MACRO_EXECUTED`。
 - PR #34 当前 head `3f3ad96822f8c5079a671dba2fa3720848628e16` 的 CI11084：快速层与 Chromium 浏览器层均通过；28×两个 profile 的文字转换、空白 Works、密码保护拒绝、宏和原有回归均通过。
-- CI11145 证明该预览域故障不是单个 PNG：所有经 `PREVIEW_CI_ALIYUN_OSS_PREVIEW_ENDPOINT` 的 OSS 原样、核心 Office 和 S05 PDF 读取均返回 404/非对象字节，silo 同组全部通过。上传/Stat 已使用 canonical endpoint，因此改为 canonical OSS 直接签名，并在签名查询中写入 `response-content-disposition=inline`；这同时保证浏览器内联呈现、签名查询保护和原始字节读取，不再依赖外部 CNAME/CDN 透明转发。相应 CI Variable 已从运行配置移除，保留它不会影响服务。
+- 重型层仅余 OSS PNG 原样读取失败：同一上传链路的 JPG/JPEG/GIF/WebP/AVIF/PDF 均字节一致，PNG 在跳转预览域后被改写。上传/Stat 使用 `PREVIEW_CI_ALIYUN_OSS_ENDPOINT`，签名跳转使用可选 `PREVIEW_CI_ALIYUN_OSS_PREVIEW_ENDPOINT`，因此此项表明预览域不是透明对象读取端，不能满足“安全图片原样存储/读取”契约。该变量需要指向不做图片处理、保留查询串的 bucket 公网 OSS 域名（例如 `https://<bucket>.oss-cn-shenzhen.aliyuncs.com`），而不是会转码或代理对象的 CDN/反向代理；凭据和值不记录到仓库。当前 Agent 无权读取或修改该 Gitea Actions 变量。

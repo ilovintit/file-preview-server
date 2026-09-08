@@ -52,7 +52,7 @@ Harbor 地址、仓库名、机器人凭据与 Fleet target 没有现成证据�
 
 当前 OSS SDK 使用 V1 签名，`PREVIEW_CI_ALIYUN_OSS_REGION` 可省略；Endpoint 与 bucket 决定访问目标。若后续切换 V4 签名，需在同次变更中落实签名地域的推导或显式配置。
 
-`PREVIEW_CI_ALIYUN_OSS_ENDPOINT` 是阿里 OSS 唯一的上传、HEAD、清理和签名 endpoint。签名 URL 明确签入 `response-content-disposition=inline`，不能依赖对象 metadata 或外部 CNAME/CDN 保持内联行为；这避免代理重写对象、丢弃查询串或返回 JSON 404。`PREVIEW_CI_ALIYUN_OSS_PREVIEW_ENDPOINT` 已移除，现有同名 Actions Variable 可以保留但服务不再读取。共享 bucket CORS 仍采用用户已确认的无凭据通配策略，不改变其他系统的桶配置。
+`PREVIEW_CI_ALIYUN_OSS_ENDPOINT` 用于 SDK 上传、HEAD 和清理。可另配 `PREVIEW_CI_ALIYUN_OSS_PREVIEW_ENDPOINT` 为同一 bucket 已绑定证书和 CNAME 的 HTTPS 自定义域名，签名时使用 SDK CNAME 模式；不拼接 bucket 前缀，也不在签名后替换 Host。CI #10258 已观测默认 OSS 域名对 PNG/JPEG/GIF/WebP 强制返回 attachment，即使对象上传元数据设置 inline；需要真实自定义域名才能完成对应 inline 验收。共享 bucket CORS 仍采用用户已确认的无凭据通配策略，不改变其他系统的桶配置。
 
 ### S02 运行预算
 

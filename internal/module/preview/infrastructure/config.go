@@ -61,6 +61,7 @@ type SiloConfig struct {
 // supplied only through the process environment or CI secret injection.
 type AliyunOSSConfig struct {
 	Endpoint        string
+	PreviewEndpoint string
 	Region          string
 	Bucket          string
 	PrefixBase      string
@@ -117,6 +118,12 @@ func (c Config) Validate() error {
 		endpoint, err := url.Parse(oss.Endpoint)
 		if err != nil || endpoint.Scheme != "https" || endpoint.Hostname() == "" || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" || (endpoint.Path != "" && endpoint.Path != "/") || strings.Contains(oss.PrefixBase, "..") || strings.HasPrefix(oss.PrefixBase, "/") || strings.TrimSpace(oss.PrefixBase) != oss.PrefixBase || oss.SignedURLMaxTTL > 604800 {
 			return gerror.New("invalid OSS endpoint, prefix or signing TTL")
+		}
+		if oss.PreviewEndpoint != "" {
+			preview, err := url.Parse(oss.PreviewEndpoint)
+			if err != nil || preview.Scheme != "https" || preview.Hostname() == "" || preview.User != nil || preview.RawQuery != "" || preview.Fragment != "" || (preview.Path != "" && preview.Path != "/") {
+				return gerror.New("invalid OSS preview endpoint")
+			}
 		}
 	}
 	return nil
@@ -200,6 +207,7 @@ func LoadConfig() (Config, error) {
 	}
 	c.AliyunOSS = AliyunOSSConfig{
 		Endpoint:        os.Getenv("PREVIEW_CI_ALIYUN_OSS_ENDPOINT"),
+		PreviewEndpoint: os.Getenv("PREVIEW_CI_ALIYUN_OSS_PREVIEW_ENDPOINT"),
 		Region:          os.Getenv("PREVIEW_CI_ALIYUN_OSS_REGION"),
 		Bucket:          os.Getenv("PREVIEW_CI_ALIYUN_OSS_BUCKET"),
 		PrefixBase:      os.Getenv("PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE"),
