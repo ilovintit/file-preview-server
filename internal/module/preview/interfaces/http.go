@@ -199,5 +199,9 @@ func (c *Controller) Live(w http.ResponseWriter, r *http.Request) {
 	c.write(w, r, 200, 0, "存活", struct{}{})
 }
 func (c *Controller) Ready(w http.ResponseWriter, r *http.Request) {
-	c.Error(w, r, entity.ErrUnavailable)
+	if err := c.service.Ready(r.Context()); err != nil {
+		c.Error(w, r, err)
+		return
+	}
+	c.write(w, r, 200, 0, "就绪", struct{}{})
 }

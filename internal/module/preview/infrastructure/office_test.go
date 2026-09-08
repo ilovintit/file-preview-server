@@ -77,7 +77,7 @@ func TestTC_S03_AC04_InputValidationAndCancellation(t *testing.T) {
 }
 
 func TestTC_S03_AC03_AdmissionAndWaitingBound(t *testing.T) {
-	store := &AliyunPreviewStore{admission: make(chan struct{}, 36), slots: make(chan struct{}, 4)}
+	store := &PreviewStore{admission: make(chan struct{}, 36), slots: make(chan struct{}, 4)}
 	for i := 0; i < cap(store.admission); i++ {
 		store.admission <- struct{}{}
 	}

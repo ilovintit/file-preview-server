@@ -93,6 +93,13 @@ func setupWithOSS(t *testing.T, ossConfig infrastructure.AliyunOSSConfig, source
 			}
 			bucket := fixtureOSSBucket(t, f.cfg.AliyunOSS)
 			for _, object := range objects.Strings() {
+				// The dedicated silo fixture owns and removes its own bucket. Never
+				// send its maintenance objects to the OSS adapter.
+				c := f.cfg.Silo
+				identity := sha256Hex([]byte("silo\n" + c.Endpoint + "\n" + c.Bucket + "\n" + c.PrefixBase + "\n" + c.Generation))
+				if c.Bucket != "" && strings.HasPrefix(object, strings.TrimSuffix(c.PrefixBase, "/")+"/"+identity+"/") {
+					continue
+				}
 				if !strings.HasPrefix(object, strings.TrimSuffix(f.cfg.AliyunOSS.PrefixBase, "/")+"/") {
 					t.Error("fixture object escaped CI prefix")
 					continue

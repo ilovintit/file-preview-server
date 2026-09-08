@@ -130,8 +130,16 @@ func (s *Service) PreparePreview(ctx context.Context, token string) (string, err
 	if err != nil {
 		return "", err
 	}
-	if s.preparer == nil || grant.StorageProfile != "aliyun-oss" {
+	if s.preparer == nil {
 		return "", entity.ErrUnavailable
 	}
 	return s.preparer.Prepare(ctx, *grant)
+}
+
+func (s *Service) Ready(ctx context.Context) error {
+	checker, ok := s.preparer.(repository.HealthChecker)
+	if !ok {
+		return entity.ErrUnavailable
+	}
+	return checker.Check(ctx)
 }

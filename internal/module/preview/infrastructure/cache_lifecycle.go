@@ -3,6 +3,7 @@ package infrastructure
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 )
 
@@ -65,7 +66,7 @@ redis.call('HSET',KEYS[2],ARGV[2],ARGV[3]);redis.call('ZADD',KEYS[3],ARGV[4],ARG
 
 // A cleanup claim first removes the matching published generation atomically.
 // A later grant may extend the deadline or publish a different immutable object.
-func (s *ValkeyStore) cleanupCandidates(ctx context.Context) ([]maintenanceRecord, error) {
+func (s *ValkeyStore) cleanupCandidates(ctx context.Context, identities ...string) ([]maintenanceRecord, error) {
 	now := s.clock().Unix()
 	r, err := s.db.Do(ctx, "ZRANGEBYSCORE", s.namespace+":objects:due", "-inf", now, "LIMIT", 0, 32)
 	if err != nil {
@@ -84,6 +85,18 @@ func (s *ValkeyStore) cleanupCandidates(ctx context.Context) ([]maintenanceRecor
 		}
 		if json.Unmarshal([]byte(raw.String()), &record) != nil {
 			return nil, unavailable()
+		}
+		if len(identities) > 0 {
+			owned := false
+			for _, identity := range identities {
+				if strings.HasPrefix(record.Identity, identity+":") {
+					owned = true
+					break
+				}
+			}
+			if !owned {
+				continue
+			}
 		}
 		claim, err := s.db.Do(ctx, "EVAL", `local due=redis.call('ZSCORE',KEYS[3],ARGV[1]);if not due or tonumber(due)>tonumber(ARGV[2]) then return 0 end
 local raw=redis.call('GET',KEYS[1]);local deadline=tonumber(redis.call('GET',KEYS[2]) or '0')

@@ -25,12 +25,12 @@ type safetyState struct {
 	Evicted int64  `json:"evicted"`
 }
 type ValkeyStore struct {
-	db              *gredis.Redis
-	namespace       string
-	clock           func() time.Time
-	mu              sync.Mutex
-	lastTime        int64
-	profileIdentity string
+	db                *gredis.Redis
+	namespace         string
+	clock             func() time.Time
+	mu                sync.Mutex
+	lastTime          int64
+	profileIdentities map[string]string
 }
 
 type cacheRecord struct {
@@ -40,7 +40,7 @@ type cacheRecord struct {
 }
 
 func NewValkeyStore(cfg Config, clock func() time.Time) (*ValkeyStore, error) {
-	s := &ValkeyStore{namespace: cfg.Namespace, clock: clock, profileIdentity: ossProfileIdentity(cfg.AliyunOSS)}
+	s := &ValkeyStore{namespace: cfg.Namespace, clock: clock, profileIdentities: map[string]string{"aliyun-oss": ossProfileIdentity(cfg.AliyunOSS), "silo": siloProfileIdentity(cfg.Silo)}}
 	if cfg.ValkeyAddress == "" {
 		return s, nil
 	}
@@ -157,16 +157,19 @@ func (s *ValkeyStore) Create(ctx context.Context, g entity.Grant) (bool, error) 
 		return false, entity.ErrInvalid
 	}
 	prefix := s.epochPrefix(st)
-	identity := s.profileIdentity + ":" + outputVersion(g.Filename) + ":" + g.ContentSHA256
+	profileIdentity, ok := s.profileIdentities[g.StorageProfile]
+	if !ok {
+		return false, entity.ErrInvalid
+	}
+	identity := profileIdentity + ":" + outputVersion(g.Filename) + ":" + g.ContentSHA256
 	result, err := s.db.Do(ctx, "EVAL", `if redis.call('GET',KEYS[1]) ~= ARGV[1] then return -1 end
 for _,id in ipairs(redis.call('ZRANGE',KEYS[2],0,-1)) do if not redis.call('GET',ARGV[6]..id) then redis.call('ZREM',KEYS[2],id) end end
 if redis.call('ZCARD',KEYS[2]) >= 10000 then return -1 end
 if not redis.call('SET',KEYS[3],ARGV[2],'NX','EXAT',ARGV[4]) then return 0 end
 redis.call('ZADD',KEYS[2],ARGV[5],ARGV[3]);if redis.call('TTL',KEYS[2]) == -1 then redis.call('EXPIREAT',KEYS[2],ARGV[4]) else redis.call('EXPIREAT',KEYS[2],ARGV[4],'GT') end
-if ARGV[8]=='aliyun-oss' then
 local deadline=math.max(tonumber(redis.call('GET',KEYS[4]) or '0'),tonumber(ARGV[7]))
 redis.call('SET',KEYS[4],deadline,'EXAT',deadline)
-end;return 1`, 4, s.guardKey(), prefix+"tokens:index", prefix+"token:"+g.Token, prefix+"deadline:"+identity, guard, string(raw), g.Token, g.ExpiresAt, g.CreatedAt, prefix+"token:", g.CacheExpiresAt, g.StorageProfile)
+return 1`, 4, s.guardKey(), prefix+"tokens:index", prefix+"token:"+g.Token, prefix+"deadline:"+identity, guard, string(raw), g.Token, g.ExpiresAt, g.CreatedAt, prefix+"token:", g.CacheExpiresAt)
 	if err != nil || result.Int() < 0 {
 		return false, unavailable()
 	}

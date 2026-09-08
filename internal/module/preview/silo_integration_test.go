@@ -14,7 +14,7 @@ func TestTC_S04_AC01_SiloPreviewContract(t *testing.T) {
 		_, _ = w.Write(rawPDF)
 	}))
 	defer source.Close()
-	f := setupS02(t, source.Client())
+	f, silo := setupSilo(t, source.Client())
 	input := resource()
 	input["storage_profile"], input["url"], input["content_sha256"] = "silo", source.URL, sha256Hex(rawPDF)
 	token := issueResource(t, f, input)
@@ -27,5 +27,13 @@ func TestTC_S04_AC01_SiloPreviewContract(t *testing.T) {
 	defer r.Body.Close()
 	if r.StatusCode != 302 {
 		t.Fatalf("silo preview expected302 got%d", r.StatusCode)
+	}
+	object, err := silo.proxy.Client().Get(r.Header.Get("Location"))
+	if err != nil {
+		t.Fatal("silo signed object read failed")
+	}
+	defer object.Body.Close()
+	if object.StatusCode != 200 || object.Header.Get("Content-Type") != "application/pdf" {
+		t.Fatalf("silo object expected PDF200 got%d", object.StatusCode)
 	}
 }
