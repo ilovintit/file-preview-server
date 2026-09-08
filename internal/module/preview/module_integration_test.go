@@ -136,7 +136,6 @@ func testAliyunOSS(t *testing.T) infrastructure.AliyunOSSConfig {
 	t.Helper()
 	keys := []string{
 		"PREVIEW_CI_ALIYUN_OSS_ENDPOINT",
-		"PREVIEW_CI_ALIYUN_OSS_REGION",
 		"PREVIEW_CI_ALIYUN_OSS_BUCKET",
 		"PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE",
 		"PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_ID",
@@ -157,7 +156,7 @@ func testAliyunOSS(t *testing.T) infrastructure.AliyunOSSConfig {
 	return infrastructure.AliyunOSSConfig{
 		Endpoint:        values["PREVIEW_CI_ALIYUN_OSS_ENDPOINT"],
 		PreviewEndpoint: os.Getenv("PREVIEW_CI_ALIYUN_OSS_PREVIEW_ENDPOINT"),
-		Region:          values["PREVIEW_CI_ALIYUN_OSS_REGION"],
+		Region:          os.Getenv("PREVIEW_CI_ALIYUN_OSS_REGION"),
 		Bucket:          values["PREVIEW_CI_ALIYUN_OSS_BUCKET"],
 		PrefixBase:      values["PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE"],
 		AccessKeyID:     values["PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_ID"],

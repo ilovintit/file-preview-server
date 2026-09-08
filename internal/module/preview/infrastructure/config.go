@@ -85,7 +85,8 @@ func (c Config) Validate() error {
 	}
 	oss := c.AliyunOSS
 	configuredOSS := oss.Endpoint != "" || oss.Region != "" || oss.Bucket != "" || oss.PrefixBase != "" || oss.AccessKeyID != "" || oss.AccessKeySecret != "" || oss.SecurityToken != "" || oss.SignedURLMaxTTL != 0
-	if configuredOSS && (oss.Endpoint == "" || oss.Region == "" || oss.Bucket == "" || oss.PrefixBase == "" || oss.AccessKeyID == "" || oss.AccessKeySecret == "" || oss.SignedURLMaxTTL < 1) {
+	// 当前使用 V1 签名，Region 不参与签名计算，允许省略。
+	if configuredOSS && (oss.Endpoint == "" || oss.Bucket == "" || oss.PrefixBase == "" || oss.AccessKeyID == "" || oss.AccessKeySecret == "" || oss.SignedURLMaxTTL < 1) {
 		return gerror.New("incomplete Aliyun OSS configuration")
 	}
 	if configuredOSS {
