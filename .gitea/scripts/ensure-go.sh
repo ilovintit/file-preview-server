@@ -41,8 +41,13 @@ mkdir -p "$cache_root"
 if [[ -x "$install_root/bin/go" ]]; then
   echo "using cached go in ${install_root}"
 else
-  echo "downloading ${required_version} from ${url}"
-  curl --silent --show-error --fail --location --connect-timeout 10 --max-time 300 --retry 3 --retry-delay 8 "$url" -o "$archive"
+  if [[ -s "$archive" ]]; then
+    echo "resuming ${required_version} download from ${url}"
+    curl --silent --show-error --fail --location --continue-at - --connect-timeout 10 --max-time 600 --retry 3 --retry-delay 8 "$url" -o "$archive"
+  else
+    echo "downloading ${required_version} from ${url}"
+    curl --silent --show-error --fail --location --connect-timeout 10 --max-time 600 --retry 3 --retry-delay 8 "$url" -o "$archive"
+  fi
   tmp_dir="$(mktemp -d)"
   tar -C "$tmp_dir" -xzf "$archive"
   rm -rf "$install_root"
