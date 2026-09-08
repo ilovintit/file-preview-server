@@ -20,7 +20,9 @@ import (
 
 	"git.shw.top/shw-project/file-preview-server/internal/module/preview/domain/entity"
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
+	_ "github.com/gen2brain/avif"
 	"github.com/gogf/gf/v2/errors/gerror"
+	_ "golang.org/x/image/webp"
 )
 
 const rawOutputVersion = "raw-v1"
@@ -245,20 +247,12 @@ func (s *AliyunPreviewStore) download(ctx context.Context, grant entity.Grant) (
 		if !bytes.HasPrefix(body, []byte("%PDF-")) || !bytes.Contains(body, []byte("%%EOF")) {
 			return nil, "", entity.ErrInvalid
 		}
-	case "image/jpeg", "image/png", "image/gif":
+	case "image/jpeg", "image/png", "image/gif", "image/webp", "image/avif":
 		config, format, err := image.DecodeConfig(bytes.NewReader(body))
 		if err != nil || config.Width < 1 || config.Height < 1 || int64(config.Width)*int64(config.Height) > 40000000 || contentType != "image/"+format {
 			return nil, "", entity.ErrInvalid
 		}
 		if _, _, err = image.Decode(bytes.NewReader(body)); err != nil {
-			return nil, "", entity.ErrInvalid
-		}
-	case "image/webp":
-		if len(body) < 12 || string(body[:4]) != "RIFF" || string(body[8:12]) != "WEBP" {
-			return nil, "", entity.ErrInvalid
-		}
-	case "image/avif":
-		if len(body) < 16 || string(body[4:8]) != "ftyp" || !bytes.Contains(body[8:min(len(body), 64)], []byte("avif")) {
 			return nil, "", entity.ErrInvalid
 		}
 	}

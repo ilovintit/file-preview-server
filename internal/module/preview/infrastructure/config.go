@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -84,6 +85,12 @@ func (c Config) Validate() error {
 	configuredOSS := oss.Endpoint != "" || oss.Region != "" || oss.Bucket != "" || oss.PrefixBase != "" || oss.AccessKeyID != "" || oss.AccessKeySecret != "" || oss.SecurityToken != "" || oss.SignedURLMaxTTL != 0
 	if configuredOSS && (oss.Endpoint == "" || oss.Region == "" || oss.Bucket == "" || oss.PrefixBase == "" || oss.AccessKeyID == "" || oss.AccessKeySecret == "" || oss.SignedURLMaxTTL < 1) {
 		return gerror.New("incomplete Aliyun OSS configuration")
+	}
+	if configuredOSS {
+		endpoint, err := url.Parse(oss.Endpoint)
+		if err != nil || endpoint.Scheme != "https" || endpoint.Hostname() == "" || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" || (endpoint.Path != "" && endpoint.Path != "/") || strings.Contains(oss.PrefixBase, "..") || strings.HasPrefix(oss.PrefixBase, "/") || strings.TrimSpace(oss.PrefixBase) != oss.PrefixBase || oss.SignedURLMaxTTL > 604800 {
+			return gerror.New("invalid OSS endpoint, prefix or signing TTL")
+		}
 	}
 	return nil
 }
