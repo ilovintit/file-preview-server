@@ -97,6 +97,7 @@ jobs:
           go-version-file: go.mod
           cache: false
       - name: 实际浏览器定向验证
+        shell: bash
         env:
           VALKEY_TEST_ADDR: valkey:6379
           PREVIEW_CI_ALIYUN_OSS_ENDPOINT: ${{ vars.PREVIEW_CI_ALIYUN_OSS_ENDPOINT }}
