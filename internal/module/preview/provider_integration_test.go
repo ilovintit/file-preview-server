@@ -3,14 +3,95 @@
 package preview_test
 
 import (
+	"context"
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
+
+func TestTC_S02_AC05_MissingObjectRebuildKeepsDeadline(t *testing.T) {
+	var missing atomic.Bool
+	var downloads atomic.Int32
+	source := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		downloads.Add(1)
+		if missing.Load() {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/pdf")
+		_, _ = w.Write(rawPDF)
+	}))
+	defer source.Close()
+	f := setupS02(t, source.Client())
+	input := resource()
+	input["url"], input["content_sha256"] = source.URL, sha256Hex(rawPDF)
+	token := issueResource(t, f, input)
+	client := f.server.Client()
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	preview := func() (int, string) {
+		t.Helper()
+		r, err := client.Get(f.server.URL + "/v/" + token)
+		if err != nil {
+			t.Fatal("preview transport failed")
+		}
+		defer r.Body.Close()
+		return r.StatusCode, r.Header.Get("Location")
+	}
+	code, location := preview()
+	if code != 302 {
+		t.Fatalf("first preview got%d", code)
+	}
+	objectURL, err := url.Parse(location)
+	if err != nil {
+		t.Fatal("invalid object URL")
+	}
+	ctx := context.Background()
+	keys, err := f.db.Do(ctx, "KEYS", f.cfg.Namespace+":auth:*:deadline:*")
+	if err != nil || len(keys.Strings()) != 1 {
+		t.Fatal("missing deadline")
+	}
+	before, err := f.db.Do(ctx, "GET", keys.Strings()[0])
+	if err != nil {
+		t.Fatal("deadline lookup failed")
+	}
+	bucket := fixtureOSSBucket(t, f.cfg.AliyunOSS)
+	if err = bucket.DeleteObject(strings.TrimPrefix(objectURL.Path, "/"), oss.WithContext(ctx)); err != nil {
+		t.Fatal("external object deletion failed")
+	}
+	f.now.Add(5)
+	code, reconstructed := preview()
+	if code != 302 {
+		t.Fatalf("rebuild got%d", code)
+	}
+	newObjectURL, err := url.Parse(reconstructed)
+	if err != nil {
+		t.Fatal("invalid rebuilt URL")
+	}
+	if newObjectURL.Path == objectURL.Path || downloads.Load() != 2 {
+		t.Fatal("rebuild must download once into a fresh generation")
+	}
+	after, err := f.db.Do(ctx, "GET", keys.Strings()[0])
+	if err != nil || after.Int64() != before.Int64() {
+		t.Fatal("rebuild renewed cache deadline")
+	}
+	if err = bucket.DeleteObject(strings.TrimPrefix(newObjectURL.Path, "/"), oss.WithContext(ctx)); err != nil {
+		t.Fatal("second external deletion failed")
+	}
+	missing.Store(true)
+	code, location = preview()
+	if code < 500 || location != "" {
+		t.Fatalf("missing source during rebuild must fail closed, got%d", code)
+	}
+	after, err = f.db.Do(ctx, "GET", keys.Strings()[0])
+	if err != nil || after.Int64() != before.Int64() {
+		t.Fatal("failed rebuild renewed cache deadline")
+	}
+}
 
 func TestTC_S02_AC06_SignedHeadAndExpiry(t *testing.T) {
 	source := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
