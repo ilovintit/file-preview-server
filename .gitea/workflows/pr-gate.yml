@@ -80,7 +80,7 @@ jobs:
   browser:
     name: S02 Chromium 图片与 PDF 跨域读取
     runs-on: ubuntu-latest
-    needs: heavy
+    needs: fast
     container:
       image: reg.shw.top/ci-cache/ci-playwright-toolchain@sha256:e7732b466aa4abbc88c03c5779e7fa3305fce697c63e803c08c7462a74774f32
       credentials:
