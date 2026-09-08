@@ -14,3 +14,7 @@
 2. 扩展统一缓存输出版本、输入类型验证及 Gotenberg 有界调用，保留现有 lease/发布/签名授权重检。
 3. 实际 Gotenberg + Valkey + OSS 检查六格式的页数、关键内容及错误/取消/并发契约，补充固定镜像和同 Pod 声明。
 4. 当前 head CI 全绿后自审、合入 dev、回填关闭本 Issue，再推进 #18。
+
+## 实际转换首轮
+
+CI 10664 / job 18183（head `d38e6bbd80b92b9a76583c768b0edcb4f4f1433b`）六格式均真实转换并经 OSS 返回可解析的一页 PDF。DOC/DOCX/PPT/PPTX 关键文字通过；XLS/XLSX 的提取结果为 `FixturePage 1S03Sheet42`，预期来自两个单元格 `S03Sheet` 与 `42`，不是转换丢失内容。断言仅归一化空白，仍要求全部预期字符及顺序，不修改 fixture 或删掉关键内容检查。

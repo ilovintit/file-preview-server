@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"git.shw.top/shw-project/file-preview-server/internal/module/preview/application"
@@ -13,10 +14,13 @@ import (
 )
 
 type Module struct {
-	handler http.Handler
-	store   *infrastructure.ValkeyStore
-	stop    context.CancelFunc
-	done    chan struct{}
+	handler  http.Handler
+	store    *infrastructure.ValkeyStore
+	stop     context.CancelFunc
+	done     chan struct{}
+	mu       sync.Mutex
+	closing  bool
+	requests sync.WaitGroup
 }
 
 func New(cfg infrastructure.Config, clock func() time.Time) (*Module, error) {
@@ -48,13 +52,26 @@ func New(cfg infrastructure.Config, clock func() time.Time) (*Module, error) {
 	issue := auth.Wrap("internal", controller.Issue, controller.Error)
 	query := auth.Wrap("admin", controller.Query, controller.Error)
 	revoke := auth.Wrap("admin", controller.Revoke, controller.Error)
+	lifecycle, stop := context.WithCancel(context.Background())
+	m := &Module{store: store, stop: stop, done: make(chan struct{})}
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		m.mu.Lock()
+		if m.closing {
+			m.mu.Unlock()
+			controller.Error(w, r, entity.ErrUnavailable)
+			return
+		}
+		m.requests.Add(1)
+		m.mu.Unlock()
+		defer m.requests.Done()
 		budget := 10 * time.Second
 		if cfg.GotenbergURL != "" && r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/v/") {
 			budget = 45 * time.Second
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), budget)
 		defer cancel()
+		stopCancellation := context.AfterFunc(lifecycle, cancel)
+		defer stopCancellation()
 		r = r.WithContext(ctx)
 		switch {
 		case r.Method == "POST" && r.URL.Path == "/internal/tokens":
@@ -73,30 +90,39 @@ func New(cfg infrastructure.Config, clock func() time.Time) (*Module, error) {
 			controller.Error(w, r, entity.ErrNotFound)
 		}
 	})
-	ctx, stop := context.WithCancel(context.Background())
-	done := make(chan struct{})
 	go func() {
-		defer close(done)
+		defer close(m.done)
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
-			case <-ctx.Done():
+			case <-lifecycle.Done():
 				return
 			case <-ticker.C:
 				if preparer != nil {
-					batch, cancel := context.WithTimeout(ctx, 3*time.Second)
+					batch, cancel := context.WithTimeout(lifecycle, 3*time.Second)
 					_ = preparer.Cleanup(batch)
 					cancel()
 				}
 			}
 		}
 	}()
-	return &Module{handler: h, store: store, stop: stop, done: done}, nil
+	m.handler = h
+	return m, nil
 }
 func (m *Module) Handler() http.Handler { return m.handler }
 func (m *Module) Close(ctx context.Context) error {
+	m.mu.Lock()
+	m.closing = true
 	m.stop()
+	m.mu.Unlock()
+	drained := make(chan struct{})
+	go func() { m.requests.Wait(); close(drained) }()
+	select {
+	case <-drained:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 	select {
 	case <-m.done:
 	case <-ctx.Done():

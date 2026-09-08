@@ -116,7 +116,9 @@ func TestTC_S03_AC01_CoreOfficeConversion(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !strings.Contains(strings.Join(strings.Fields(string(text)), " "), tc.Text) {
+			// PDF text extraction does not synthesize spaces between spreadsheet
+			// cells. Require all expected characters in order, ignoring only whitespace.
+			if !strings.Contains(strings.Join(strings.Fields(string(text)), ""), strings.Join(strings.Fields(tc.Text), "")) {
 				t.Fatalf("PDF content mismatch: expected %q got %q", tc.Text, string(text))
 			}
 		})
