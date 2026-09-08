@@ -15,6 +15,8 @@ import (
 type Module struct {
 	handler http.Handler
 	store   *infrastructure.ValkeyStore
+	stop    context.CancelFunc
+	done    chan struct{}
 }
 
 func New(cfg infrastructure.Config, clock func() time.Time) (*Module, error) {
@@ -28,7 +30,19 @@ func New(cfg infrastructure.Config, clock func() time.Time) (*Module, error) {
 	if err != nil {
 		return nil, err
 	}
-	service := application.New(store, clock, cfg.MaxCacheTTL, cfg.Profiles)
+	preparer, err := infrastructure.NewAliyunPreviewStore(cfg, store, clock)
+	if err != nil {
+		_ = store.Close(context.Background())
+		return nil, err
+	}
+	// 只有已实际装配的存储适配器才能用于签发；声明名称不能替代配置。
+	var configuredProfiles []string
+	for _, profile := range cfg.Profiles {
+		if profile == "aliyun-oss" && preparer != nil {
+			configuredProfiles = append(configuredProfiles, profile)
+		}
+	}
+	service := application.New(store, preparer, clock, cfg.MaxCacheTTL, configuredProfiles)
 	controller := interfaces.New(service)
 	auth := infrastructure.NewAuthenticator(cfg, store, clock)
 	issue := auth.Wrap("internal", controller.Issue, controller.Error)
@@ -55,7 +69,34 @@ func New(cfg infrastructure.Config, clock func() time.Time) (*Module, error) {
 			controller.Error(w, r, entity.ErrNotFound)
 		}
 	})
-	return &Module{handler: h, store: store}, nil
+	ctx, stop := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if preparer != nil {
+					batch, cancel := context.WithTimeout(ctx, 3*time.Second)
+					_ = preparer.Cleanup(batch)
+					cancel()
+				}
+			}
+		}
+	}()
+	return &Module{handler: h, store: store, stop: stop, done: done}, nil
 }
-func (m *Module) Handler() http.Handler           { return m.handler }
-func (m *Module) Close(ctx context.Context) error { return m.store.Close(ctx) }
+func (m *Module) Handler() http.Handler { return m.handler }
+func (m *Module) Close(ctx context.Context) error {
+	m.stop()
+	select {
+	case <-m.done:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	return m.store.Close(ctx)
+}

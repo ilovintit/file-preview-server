@@ -185,12 +185,15 @@ func (c *Controller) Revoke(w http.ResponseWriter, r *http.Request, _ string) {
 }
 func (c *Controller) Preview(w http.ResponseWriter, r *http.Request) {
 	token := strings.TrimPrefix(r.URL.Path, "/v/")
-	if _, err := c.service.Resolve(r.Context(), token); err != nil {
+	location, err := c.service.PreparePreview(r.Context(), token)
+	if err != nil {
 		c.Error(w, r, err)
 		return
 	}
-	// S01 deliberately has no resource-serving path. S02 replaces this with controlled storage.
-	c.Error(w, r, entity.ErrUnavailable)
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	http.Redirect(w, r, location, http.StatusFound)
 }
 func (c *Controller) Live(w http.ResponseWriter, r *http.Request) {
 	c.write(w, r, 200, 0, "存活", struct{}{})

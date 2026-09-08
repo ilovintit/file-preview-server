@@ -25,15 +25,22 @@ type safetyState struct {
 	Evicted int64  `json:"evicted"`
 }
 type ValkeyStore struct {
-	db        *gredis.Redis
-	namespace string
-	clock     func() time.Time
-	mu        sync.Mutex
-	lastTime  int64
+	db              *gredis.Redis
+	namespace       string
+	clock           func() time.Time
+	mu              sync.Mutex
+	lastTime        int64
+	profileIdentity string
+}
+
+type cacheRecord struct {
+	ObjectKey string `json:"object_key"`
+	ExpiresAt int64  `json:"expires_at"`
+	MediaType string `json:"media_type"`
 }
 
 func NewValkeyStore(cfg Config, clock func() time.Time) (*ValkeyStore, error) {
-	s := &ValkeyStore{namespace: cfg.Namespace, clock: clock}
+	s := &ValkeyStore{namespace: cfg.Namespace, clock: clock, profileIdentity: ossProfileIdentity(cfg.AliyunOSS)}
 	if cfg.ValkeyAddress == "" {
 		return s, nil
 	}
@@ -150,11 +157,16 @@ func (s *ValkeyStore) Create(ctx context.Context, g entity.Grant) (bool, error) 
 		return false, entity.ErrInvalid
 	}
 	prefix := s.epochPrefix(st)
+	identity := s.profileIdentity + ":" + rawOutputVersion + ":" + g.ContentSHA256
 	result, err := s.db.Do(ctx, "EVAL", `if redis.call('GET',KEYS[1]) ~= ARGV[1] then return -1 end
 for _,id in ipairs(redis.call('ZRANGE',KEYS[2],0,-1)) do if not redis.call('GET',ARGV[6]..id) then redis.call('ZREM',KEYS[2],id) end end
 if redis.call('ZCARD',KEYS[2]) >= 10000 then return -1 end
 if not redis.call('SET',KEYS[3],ARGV[2],'NX','EXAT',ARGV[4]) then return 0 end
-redis.call('ZADD',KEYS[2],ARGV[5],ARGV[3]);if redis.call('TTL',KEYS[2]) == -1 then redis.call('EXPIREAT',KEYS[2],ARGV[4]) else redis.call('EXPIREAT',KEYS[2],ARGV[4],'GT') end;return 1`, 3, s.guardKey(), prefix+"tokens:index", prefix+"token:"+g.Token, guard, string(raw), g.Token, g.ExpiresAt, g.CreatedAt, prefix+"token:")
+redis.call('ZADD',KEYS[2],ARGV[5],ARGV[3]);if redis.call('TTL',KEYS[2]) == -1 then redis.call('EXPIREAT',KEYS[2],ARGV[4]) else redis.call('EXPIREAT',KEYS[2],ARGV[4],'GT') end
+if ARGV[8]=='aliyun-oss' then
+local deadline=math.max(tonumber(redis.call('GET',KEYS[4]) or '0'),tonumber(ARGV[7]))
+redis.call('SET',KEYS[4],deadline,'EXAT',deadline)
+end;return 1`, 4, s.guardKey(), prefix+"tokens:index", prefix+"token:"+g.Token, prefix+"deadline:"+identity, guard, string(raw), g.Token, g.ExpiresAt, g.CreatedAt, prefix+"token:", g.CacheExpiresAt, g.StorageProfile)
 	if err != nil || result.Int() < 0 {
 		return false, unavailable()
 	}
@@ -218,6 +230,49 @@ func (s *ValkeyStore) Revoke(ctx context.Context, token string) error {
 	prefix := s.epochPrefix(st)
 	r, err := s.db.Do(ctx, "EVAL", `if redis.call('GET',KEYS[1]) ~= ARGV[1] then return -1 end;redis.call('DEL',KEYS[2]);redis.call('ZREM',KEYS[3],ARGV[2]);return 1`, 3, s.guardKey(), prefix+"token:"+token, prefix+"tokens:index", guard, token)
 	if err != nil || r.Int() < 0 {
+		return unavailable()
+	}
+	return nil
+}
+
+func (s *ValkeyStore) GetCache(ctx context.Context, identity string) (*cacheRecord, error) {
+	st, guard, err := s.ensure(ctx)
+	if err != nil {
+		return nil, err
+	}
+	prefix := s.epochPrefix(st)
+	r, err := s.db.Do(ctx, "EVAL", `if redis.call('GET',KEYS[1]) ~= ARGV[1] then return '!guard' end
+local raw=redis.call('GET',KEYS[2]);if not raw then return '' end
+local record=cjson.decode(raw);local deadline=tonumber(redis.call('GET',KEYS[3]) or '0')
+if deadline<=tonumber(ARGV[2]) then return '' end
+record.expires_at=deadline;return cjson.encode(record)`, 3, s.guardKey(), prefix+"cache:"+identity, prefix+"deadline:"+identity, guard, s.clock().Unix())
+	if err != nil || r.String() == "!guard" {
+		return nil, unavailable()
+	}
+	if r.String() == "" {
+		return nil, entity.ErrNotFound
+	}
+	var value cacheRecord
+	if json.Unmarshal([]byte(r.String()), &value) != nil || value.ExpiresAt <= s.clock().Unix() {
+		return nil, entity.ErrNotFound
+	}
+	return &value, nil
+}
+
+func (s *ValkeyStore) PutCache(ctx context.Context, identity, owner string, value cacheRecord) error {
+	st, guard, err := s.ensure(ctx)
+	if err != nil {
+		return err
+	}
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return unavailable()
+	}
+	prefix := s.epochPrefix(st)
+	r, err := s.db.Do(ctx, "EVAL", `if redis.call('GET',KEYS[1]) ~= ARGV[1] or redis.call('GET',KEYS[3]) ~= ARGV[3] then return -1 end
+local deadline=tonumber(redis.call('GET',KEYS[4]) or '0');if deadline<=tonumber(ARGV[4]) then return -1 end
+redis.call('SET',KEYS[2],ARGV[2]);return 1`, 4, s.guardKey(), prefix+"cache:"+identity, prefix+"lease:"+identity, prefix+"deadline:"+identity, guard, string(raw), owner, s.clock().Unix())
+	if err != nil || r.Int() != 1 {
 		return unavailable()
 	}
 	return nil

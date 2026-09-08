@@ -10,10 +10,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -47,6 +49,14 @@ type response struct {
 }
 
 func setup(t *testing.T) *fixture {
+	return setupWithOSS(t, testAliyunOSS(t), nil)
+}
+
+func setupS02(t *testing.T, sourceClient *http.Client) *fixture {
+	return setupWithOSS(t, testAliyunOSS(t), sourceClient)
+}
+
+func setupWithOSS(t *testing.T, ossConfig infrastructure.AliyunOSSConfig, sourceClient *http.Client, configure ...func(*infrastructure.Config)) *fixture {
 	t.Helper()
 	address := os.Getenv("VALKEY_TEST_ADDR")
 	if address == "" {
@@ -54,7 +64,10 @@ func setup(t *testing.T) *fixture {
 	}
 	f := &fixture{t: t}
 	f.now.Store(time.Now().Unix())
-	f.cfg = infrastructure.Config{ValkeyAddress: address, Namespace: fmt.Sprintf("test-preview-%d", time.Now().UnixNano()), MaxCacheTTL: 86400, Profiles: []string{"aliyun-oss", "silo"}, Keys: []infrastructure.CallerKey{{ID: "internal", Role: "internal", Secret: internalSecret}, {ID: "internal-next", Role: "internal", Secret: internalSecret}, {ID: "admin", Role: "admin", Secret: adminSecret}}}
+	f.cfg = infrastructure.Config{ValkeyAddress: address, Namespace: fmt.Sprintf("test-preview-%d", time.Now().UnixNano()), MaxCacheTTL: 86400, Profiles: []string{"aliyun-oss", "silo"}, Keys: []infrastructure.CallerKey{{ID: "internal", Role: "internal", Secret: internalSecret}, {ID: "internal-next", Role: "internal", Secret: internalSecret}, {ID: "admin", Role: "admin", Secret: adminSecret}}, AliyunOSS: ossConfig, SourceHTTPClient: sourceClient}
+	for _, change := range configure {
+		change(&f.cfg)
+	}
 	var err error
 	f.db, err = gredis.New(&gredis.Config{Address: address, Db: 0, Protocol: 2})
 	if err != nil {
@@ -70,6 +83,26 @@ func setup(t *testing.T) *fixture {
 	t.Cleanup(func() {
 		f.server.Close()
 		_ = f.module.Close(context.Background())
+		if f.cfg.AliyunOSS.Bucket != "" {
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+			objects, e := f.db.Do(ctx, "HKEYS", f.cfg.Namespace+":objects")
+			if e != nil {
+				t.Error("cannot read fixture cleanup records")
+				return
+			}
+			bucket := fixtureOSSBucket(t, f.cfg.AliyunOSS)
+			for _, object := range objects.Strings() {
+				if !strings.HasPrefix(object, strings.TrimSuffix(f.cfg.AliyunOSS.PrefixBase, "/")+"/") {
+					t.Error("fixture object escaped CI prefix")
+					continue
+				}
+				if err := bucket.DeleteObject(object, oss.WithContext(ctx)); err != nil {
+					t.Error("fixture OSS deletion failed")
+					return
+				}
+			}
+		}
 		keys, e := f.db.Do(context.Background(), "KEYS", f.cfg.Namespace+":*")
 		if e == nil {
 			for _, key := range keys.Strings() {
@@ -79,6 +112,58 @@ func setup(t *testing.T) *fixture {
 		_ = f.db.Close(context.Background())
 	})
 	return f
+}
+
+func fixtureOSSBucket(t *testing.T, c infrastructure.AliyunOSSConfig) *oss.Bucket {
+	t.Helper()
+	options := []oss.ClientOption{oss.Timeout(3, 8)}
+	if c.SecurityToken != "" {
+		options = append(options, oss.SecurityToken(c.SecurityToken))
+	}
+	client, err := oss.New(c.Endpoint, c.AccessKeyID, c.AccessKeySecret, options...)
+	if err != nil {
+		t.Fatal("invalid fixture OSS client")
+	}
+	client.SetRegion(c.Region)
+	bucket, err := client.Bucket(c.Bucket)
+	if err != nil {
+		t.Fatal("invalid fixture OSS bucket")
+	}
+	return bucket
+}
+
+func testAliyunOSS(t *testing.T) infrastructure.AliyunOSSConfig {
+	t.Helper()
+	keys := []string{
+		"PREVIEW_CI_ALIYUN_OSS_ENDPOINT",
+		"PREVIEW_CI_ALIYUN_OSS_BUCKET",
+		"PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE",
+		"PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_ID",
+		"PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_SECRET",
+		"PREVIEW_CI_OSS_SIGNED_URL_MAX_TTL_SECONDS",
+	}
+	values := make(map[string]string, len(keys))
+	for _, key := range keys {
+		values[key] = os.Getenv(key)
+		if values[key] == "" {
+			t.Fatalf("S02 integration requires %s", key)
+		}
+	}
+	maxTTL, err := strconv.ParseInt(values["PREVIEW_CI_OSS_SIGNED_URL_MAX_TTL_SECONDS"], 10, 64)
+	if err != nil || maxTTL < 1 {
+		t.Fatal("invalid PREVIEW_CI_OSS_SIGNED_URL_MAX_TTL_SECONDS")
+	}
+	return infrastructure.AliyunOSSConfig{
+		Endpoint:        values["PREVIEW_CI_ALIYUN_OSS_ENDPOINT"],
+		PreviewEndpoint: os.Getenv("PREVIEW_CI_ALIYUN_OSS_PREVIEW_ENDPOINT"),
+		Region:          os.Getenv("PREVIEW_CI_ALIYUN_OSS_REGION"),
+		Bucket:          values["PREVIEW_CI_ALIYUN_OSS_BUCKET"],
+		PrefixBase:      values["PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE"],
+		AccessKeyID:     values["PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_ID"],
+		AccessKeySecret: values["PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_SECRET"],
+		SecurityToken:   os.Getenv("PREVIEW_CI_ALIYUN_OSS_SECURITY_TOKEN"),
+		SignedURLMaxTTL: maxTTL,
+	}
 }
 
 func resource() map[string]any {

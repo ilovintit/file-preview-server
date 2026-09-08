@@ -11,3 +11,7 @@ type TokenStore interface {
 	Get(context.Context, string) (*entity.Grant, error)
 	Revoke(context.Context, string) error
 }
+
+type PreviewPreparer interface {
+	Prepare(context.Context, entity.Grant) (string, error)
+}

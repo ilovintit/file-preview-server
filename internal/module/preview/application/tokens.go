@@ -15,14 +15,15 @@ import (
 
 type Service struct {
 	store       repository.TokenStore
+	preparer    repository.PreviewPreparer
 	clock       func() time.Time
 	maxCacheTTL int64
 	profiles    map[string]bool
 	NewToken    func() (string, error)
 }
 
-func New(store repository.TokenStore, clock func() time.Time, max int64, profiles []string) *Service {
-	s := &Service{store: store, clock: clock, maxCacheTTL: max, profiles: make(map[string]bool), NewToken: RandomToken}
+func New(store repository.TokenStore, preparer repository.PreviewPreparer, clock func() time.Time, max int64, profiles []string) *Service {
+	s := &Service{store: store, preparer: preparer, clock: clock, maxCacheTTL: max, profiles: make(map[string]bool), NewToken: RandomToken}
 	for _, p := range profiles {
 		s.profiles[p] = true
 	}
@@ -122,4 +123,15 @@ func (s *Service) Resolve(ctx context.Context, token string) (*entity.Grant, err
 		return nil, entity.ErrNotFound
 	}
 	return s.store.Get(ctx, token)
+}
+
+func (s *Service) PreparePreview(ctx context.Context, token string) (string, error) {
+	grant, err := s.Resolve(ctx, token)
+	if err != nil {
+		return "", err
+	}
+	if s.preparer == nil || grant.StorageProfile != "aliyun-oss" {
+		return "", entity.ErrUnavailable
+	}
+	return s.preparer.Prepare(ctx, *grant)
 }

@@ -8,7 +8,7 @@
 
 应用镜像只包含 Go 二进制及必要运行资源；Gotenberg 8.34.0 使用独立 sidecar 镜像，不把其二进制或 Office 依赖打入应用镜像。两个镜像均在部署声明中固定不可变 digest；缓存使用 Valkey。对象存储以具名 `storage_profile` 配置：v1 仅有 `aliyun-oss` 与 `silo` 两个 profile。环境变量配置 profile endpoint、bucket、凭据、生命周期、`MAX_CACHE_TTL`（默认 86400，签发要求 ttl ≤ cache_ttl ≤ MAX_CACHE_TTL）、调用方 current/next HMAC key；生产环境配置 HTTPS/mTLS；明文凭据不写入仓库。
 
-只有所选 storage profile 是预览 302 的最终域名；调用方源 URL 仅供服务端下载，客户端不访问源站。部署放行前基础设施侧必须确认：profile 内的原样图片/PDF 与转换 PDF 均经 HTTPS 提供，媒体类型和 `Content-Disposition: inline` 元数据正确；仓库内微信 demo H5 的 Origin 已被精确配置到所有测试最终域名的 CORS，且支持 `GET`、`HEAD` 和单个 `Range`；缓存对象按请求 `cache_ttl` 通过 provider 生命周期/清理策略删除。demo 维护预览服务、`aliyun-oss`/`silo` 和 H5 的测试域名配置，项目仓库不保存生产凭据。原生 App 的域名与网络策略在下一版本再定义。
+只有所选 storage profile 是预览 302 的最终域名；调用方源 URL 仅供服务端下载，客户端不访问源站。部署放行前基础设施侧必须确认：profile 内的原样图片/PDF 与转换 PDF 均经 HTTPS 提供，媒体类型和 `Content-Disposition: inline` 元数据正确；共享 OSS 测试 bucket 对 H5 使用无凭据通配 CORS（`*`），支持 `GET`、`HEAD`、单个 `Range` 并暴露读取所需响应头；缓存对象按请求 `cache_ttl` 通过 provider 生命周期/清理策略删除。通配 CORS 不得与 Cookie/Authorization 等浏览器凭据组合使用。demo 维护预览服务、`aliyun-oss`/`silo` 和 H5 的测试域名配置，项目仓库不保存生产凭据。原生 App 的域名与网络策略在下一版本再定义。
 
 ## 当前事实与待交付边界
 
@@ -45,6 +45,16 @@ Issue #1 在 `deploy/` 维护应用/sidecar 镜像、Deployment、Service、HTTP
 Harbor 地址、仓库名、机器人凭据与 Fleet target 没有现成证据，不能使用猜测地址或其他仓库资源补齐。PR CI 不注入部署/生产 key；发布 CI 的制品凭据仅由受保护发布环境提供。Fleet 拉取的是本项目内声明，不使用中央仓库承载本项目变更。首版 H5 自动化使用仓库内可复现的 CI 容器/HTTPS/provider 配置；实际业务域名、集群登记和运行反馈在交付接入时落实，不能以当前环境缺少真实业务目标要求人工前置验收。
 
 ## 启动、就绪与网络权限
+
+### S02 OSS 预览域名
+
+当前 OSS SDK 使用 V1 签名，`PREVIEW_CI_ALIYUN_OSS_REGION` 可省略；Endpoint 与 bucket 决定访问目标。若后续切换 V4 签名，需在同次变更中落实签名地域的推导或显式配置。
+
+`PREVIEW_CI_ALIYUN_OSS_ENDPOINT` 用于 SDK 上传、HEAD 和清理。可另配 `PREVIEW_CI_ALIYUN_OSS_PREVIEW_ENDPOINT` 为同一 bucket 已绑定证书和 CNAME 的 HTTPS 自定义域名，签名时使用 SDK CNAME 模式；不拼接 bucket 前缀，也不在签名后替换 Host。CI #10258 已观测默认 OSS 域名对 PNG/JPEG/GIF/WebP 强制返回 attachment，即使对象上传元数据设置 inline；需要真实自定义域名才能完成对应 inline 验收。共享 bucket CORS 仍采用用户已确认的无凭据通配策略，不改变其他系统的桶配置。
+
+### S02 运行预算
+
+当前原样预览请求总预算10秒，源下载8秒且最多4次跟随重定向，所有跳转必须HTTPS；输入最多32MiB，图片最多4000万像素，每进程最多4个并行预览执行槽。准备锁3秒、每1秒续租；清理每5秒扫描最多32条，单批预算3秒，删除失败保留记录并至少30秒后重试。上述为实施资源上限，不代表已达到性能SLO；Office切片需按转换预算继续评估。
 
 结构无效配置应拒绝启动；缺失某角色密钥时对应受保护端点按 503 关闭，不能省略中间件。readyz 检查当前声明启用的必要依赖，不把“支持两个 profile”误写为每个环境必须同时启用两个；两 profile 的产品验收仍都要完成。依赖详情不暴露给匿名探针调用方，内部观测记录脱敏原因。liveness 不依赖 Valkey/存储，避免外部故障引发无意义重启。
 
