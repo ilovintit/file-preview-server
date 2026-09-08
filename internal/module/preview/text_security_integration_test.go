@@ -144,9 +144,29 @@ func checkMacroDocument(t *testing.T, eventEnabled, libraryEnabled bool) {
 		}
 	}
 	for name, body := range map[string]string{
-		"Basic/script-lc.xml":          `<?xml version="1.0" encoding="UTF-8"?><library:libraries xmlns:library="http://openoffice.org/2000/library" xmlns:xlink="http://www.w3.org/1999/xlink"><library:library library:name="Standard" library:link="false"/></library:libraries>`,
-		"Basic/Standard/script-lb.xml": `<?xml version="1.0" encoding="UTF-8"?><library:library xmlns:library="http://openoffice.org/2000/library" library:name="Standard" library:readonly="false" library:passwordprotected="false"><library:element library:name="Module1"/></library:library>`,
-		"Basic/Standard/Module1.xml": `<?xml version="1.0" encoding="UTF-8"?><script:module xmlns:script="http://openoffice.org/2000/script" script:name="Module1" script:language="StarBasic"><![CDATA[Sub Main
+		"Basic/script-lc.xml": `<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE library:libraries PUBLIC "-//OpenOffice.org//DTD OfficeDocument 1.0//EN" "libraries.dtd">
+
+<library:libraries xmlns:library="http://openoffice.org/2000/library" xmlns:xlink="http://www.w3.org/1999/xlink">
+
+<library:library library:name="Standard" library:link="false"/>
+
+</library:libraries>`,
+		"Basic/Standard/script-lb.xml": `<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE library:library PUBLIC "-//OpenOffice.org//DTD OfficeDocument 1.0//EN" "library.dtd">
+
+<library:library xmlns:library="http://openoffice.org/2000/library" library:name="Standard" library:readonly="false" library:passwordprotected="false">
+
+<library:element library:name="Module1"/>
+
+</library:library>`,
+		"Basic/Standard/Module1.xml": `<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE script:module PUBLIC "-//OpenOffice.org//DTD OfficeDocument 1.0//EN" "module.dtd">
+
+<script:module xmlns:script="http://openoffice.org/2000/script" script:name="Module1" script:language="StarBasic" script:moduleType="normal"><![CDATA[Sub Main
 ThisComponent.Text.String = "MACRO_EXECUTED"
 End Sub]]></script:module>`,
 	} {
