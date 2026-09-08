@@ -96,8 +96,9 @@ func setupWithOSS(t *testing.T, ossConfig infrastructure.AliyunOSSConfig, source
 				// The dedicated silo fixture owns and removes its own bucket. Never
 				// send its maintenance objects to the OSS adapter.
 				c := f.cfg.Silo
-				identity := sha256Hex([]byte("silo\n" + c.Endpoint + "\n" + c.Bucket + "\n" + c.PrefixBase + "\n" + c.Generation))
-				if c.Bucket != "" && strings.HasPrefix(object, strings.TrimSuffix(c.PrefixBase, "/")+"/"+identity+"/") {
+				ossID := sha256Hex([]byte(f.cfg.AliyunOSS.Endpoint + "\n" + f.cfg.AliyunOSS.Bucket + "\n" + f.cfg.AliyunOSS.PrefixBase))
+				isOSS := strings.HasPrefix(object, strings.TrimSuffix(f.cfg.AliyunOSS.PrefixBase, "/")+"/"+ossID+"/")
+				if !isOSS && c.Bucket != "" && strings.HasPrefix(object, strings.TrimSuffix(c.PrefixBase, "/")+"/") {
 					continue
 				}
 				if !strings.HasPrefix(object, strings.TrimSuffix(f.cfg.AliyunOSS.PrefixBase, "/")+"/") {

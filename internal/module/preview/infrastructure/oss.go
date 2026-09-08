@@ -108,9 +108,12 @@ func (s *aliyunObjectStorage) SignGet(ctx context.Context, key string, ttl int64
 	return location, expires, nil
 }
 func (s *aliyunObjectStorage) Check(ctx context.Context) error {
-	err := s.Stat(ctx, s.prefix+"/.preview-readiness")
-	if errors.Is(err, entity.ErrNotFound) {
-		return nil
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	// A missing object's HEAD may omit its error code, so it cannot prove
+	// the configured bucket exists. Read the bucket's location instead.
+	if _, err := s.bucket.Client.GetBucketLocation(s.bucket.BucketName, oss.WithContext(ctx)); err != nil {
+		return entity.ErrUnavailable
 	}
-	return err
+	return nil
 }

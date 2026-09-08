@@ -24,6 +24,14 @@ import (
 )
 
 func TestTC_S02_BrowserNavigation(t *testing.T) {
+	browserNavigation(t, "aliyun-oss")
+}
+
+func TestTC_S04_AC04_SiloBrowserNavigation(t *testing.T) {
+	browserNavigation(t, "silo")
+}
+
+func browserNavigation(t *testing.T, profile string) {
 	matches, err := filepath.Glob("/ms-playwright/chromium-*/chrome-linux*/chrome")
 	if err != nil || len(matches) != 1 {
 		t.Fatal("CI requires one pinned Chromium installation")
@@ -35,8 +43,14 @@ func TestTC_S02_BrowserNavigation(t *testing.T) {
 				_, _ = w.Write(value.body)
 			}))
 			defer source.Close()
-			f := setupS02(t, source.Client())
+			var f *fixture
+			if profile == "silo" {
+				f, _ = setupSilo(t, source.Client())
+			} else {
+				f = setupS02(t, source.Client())
+			}
 			input := resource()
+			input["storage_profile"] = profile
 			input["url"], input["content_sha256"], input["filename"] = source.URL, sha256Hex(value.body), "fixture."+ext
 			token := issueResource(t, f, input)
 			cert, err := x509.ParseCertificate(f.server.TLS.Certificates[0].Certificate[0])
@@ -133,7 +147,7 @@ func TestTC_S02_BrowserNavigation(t *testing.T) {
 				var debug []byte
 				if chromedp.Run(ctx, chromedp.CaptureScreenshot(&debug)) == nil {
 					_ = os.MkdirAll("../../../.cache/browser-artifacts", 0755)
-					_ = os.WriteFile("../../../.cache/browser-artifacts/pdf-before-check.png", debug, 0644)
+					_ = os.WriteFile("../../../.cache/browser-artifacts/"+profile+"-pdf-before-check.png", debug, 0644)
 				}
 				if err = chromedp.Run(ctx, chromedp.ActionFunc(waitPDFViewer)); err != nil {
 					t.Fatal("PDF viewer element unavailable")
@@ -150,7 +164,7 @@ func TestTC_S02_BrowserNavigation(t *testing.T) {
 			if err = os.MkdirAll("../../../.cache/browser-artifacts", 0755); err != nil {
 				t.Fatal(err)
 			}
-			if err = os.WriteFile("../../../.cache/browser-artifacts/"+ext+".png", screenshot, 0644); err != nil {
+			if err = os.WriteFile("../../../.cache/browser-artifacts/"+profile+"-"+ext+".png", screenshot, 0644); err != nil {
 				t.Fatal(err)
 			}
 		})
