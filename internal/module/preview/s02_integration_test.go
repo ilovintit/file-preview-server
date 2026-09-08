@@ -178,6 +178,32 @@ func TestTC_S02_AC01_RejectSpoofedPDF(t *testing.T) {
 	}
 }
 
+func TestTC_S02_AC01_RejectMalformedAndOversizedPDF(t *testing.T) {
+	for name, body := range map[string][]byte{"malformed": []byte("%PDF-1.4\ninvalid PDF structure\n%%EOF\n"), "oversized": bytes.Repeat([]byte{'x'}, (32<<20)+1)} {
+		t.Run(name, func(t *testing.T) {
+			source := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/pdf")
+				_, _ = w.Write(body)
+			}))
+			defer source.Close()
+			f := setupS02(t, source.Client())
+			input := resource()
+			input["url"], input["content_sha256"] = source.URL, sha256Hex(body)
+			token := issueResource(t, f, input)
+			client := f.server.Client()
+			client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+			r, err := client.Get(f.server.URL + "/v/" + token)
+			if err != nil {
+				t.Fatal("invalid content probe failed")
+			}
+			r.Body.Close()
+			if r.StatusCode != 422 {
+				t.Fatalf("%s PDF expected422 got%d", name, r.StatusCode)
+			}
+		})
+	}
+}
+
 func TestTC_S02_AC04_ConcurrentPreparation(t *testing.T) {
 	var downloads atomic.Int32
 	source := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

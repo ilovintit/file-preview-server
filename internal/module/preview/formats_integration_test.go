@@ -121,7 +121,7 @@ func TestTC_S02_AC01_RawFormatMatrix(t *testing.T) {
 
 func TestTC_S02_AC01_TruncatedImages(t *testing.T) {
 	fixtures := rawFixtures(t)
-	for _, ext := range []string{"webp", "avif"} {
+	for _, ext := range []string{"jpg", "jpeg", "png", "gif", "webp", "avif"} {
 		t.Run(ext, func(t *testing.T) {
 			value := fixtures[ext]
 			value.body = value.body[:16]
