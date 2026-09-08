@@ -76,6 +76,21 @@ func TestTC_S05_AC03_PasswordProtectedTextNeverPublishes(t *testing.T) {
 }
 
 func TestTC_S05_AC04_DocumentMacroCannotChangePreview(t *testing.T) {
+	for _, variant := range []struct {
+		name           string
+		event, library bool
+	}{
+		{"repacked-control", false, false},
+		{"event-only", true, false},
+		{"library-only", false, true},
+		{"complete-macro", true, true},
+	} {
+		t.Run(variant.name, func(t *testing.T) { checkMacroDocument(t, variant.event, variant.library) })
+	}
+}
+
+func checkMacroDocument(t *testing.T, eventEnabled, libraryEnabled bool) {
+	t.Helper()
 	data, err := os.ReadFile("testdata/text/source.odt")
 	if err != nil {
 		t.Fatal(err)
@@ -105,7 +120,7 @@ func TestTC_S05_AC04_DocumentMacroCannotChangePreview(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if entry.Name == "content.xml" {
+		if entry.Name == "content.xml" && eventEnabled {
 			marker := []byte("<office:scripts/>")
 			if bytes.Count(payload, marker) != 1 {
 				t.Fatal("ODT fixture script slot changed")
@@ -113,7 +128,7 @@ func TestTC_S05_AC04_DocumentMacroCannotChangePreview(t *testing.T) {
 			event := `<office:scripts><office:event-listeners><script:event-listener script:language="ooo:script" script:event-name="dom:load" xlink:href="vnd.sun.star.script:Standard.Module1.Main?language=Basic&amp;location=document" xlink:type="simple"/></office:event-listeners></office:scripts>`
 			payload = bytes.Replace(payload, marker, []byte(event), 1)
 		}
-		if entry.Name == "META-INF/manifest.xml" {
+		if entry.Name == "META-INF/manifest.xml" && libraryEnabled {
 			// A document storage directory is not an extension package. The
 			// basic-library media type belongs to the latter, not Basic/ here.
 			add := `<manifest:file-entry manifest:full-path="Basic/" manifest:media-type=""/><manifest:file-entry manifest:full-path="Basic/Standard/" manifest:media-type=""/><manifest:file-entry manifest:full-path="Basic/script-lc.xml" manifest:media-type="text/xml"/><manifest:file-entry manifest:full-path="Basic/Standard/script-lb.xml" manifest:media-type="text/xml"/><manifest:file-entry manifest:full-path="Basic/Standard/Module1.xml" manifest:media-type="text/xml"/>`
@@ -135,6 +150,9 @@ func TestTC_S05_AC04_DocumentMacroCannotChangePreview(t *testing.T) {
 ThisComponent.Text.String = "MACRO_EXECUTED"
 End Sub]]></script:module>`,
 	} {
+		if !libraryEnabled {
+			continue
+		}
 		part, err := writer.Create(name)
 		if err != nil {
 			t.Fatal(err)
@@ -185,6 +203,7 @@ End Sub]]></script:module>`,
 	input := resource()
 	input["url"], input["filename"], input["content_sha256"] = source.URL, "macro.odt", sha256Hex(body)
 	code, location := profileLocation(t, f, issueResource(t, f, input))
+	t.Logf("macro variant: event=%t library=%t token status=%d converter calls=%d status=%d", eventEnabled, libraryEnabled, code, calls.Load(), converterStatus.Load())
 	if code != 302 {
 		t.Fatalf("macro document expected302 got%d; converter calls=%d status=%d", code, calls.Load(), converterStatus.Load())
 	}

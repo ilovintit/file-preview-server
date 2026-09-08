@@ -58,3 +58,5 @@ CI10917 重试后28×双profile、空白Works通过；OSS的PNG原样读取及AV
 CI10960 的加密DOCM拒绝发布检查通过，浏览器通过；宏的实际stderr为UnoException during import phase / document could not be opened，失败发生在导入而非正文断言。目录声明修正候选6fd4aeb进入CI10976。
 
 继续包结构审查发现独立的确定性问题：Go1.25.4 archive/zip.Writer.CreateHeader对非零Modified追加9字节extended timestamp Extra；复制原ODT的FileHeader再CreateHeader会违反 [ODF1.3 Packages §3.3](https://docs.oasis-open.org/office/OpenDocument/v1.3/OpenDocument-v1.3-part2-packages.html) 的mimetype首条目、Store、无Extra要求。改为仅对此未修改条目使用Writer.Copy保留原始头/数据，并在宏测试中断言局部头的method/name length/extra length及偏移38的MIME。该修正只涉及样例作者，不能据编译成功宣称真实转换已修复。
+
+CI10976证明仅修目录声明不足；CI10994中mimetype包头断言未报错，但LibreOffice仍在import phase拒绝完整宏样例，不能把这两处样例规范修正当作宏问题已经解决。返回根因调查，下一候选增加四组单因素对照：仅重新封装、仅事件、仅宏库、完整宏。均保留成功预览/正文不变预期，记录转换器是否被调用和状态，不引入宏执行放行或422豁免。OSS目标404仍反复出现；当前CI日志确认预览地址仍为preview-test.shwkj.cn，公开不存在对象路径也返回nginx JSON404，已请求用户处理外部域名链路。
