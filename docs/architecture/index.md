@@ -1,6 +1,6 @@
 # 文件预览服务架构
 
-> 状态：这是依据 [Issue #1](https://git.shw.top/shw-project/file-preview-server/issues/1) 的交付范围、[Issue #5](https://git.shw.top/shw-project/file-preview-server/issues/5) 的调用方接入契约、[Issue #7](https://git.shw.top/shw-project/file-preview-server/issues/7) 的微信小程序裁决、[Issue #9](https://git.shw.top/shw-project/file-preview-server/issues/9) 的完整重构裁决与 [Issue #11](https://git.shw.top/shw-project/file-preview-server/issues/11) 的项目内 demo/作用域裁决迁入的目标架构；`dev` 目前仍是无 Go module 的工程骨架。下面的文件描述目标，不代替实现、CI 或部署证据。
+> 状态：架构依据 #1/#5/#7/#9/#11 的已确认契约。S01–S03 已交付签发、原样 OSS 预览与六种 Office 转换；S04 正在交付双 profile。其余格式、完整 H5/小程序与发布制品仍按 #19–#27 推进。目标文档不代替实现、CI 或部署证据。
 
 ## 系统上下文
 
@@ -49,16 +49,17 @@ flowchart LR
 | 调用方与浏览器 | [clients.md](clients.md) | 生产调用方外置；本仓库的 demo 是 v1 验收入口 |
 | Demo 与测试环境 | [demo.md](demo.md) | 目标已定义，尚未创建 demo 代码 |
 | 运行时主流程 | [runtime.md](runtime.md) | 签发、转换、等待、撤销与清理设计 |
-| 服务与分层 | [services.md](services.md) | 目标已定义，未进入 `dev` |
-| 领域 | [domains.md](domains.md) | 目标已定义，未进入 `dev` |
-| 数据与对象存储 | [data.md](data.md) | 目标已定义，未创建数据配置 |
-| 文件格式 | [formats.md](formats.md) | 目标已定义，未接入 Gotenberg 镜像 |
-| HTTP API | [apis.md](apis.md) | 目标已定义，未注册路由 |
-| 安全 | [security.md](security.md) | 目标已定义，未实现中间件 |
+| 服务与分层 | [services.md](services.md) | GoFrame 模块、请求和清理流程已实现；完整制品待 S12 |
+| 领域 | [domains.md](domains.md) | TokenGrant、授权规则及存储端口已实现；完整格式按切片交付 |
+| 数据与对象存储 | [data.md](data.md) | Valkey 授权/期限/lease 与 OSS 已交付，S04 扩展双 profile |
+| 存储适配与运行配置 | [storage-profiles.md](storage-profiles.md) | S04 公共端口、双 profile 配置/隔离与 CI 取证边界 |
+| 文件格式 | [formats.md](formats.md) | 7 原样 + 6 Office 已有真实 CI，其余格式仍待后续切片 |
+| HTTP API | [apis.md](apis.md) | 6 条新路由已注册；S04 实施依赖就绪检查 |
+| 安全 | [security.md](security.md) | HMAC/nonce/角色/TTL 已实现，完整版本安全证据仍须汇总 |
 | 质量与失败恢复 | [quality.md](quality.md) | 非功能约束与验证要求，未测容量 |
 | 架构决策 | [decisions.md](decisions.md) | 已确认约束、技术权衡与实施边界 |
-| 测试与 CI | [testing.md](testing.md) | 文档/原型 DOM 检查存在；服务与平台用例待 Issue #1 |
-| 部署 | [deployment.md](deployment.md) | `deploy/` 尚不存在，未取得 Fleet 目标或健康证据 |
+| 测试与 CI | [testing.md](testing.md) | S01–S03 真实服务 PR CI 已通过，S04 双 profile 按当前 head 验证 |
+| 部署 | [deployment.md](deployment.md) | 已有 Gotenberg 组件；完整应用/发布制品待 S12，无生产部署结论 |
 
 产品价值、范围与验收以 [PRD](../prd/product.md) 为准；交互入口边界见 [design index](../design/index.html)。
 
@@ -66,6 +67,6 @@ flowchart LR
 
 ## 当前结论
 
-单 GoFrame 服务、同 Pod Gotenberg、Valkey、两种 profile、项目内 demo 与 Fleet 只读观测是已确认方向。三项契约和原型交互已获用户确认，产品定义复审零阻断。当前 PR CI 和合入 dev 的基线 commit 由 #13 / PR #14 记录，版本规划使用已合入 commit；本架构不代替服务实现、真实平台或部署证据。
+单 GoFrame 服务、同 Pod Gotenberg、Valkey、两种 profile、项目内 demo 与 Fleet 只读观测是已确认方向。三项契约和原型交互已获用户确认，产品定义基线由 #13 / PR #14 记录；实现证据分别由 #15–#27 的 PR/head/CI 记录。尚未交付的格式、完整 H5/小程序和制品不能因前序切片通过而记为完成；本架构不代替真实平台或部署证据。
 
 最新验收裁决见 [testing](testing.md) 与 [Issue #28](https://git.shw.top/shw-project/file-preview-server/issues/28)：v1.0.0 以 H5 自动化作为首版验收，取消人工真实验收与固定生产观察前置；业务接入后的真实反馈用于后续迭代。小程序工程仍交付，但 H5 自动化不能被描述为微信容器/真机兼容已验证。#15–#27 是当前交付切片，#1 仅为需求来源汇总。

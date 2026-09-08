@@ -5,6 +5,7 @@ package preview_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,6 +18,7 @@ import (
 
 	preview "git.shw.top/shw-project/file-preview-server/internal/module/preview"
 	"git.shw.top/shw-project/file-preview-server/internal/module/preview/infrastructure"
+	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	s3 "github.com/minio/minio-go/v7"
 )
 
@@ -162,13 +164,32 @@ func TestTC_S04_AC04_SiloDeleteFailureAndInactiveQueue(t *testing.T) {
 }
 
 func TestTC_S04_AC03_ReadinessChecksActualProfiles(t *testing.T) {
-	f, _ := setupSilo(t, nil)
+	f, silo := setupSilo(t, nil)
 	r, err := f.server.Client().Get(f.server.URL + "/readyz")
 	if err != nil {
 		t.Fatal(err)
 	}
 	r.Body.Close()
 	if r.StatusCode != 200 {
+		bucket := fixtureOSSBucket(t, f.cfg.AliyunOSS)
+		_, err := bucket.Client.GetBucketLocation(bucket.BucketName)
+		var serviceError oss.ServiceError
+		if errors.As(err, &serviceError) {
+			t.Logf("readiness OSS location status=%d code=%s", serviceError.StatusCode, serviceError.Code)
+		} else {
+			t.Logf("readiness OSS location ok=%t", err == nil)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		ok, err := silo.api.BucketExists(ctx, f.cfg.Silo.Bucket)
+		t.Logf("readiness silo bucket exists=%t code=%s", ok, s3.ToErrorResponse(err).Code)
+		probe, err := (&http.Client{Timeout: 2 * time.Second}).Get(f.cfg.GotenbergURL + "/health")
+		if err == nil {
+			t.Logf("readiness converter status=%d", probe.StatusCode)
+			probe.Body.Close()
+		} else {
+			t.Log("readiness converter connection failed")
+		}
 		t.Fatalf("configured actual dependencies expectedready200 got%d", r.StatusCode)
 	}
 	for _, profile := range []string{"silo", "aliyun-oss"} {

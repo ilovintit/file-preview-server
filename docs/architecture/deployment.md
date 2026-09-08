@@ -46,6 +46,8 @@ Harbor 地址、仓库名、机器人凭据与 Fleet target 没有现成证据�
 
 ## 启动、就绪与网络权限
 
+双 profile 的环境变量、签名 Origin、最低操作权限与 `/readyz` 实施约束见 [storage-profiles](storage-profiles.md)。CI 的 silo/TLS 代理只属于每轮测试，不作为共享业务环境部署，也不向用户索要生产 silo 凭据。
+
 ### S02 OSS 预览域名
 
 当前 OSS SDK 使用 V1 签名，`PREVIEW_CI_ALIYUN_OSS_REGION` 可省略；Endpoint 与 bucket 决定访问目标。若后续切换 V4 签名，需在同次变更中落实签名地域的推导或显式配置。

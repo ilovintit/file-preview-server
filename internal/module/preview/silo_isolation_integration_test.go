@@ -61,8 +61,16 @@ func TestTC_S04_AC02_ProfileCacheLockIsolation(t *testing.T) {
 				body, mediaType = officeInput(t, "document.docx"), "application/octet-stream"
 			}
 			var downloads, conversions atomic.Int32
+			entered, release := make(chan struct{}, 2), make(chan struct{})
 			source := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				downloads.Add(1)
+				if downloads.Add(1) <= 2 {
+					entered <- struct{}{}
+					select {
+					case <-release:
+					case <-r.Context().Done():
+						return
+					}
+				}
 				w.Header().Set("Content-Type", mediaType)
 				_, _ = w.Write(body)
 			}))
@@ -97,6 +105,14 @@ func TestTC_S04_AC02_ProfileCacheLockIsolation(t *testing.T) {
 					locations[i] = location
 				}(i)
 			}
+			for i := 0; i < 2; i++ {
+				select {
+				case <-entered:
+				case <-time.After(5 * time.Second):
+					t.Error("profiles did not independently acquire preparation locks")
+				}
+			}
+			close(release)
 			wg.Wait()
 			if downloads.Load() != 2 {
 				t.Fatalf("cross-profile preparation downloaded %d times instead of twice", downloads.Load())
