@@ -4,6 +4,8 @@ go 1.25.4
 
 require (
 	github.com/aliyun/aliyun-oss-go-sdk v3.0.2+incompatible
+	github.com/chromedp/cdproto v0.0.0-20250319231242-a755498943c8
+	github.com/chromedp/chromedp v0.13.2
 	github.com/gen2brain/avif v0.4.4
 	github.com/gogf/gf/contrib/nosql/redis/v2 v2.10.3
 	github.com/gogf/gf/v2 v2.10.3
@@ -13,14 +15,19 @@ require (
 require (
 	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/chromedp/sysutil v1.1.0 // indirect
 	github.com/clbanning/mxj/v2 v2.7.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/ebitengine/purego v0.8.3 // indirect
 	github.com/emirpasic/gods/v2 v2.0.0-alpha // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
+	github.com/go-json-experiment/json v0.0.0-20250211171154-1ae217ad3535 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/gobwas/httphead v0.1.0 // indirect
+	github.com/gobwas/pool v0.2.1 // indirect
+	github.com/gobwas/ws v1.4.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/grokify/html-strip-tags-go v0.1.0 // indirect

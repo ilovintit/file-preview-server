@@ -76,3 +76,39 @@ jobs:
             if command -v "$browser" >/dev/null 2>&1; then "$browser" --version; fi
           done
           go test -race -tags integration -count=1 -v ./internal/module/preview/...
+
+  browser:
+    name: S02 Chromium 图片与 PDF 跨域读取
+    runs-on: ubuntu-latest
+    needs: heavy
+    container:
+      image: reg.shw.top/ci-cache/ci-playwright-toolchain@sha256:e7732b466aa4abbc88c03c5779e7fa3305fce697c63e803c08c7462a74774f32
+      credentials:
+        username: ${{ secrets.CI_HARBOR_USERNAME }}
+        password: ${{ secrets.CI_HARBOR_PASSWORD }}
+    services:
+      valkey:
+        image: valkey/valkey:8
+    steps:
+      - uses: https://git.shw.top/actions/checkout@v4.2.2
+      - uses: https://git.shw.top/actions/setup-go@fba3fb4ead8c8e09a06f1d32ae5436e5818eff15
+        with:
+          go-download-base-url: https://golang.google.cn/dl
+          go-version-file: go.mod
+          cache: false
+      - name: 实际浏览器定向验证
+        env:
+          VALKEY_TEST_ADDR: valkey:6379
+          PREVIEW_CI_ALIYUN_OSS_ENDPOINT: ${{ vars.PREVIEW_CI_ALIYUN_OSS_ENDPOINT }}
+          PREVIEW_CI_ALIYUN_OSS_PREVIEW_ENDPOINT: ${{ vars.PREVIEW_CI_ALIYUN_OSS_PREVIEW_ENDPOINT }}
+          PREVIEW_CI_ALIYUN_OSS_REGION: ${{ vars.PREVIEW_CI_ALIYUN_OSS_REGION }}
+          PREVIEW_CI_ALIYUN_OSS_BUCKET: ${{ vars.PREVIEW_CI_ALIYUN_OSS_BUCKET }}
+          PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE: ${{ vars.PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE }}/${{ github.run_id }}/browser
+          PREVIEW_CI_OSS_SIGNED_URL_MAX_TTL_SECONDS: ${{ vars.PREVIEW_CI_OSS_SIGNED_URL_MAX_TTL_SECONDS }}
+          PREVIEW_CI_OSS_CORS_ALLOWED_ORIGIN: ${{ vars.PREVIEW_CI_OSS_CORS_ALLOWED_ORIGIN }}
+          PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_ID: ${{ secrets.PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_ID }}
+          PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_SECRET: ${{ secrets.PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_SECRET }}
+          PREVIEW_CI_ALIYUN_OSS_SECURITY_TOKEN: ${{ secrets.PREVIEW_CI_ALIYUN_OSS_SECURITY_TOKEN }}
+        run: |
+          source .gitea/scripts/go-env.sh
+          go test -tags 'integration browser' -count=1 -v -run '^TestTC_S02_BrowserNavigation$' ./internal/module/preview
