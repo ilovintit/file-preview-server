@@ -44,8 +44,8 @@ func TestTC_S02_BrowserNavigation(t *testing.T) {
 				t.Fatal("invalid fixture certificate")
 			}
 			spki := sha256.Sum256(cert.RawSubjectPublicKeyInfo)
-			options := append([]chromedp.ExecAllocatorOption(nil), chromedp.DefaultExecAllocatorOptions[:]...)
-			options = append(options, chromedp.ExecPath(matches[0]), chromedp.NoSandbox, chromedp.Flag("headless", false), chromedp.Flag("disable-extensions", false), chromedp.Flag("ignore-certificate-errors-spki-list", base64.StdEncoding.EncodeToString(spki[:])))
+			// 保留普通 Chromium 的 PDF 插件和默认功能，只配置 CI 必需参数。
+			options := []chromedp.ExecAllocatorOption{chromedp.ExecPath(matches[0]), chromedp.NoSandbox, chromedp.NoFirstRun, chromedp.NoDefaultBrowserCheck, chromedp.Flag("disable-dev-shm-usage", true), chromedp.Flag("password-store", "basic"), chromedp.Flag("ignore-certificate-errors-spki-list", base64.StdEncoding.EncodeToString(spki[:]))}
 			allocator, stop := chromedp.NewExecAllocator(context.Background(), options...)
 			defer stop()
 			browser, closeBrowser := chromedp.NewContext(allocator)
