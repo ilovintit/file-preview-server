@@ -54,3 +54,7 @@ CI10917 重试后28×双profile、空白Works通过；OSS的PNG原样读取及AV
 补齐密码保护验收：由真实source.docm经msoffcrypto-tool5.4.2生成Agile加密样例，作者工具核对解密后字节一致；加入重复422、无Location、未进转换器/无对象发布断言。依赖只装在本worktree的.cache/fixture-python，未执行本地服务测试。
 
 宏样例修正假设：原manifest把Basic/目录标为扩展包媒体类型。LibreOffice固定源码 [namecont.cxx](https://github.com/LibreOffice/core/blob/11ccf4230941895f97e4fb6987631b65b401858b/basic/source/uno/namecont.cxx) 的ScriptExtensionIterator使用application/vnd.sun.star.basic-library识别扩展包，而文档宏库写入的是text/xml流。按原生文档包结构将Basic/和Basic/Standard/声明为空目录类型，宏代码/事件/原正文断言不变；需要下一轮真实CI确认，不能提前认定根因已修。
+
+CI10960 的加密DOCM拒绝发布检查通过，浏览器通过；宏的实际stderr为UnoException during import phase / document could not be opened，失败发生在导入而非正文断言。目录声明修正候选6fd4aeb进入CI10976。
+
+继续包结构审查发现独立的确定性问题：Go1.25.4 archive/zip.Writer.CreateHeader对非零Modified追加9字节extended timestamp Extra；复制原ODT的FileHeader再CreateHeader会违反 [ODF1.3 Packages §3.3](https://docs.oasis-open.org/office/OpenDocument/v1.3/OpenDocument-v1.3-part2-packages.html) 的mimetype首条目、Store、无Extra要求。改为仅对此未修改条目使用Writer.Copy保留原始头/数据，并在宏测试中断言局部头的method/name length/extra length及偏移38的MIME。该修正只涉及样例作者，不能据编译成功宣称真实转换已修复。

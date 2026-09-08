@@ -6,6 +6,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"encoding/binary"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -86,6 +87,15 @@ func TestTC_S05_AC04_DocumentMacroCannotChangePreview(t *testing.T) {
 	var buffer bytes.Buffer
 	writer := zip.NewWriter(&buffer)
 	for _, entry := range archive.File {
+		if entry.Name == "mimetype" {
+			// ODF requires the first stored entry to have no ZIP extra fields.
+			// CreateHeader adds an extended timestamp to a parsed FileHeader;
+			// Copy preserves the original valid local header and raw bytes.
+			if err := writer.Copy(entry); err != nil {
+				t.Fatal(err)
+			}
+			continue
+		}
 		stream, err := entry.Open()
 		if err != nil {
 			t.Fatal(err)
@@ -137,6 +147,11 @@ End Sub]]></script:module>`,
 		t.Fatal(err)
 	}
 	body := buffer.Bytes()
+	if len(body) < 77 || binary.LittleEndian.Uint16(body[8:10]) != zip.Store ||
+		binary.LittleEndian.Uint16(body[26:28]) != 8 || binary.LittleEndian.Uint16(body[28:30]) != 0 ||
+		string(body[30:38]) != "mimetype" || string(body[38:77]) != "application/vnd.oasis.opendocument.text" {
+		t.Fatal("macro fixture violates ODF mimetype ZIP header requirements")
+	}
 	source := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write(body) }))
 	defer source.Close()
 	endpoint, err := url.Parse(os.Getenv("GOTENBERG_TEST_URL"))
