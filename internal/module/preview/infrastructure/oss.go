@@ -50,6 +50,9 @@ func NewAliyunPreviewStore(cfg Config, cache *ValkeyStore, clock func() time.Tim
 		return nil, nil
 	}
 	options := []oss.ClientOption{oss.Timeout(3, 8)}
+	if cfg.OSSHTTPClient != nil {
+		options = append(options, oss.HTTPClient(cfg.OSSHTTPClient))
+	}
 	if c.SecurityToken != "" {
 		options = append(options, oss.SecurityToken(c.SecurityToken))
 	}

@@ -38,6 +38,7 @@ type Config struct {
 	TLSClientCA      string
 	AliyunOSS        AliyunOSSConfig
 	SourceHTTPClient *http.Client
+	OSSHTTPClient    *http.Client
 }
 
 // AliyunOSSConfig holds one explicitly enabled OSS profile. Credentials are

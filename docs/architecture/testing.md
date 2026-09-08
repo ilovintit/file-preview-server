@@ -6,7 +6,7 @@
 
 详细 AC↔TC 映射由 [v1.0.0 Milestone](https://git.shw.top/shw-project/file-preview-server/milestone/11) 和 #15–#27 维护，每条 AC 保留稳定编号。#1 仅为需求汇总。此文定义统一测试层级与边界，不复制各 Issue 的完整映射。
 
-当前 `.gitea/workflows/pr-gate.yml` 的文档链接/脚本语法与 8 项 jsdom DOM 检查已经存在，但仓库仍无 Go 服务或真实 H5 E2E。它们不能证明下述服务验收已通过；无 go.mod 时原有服务 job 仍是骨架期不适用。交付 Issue 出现服务模块后必须接入当前能力的真实自动测试，不允许成功占位。
+当前已有 GoFrame 服务及 S01 的真实 TLS API/Valkey 集成检查。S02 PR #31 增加实际 OSS、七格式原样回读、内容拒绝、并发准备、撤销竞态、锁失效及清理测试。Issue CI 定向执行 `./internal/module/preview/...`；后续新增模块需按变更更新选择范围。现有 jsdom DOM 检查只验证静态原型，不是实际 H5 E2E，后者仍待交付。
 
 ## H5 自动化放行定义
 
@@ -41,7 +41,7 @@ CI 每 run 使用独立 Valkey、固定 Gotenberg/字体和隔离 provider 测�
 
 ## 执行、失败与豁免
 
-本轮只制定计划，不在本地运行测试或编写自动化测试代码。测试由对应 /work 在实现前写入同一 Issue 分支；实现、测试、必要文档与声明在同一 PR 交付。
+测试由对应 Issue 在实现前写入同一分支，实际验证在 PR CI 执行；实现、测试、必要文档与声明在同一 PR 交付。本地执行构建检查，不用本地结果替代 CI。
 
 状态区分 pending、pass、fail、blocked、阶段不适用。未到后续实施阶段的能力可记不适用但不算通过；当前 AC 内的失败、缺 fixture/CI 环境、缺证据都阻断。无人工真实验收前置，也不设置人工验收豁免审批。自动失败不能由手工点击、泛化的排版豁免或静态原型通过替代；范围/规则确需变化时走产品裁决。
 

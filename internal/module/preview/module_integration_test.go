@@ -56,7 +56,7 @@ func setupS02(t *testing.T, sourceClient *http.Client) *fixture {
 	return setupWithOSS(t, testAliyunOSS(t), sourceClient)
 }
 
-func setupWithOSS(t *testing.T, ossConfig infrastructure.AliyunOSSConfig, sourceClient *http.Client) *fixture {
+func setupWithOSS(t *testing.T, ossConfig infrastructure.AliyunOSSConfig, sourceClient *http.Client, configure ...func(*infrastructure.Config)) *fixture {
 	t.Helper()
 	address := os.Getenv("VALKEY_TEST_ADDR")
 	if address == "" {
@@ -65,6 +65,9 @@ func setupWithOSS(t *testing.T, ossConfig infrastructure.AliyunOSSConfig, source
 	f := &fixture{t: t}
 	f.now.Store(time.Now().Unix())
 	f.cfg = infrastructure.Config{ValkeyAddress: address, Namespace: fmt.Sprintf("test-preview-%d", time.Now().UnixNano()), MaxCacheTTL: 86400, Profiles: []string{"aliyun-oss", "silo"}, Keys: []infrastructure.CallerKey{{ID: "internal", Role: "internal", Secret: internalSecret}, {ID: "internal-next", Role: "internal", Secret: internalSecret}, {ID: "admin", Role: "admin", Secret: adminSecret}}, AliyunOSS: ossConfig, SourceHTTPClient: sourceClient}
+	for _, change := range configure {
+		change(&f.cfg)
+	}
 	var err error
 	f.db, err = gredis.New(&gredis.Config{Address: address, Db: 0, Protocol: 2})
 	if err != nil {

@@ -46,6 +46,14 @@ Harbor 地址、仓库名、机器人凭据与 Fleet target 没有现成证据�
 
 ## 启动、就绪与网络权限
 
+### S02 OSS 预览域名
+
+`PREVIEW_CI_ALIYUN_OSS_ENDPOINT` 用于 SDK 上传、HEAD 和清理。可另配 `PREVIEW_CI_ALIYUN_OSS_PREVIEW_ENDPOINT` 为同一 bucket 已绑定证书和 CNAME 的 HTTPS 自定义域名，签名时使用 SDK CNAME 模式；不拼接 bucket 前缀，也不在签名后替换 Host。CI #10258 已观测默认 OSS 域名对 PNG/JPEG/GIF/WebP 强制返回 attachment，即使对象上传元数据设置 inline；需要真实自定义域名才能完成对应 inline 验收。共享 bucket CORS 仍采用用户已确认的无凭据通配策略，不改变其他系统的桶配置。
+
+### S02 运行预算
+
+当前原样预览请求总预算10秒，源下载8秒且最多4次跟随重定向，所有跳转必须HTTPS；输入最多32MiB，图片最多4000万像素，每进程最多4个并行预览执行槽。准备锁3秒、每1秒续租；清理每5秒扫描最多32条，单批预算3秒，删除失败保留记录并至少30秒后重试。上述为实施资源上限，不代表已达到性能SLO；Office切片需按转换预算继续评估。
+
 结构无效配置应拒绝启动；缺失某角色密钥时对应受保护端点按 503 关闭，不能省略中间件。readyz 检查当前声明启用的必要依赖，不把“支持两个 profile”误写为每个环境必须同时启用两个；两 profile 的产品验收仍都要完成。依赖详情不暴露给匿名探针调用方，内部观测记录脱敏原因。liveness 不依赖 Valkey/存储，避免外部故障引发无意义重启。
 
 只向需要的进程注入凭据：应用可访问其 Valkey/profile/key；Gotenberg 不持有调用方密钥或存储 key，原文件作为已受控上传输入传递。临时目录按请求隔离并有容积上限，使用非 root、最小可写路径与部署侧出站限制；不通过关闭证书校验让测试环境“可用”。具体 runtime 预算和关闭次序见 quality/runtime。

@@ -16,7 +16,7 @@ Domain 不得导入框架、Valkey 或外部 SDK；infrastructure 实现 Domain 
 
 内部 JSON 路由在 HTTPS（生产优先 mTLS）上接收和返回普通 JSON；错误仍以不泄露鉴权细节的规范响应呈现。Controller 只提取已通过签名中间件验证的请求、调用 UseCase 并组装响应；验签、业务规则、数据范围和基础设施异常不应塞入 Controller。
 
-当前 `dev` 没有 `go.mod`、`main.go` 或服务文件。本文件不表示上述布局已创建。
+S01 已通过 PR #30 合入 dev，包含 GoFrame 启动、签名、token 与 Valkey。S02 在 PR #31 实现 OSS 原样预览及缓存生命周期；Gotenberg、silo、完整 H5 和小程序工程仍待后续 Issue。
 
 预览解析是同步请求内的编排，不增加任务状态查询 API、事件总线或独立 worker。转换与缓存清理的内部状态不向 demo 暴露进度百分比；页面显示等待状态。
 

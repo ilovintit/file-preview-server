@@ -6,12 +6,77 @@ import (
 	"context"
 	"encoding/json"
 	"git.shw.top/shw-project/file-preview-server/internal/module/preview/infrastructure"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
+
+type transportFunc func(*http.Request) (*http.Response, error)
+
+func (f transportFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestTC_S02_AC05_DeleteFailureRetainsMaintenance(t *testing.T) {
+	var deny atomic.Bool
+	deny.Store(true)
+	transport := transportFunc(func(r *http.Request) (*http.Response, error) {
+		if r.Method == http.MethodDelete && deny.Load() {
+			return &http.Response{StatusCode: 403, Status: "403 Forbidden", Header: make(http.Header), Body: io.NopCloser(strings.NewReader("<Error><Code>AccessDenied</Code><Message>fixture</Message></Error>")), Request: r}, nil
+		}
+		return http.DefaultTransport.RoundTrip(r)
+	})
+	source := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/pdf")
+		_, _ = w.Write(rawPDF)
+	}))
+	defer source.Close()
+	f := setupWithOSS(t, testAliyunOSS(t), source.Client(), func(c *infrastructure.Config) {
+		c.OSSHTTPClient = &http.Client{Transport: transport, Timeout: 8 * time.Second}
+	})
+	input := resource()
+	input["url"], input["content_sha256"] = source.URL, sha256Hex(rawPDF)
+	token := issueResource(t, f, input)
+	client := f.server.Client()
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	r, err := client.Get(f.server.URL + "/v/" + token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Body.Close()
+	if r.StatusCode != 302 {
+		t.Fatal("preview failed")
+	}
+	ctx := context.Background()
+	store, err := infrastructure.NewValkeyStore(f.cfg, func() time.Time { return time.Unix(f.now.Load(), 0) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close(ctx)
+	preparer, err := infrastructure.NewAliyunPreviewStore(f.cfg, store, func() time.Time { return time.Unix(f.now.Load(), 0) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.now.Add(121)
+	if err = preparer.Cleanup(ctx); err != nil {
+		t.Fatal(err)
+	}
+	count, err := f.db.Do(ctx, "HLEN", f.cfg.Namespace+":objects")
+	if err != nil || count.Int() != 1 {
+		t.Fatal("failed delete lost maintenance record")
+	}
+	deny.Store(false)
+	f.now.Add(31)
+	if err = preparer.Cleanup(ctx); err != nil {
+		t.Fatal(err)
+	}
+	count, err = f.db.Do(ctx, "HLEN", f.cfg.Namespace+":objects")
+	if err != nil || count.Int() != 0 {
+		t.Fatal("delete did not recover")
+	}
+}
 
 func TestTC_S02_AC05_LeaseLossFencesPublication(t *testing.T) {
 	entered, release := make(chan struct{}), make(chan struct{})
