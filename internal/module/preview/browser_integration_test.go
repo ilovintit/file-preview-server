@@ -71,6 +71,19 @@ func browserNavigation(t *testing.T, profile string) {
 			var diagnostic []string
 			chromedp.ListenTarget(ctx, func(event any) {
 				switch value := event.(type) {
+				case *network.EventResponseReceivedExtraInfo:
+					diagnosticMu.Lock()
+					diagnostic = append(diagnostic, fmt.Sprintf("response-status=%d", value.StatusCode))
+					diagnosticMu.Unlock()
+				case *network.EventRequestWillBeSent:
+					if value.RedirectResponse != nil {
+						u, err := url.Parse(value.RedirectResponse.URL)
+						if err == nil {
+							diagnosticMu.Lock()
+							diagnostic = append(diagnostic, fmt.Sprintf("redirect host=%s status=%d", u.Host, value.RedirectResponse.Status))
+							diagnosticMu.Unlock()
+						}
+					}
 				case *network.EventResponseReceived:
 					u, err := url.Parse(value.Response.URL)
 					if err != nil {
@@ -85,7 +98,7 @@ func browserNavigation(t *testing.T, profile string) {
 					diagnosticMu.Unlock()
 				case *network.EventLoadingFailed:
 					diagnosticMu.Lock()
-					diagnostic = append(diagnostic, "network="+value.ErrorText)
+					diagnostic = append(diagnostic, fmt.Sprintf("network=%s blocked=%s cors=%v", value.ErrorText, value.BlockedReason, value.CorsErrorStatus))
 					diagnosticMu.Unlock()
 				}
 			})

@@ -9,6 +9,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"strings"
 	"sync/atomic"
@@ -111,12 +113,24 @@ End Sub]]></script:module>`,
 	body := buffer.Bytes()
 	source := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write(body) }))
 	defer source.Close()
-	f := setupWithOSS(t, testAliyunOSS(t), source.Client(), func(c *infrastructure.Config) { c.GotenbergURL = os.Getenv("GOTENBERG_TEST_URL") })
+	endpoint, err := url.Parse(os.Getenv("GOTENBERG_TEST_URL"))
+	if err != nil || endpoint.Host == "" {
+		t.Fatal("macro test requires real Gotenberg")
+	}
+	var calls, converterStatus atomic.Int32
+	proxy := httputil.NewSingleHostReverseProxy(endpoint)
+	proxy.ModifyResponse = func(r *http.Response) error { converterStatus.Store(int32(r.StatusCode)); return nil }
+	converter := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		proxy.ServeHTTP(w, r)
+	}))
+	defer converter.Close()
+	f := setupWithOSS(t, testAliyunOSS(t), source.Client(), func(c *infrastructure.Config) { c.GotenbergURL = converter.URL })
 	input := resource()
 	input["url"], input["filename"], input["content_sha256"] = source.URL, "macro.odt", sha256Hex(body)
 	code, location := profileLocation(t, f, issueResource(t, f, input))
 	if code != 302 {
-		t.Fatalf("macro document expected302 got%d", code)
+		t.Fatalf("macro document expected302 got%d; converter calls=%d status=%d", code, calls.Load(), converterStatus.Load())
 	}
 	response, err := http.Get(location)
 	if err != nil {
