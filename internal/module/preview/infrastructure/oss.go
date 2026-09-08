@@ -21,8 +21,8 @@ func ossProfileIdentity(c AliyunOSSConfig) string {
 }
 
 type aliyunObjectStorage struct {
-	bucket, signer *oss.Bucket
-	prefix         string
+	bucket *oss.Bucket
+	prefix string
 }
 
 func NewAliyunPreviewStore(cfg Config, cache *ValkeyStore, clock func() time.Time) (*PreviewStore, error) {
@@ -49,20 +49,7 @@ func NewAliyunPreviewStore(cfg Config, cache *ValkeyStore, clock func() time.Tim
 	if err != nil {
 		return nil, entity.ErrUnavailable
 	}
-	signer := bucket
-	if c.PreviewEndpoint != "" {
-		previewOptions := append(append([]oss.ClientOption(nil), options...), oss.UseCname(true))
-		previewClient, err := oss.New(c.PreviewEndpoint, c.AccessKeyID, c.AccessKeySecret, previewOptions...)
-		if err != nil {
-			return nil, entity.ErrUnavailable
-		}
-		previewClient.SetRegion(c.Region)
-		signer, err = previewClient.Bucket(c.Bucket)
-		if err != nil {
-			return nil, entity.ErrUnavailable
-		}
-	}
-	storage := &aliyunObjectStorage{bucket: bucket, signer: signer, prefix: strings.Trim(c.PrefixBase, "/")}
+	storage := &aliyunObjectStorage{bucket: bucket, prefix: strings.Trim(c.PrefixBase, "/")}
 	return newPreviewStore(cfg, cache, clock, storage, c.PrefixBase, ossProfileIdentity(c), c.SignedURLMaxTTL), nil
 }
 
@@ -93,7 +80,11 @@ func (s *aliyunObjectStorage) SignGet(ctx context.Context, key string, ttl int64
 	if ctx.Err() != nil {
 		return "", 0, entity.ErrUnavailable
 	}
-	location, err := s.signer.SignURL(key, oss.HTTPGet, ttl)
+	// An OSS object metadata header alone is not sufficient on every public
+	// endpoint: some endpoints override it to attachment. Sign the response
+	// override on the canonical OSS endpoint so the final byte stream remains
+	// direct, query-protected and eligible for browser inline rendering.
+	location, err := s.bucket.SignURL(key, oss.HTTPGet, ttl, oss.ResponseContentDisposition("inline"))
 	if err != nil {
 		return "", 0, entity.ErrUnavailable
 	}
