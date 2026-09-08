@@ -110,7 +110,7 @@ func testCoreOfficeConversion(t *testing.T, profile string) {
 			defer object.Body.Close()
 			data, err := io.ReadAll(io.LimitReader(object.Body, 32<<20+1))
 			if err != nil || object.StatusCode != 200 || object.Header.Get("Content-Type") != "application/pdf" || bytes.Equal(data, body) {
-				t.Fatal("expected converted PDF in OSS")
+				t.Fatalf("expected converted PDF in OSS: read_error=%t status=%d content_type=%q disposition=%q bytes=%d", err != nil, object.StatusCode, object.Header.Get("Content-Type"), object.Header.Get("Content-Disposition"), len(data))
 			}
 			config := model.NewDefaultConfiguration()
 			config.Offline, config.Optimize, config.ValidateLinks = true, false, false

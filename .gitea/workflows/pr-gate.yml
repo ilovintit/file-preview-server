@@ -22,11 +22,8 @@ jobs:
           node --test .gitea/checks/prototype.test.cjs
       - name: 设置 Go
         if: ${{ hashFiles('go.mod') != '' }}
-        uses: https://git.shw.top/actions/setup-go@fba3fb4ead8c8e09a06f1d32ae5436e5818eff15
-        with:
-          go-download-base-url: https://golang.google.cn/dl
-          go-version-file: go.mod
-          cache: false
+        run: |
+          GO_DOWNLOAD_BASE_URL=https://golang.google.cn/dl ./.gitea/scripts/ensure-go.sh
       - name: lint（gofmt + go vet）
         run: |
           if [ ! -f go.mod ]; then echo "go.mod 不存在，骨架期跳过"; exit 0; fi
@@ -61,6 +58,7 @@ jobs:
           username: ${{ secrets.CI_HARBOR_USERNAME }}
           password: ${{ secrets.CI_HARBOR_PASSWORD }}
         env:
+          LOG_LEVEL: debug
           API_TIMEOUT: 30s
           API_BODY_LIMIT: 34MB
           API_DISABLE_DOWNLOAD_FROM: 'true'
@@ -77,11 +75,9 @@ jobs:
           - 6379:6379
     steps:
       - uses: https://git.shw.top/actions/checkout@v4.2.2
-      - uses: https://git.shw.top/actions/setup-go@fba3fb4ead8c8e09a06f1d32ae5436e5818eff15
-        with:
-          go-download-base-url: https://golang.google.cn/dl
-          go-version-file: go.mod
-          cache: false
+      - name: 设置 Go
+        run: |
+          GO_DOWNLOAD_BASE_URL=https://golang.google.cn/dl ./.gitea/scripts/ensure-go.sh
       - name: 实际 TLS API、Valkey 与 OSS 集成
         env:
           VALKEY_TEST_ADDR: valkey:6379
@@ -106,6 +102,16 @@ jobs:
           done
           go test -race -tags integration -count=1 -v ./internal/module/preview/...
 
+      - name: 隔离转换器失败诊断
+        if: failure()
+        env:
+          PREVIEW_TEST_CONVERTER_CONTAINER: ${{ job.services.gotenberg.id }}
+        run: |
+          # Only the per-job converter receives repository-owned fixture bytes.
+          # Never inspect provider containers or dump Actions environment values.
+          test -n "$PREVIEW_TEST_CONVERTER_CONTAINER"
+          docker logs --tail 150 "$PREVIEW_TEST_CONVERTER_CONTAINER" 2>&1
+
   browser:
     # Keep the established status context; this job now covers both profiles.
     name: S02 Chromium 图片与 PDF 跨域读取
@@ -129,11 +135,9 @@ jobs:
         image: valkey/valkey:8
     steps:
       - uses: https://git.shw.top/actions/checkout@v4.2.2
-      - uses: https://git.shw.top/actions/setup-go@fba3fb4ead8c8e09a06f1d32ae5436e5818eff15
-        with:
-          go-download-base-url: https://golang.google.cn/dl
-          go-version-file: go.mod
-          cache: false
+      - name: 设置 Go
+        run: |
+          GO_DOWNLOAD_BASE_URL=https://golang.google.cn/dl ./.gitea/scripts/ensure-go.sh
       - name: 实际浏览器定向验证
         shell: bash
         env:

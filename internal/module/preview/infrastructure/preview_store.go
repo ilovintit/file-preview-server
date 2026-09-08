@@ -256,6 +256,14 @@ func (s *PreviewStore) download(ctx context.Context, grant entity.Grant) ([]byte
 		converted, err := s.converter.convert(ctx, body, grant.Filename)
 		return converted, "application/pdf", err
 	}
+	if textFormat(grant.Filename) {
+		input, name, err := prepareText(ctx, body, grant.Filename)
+		if err != nil {
+			return nil, "", err
+		}
+		converted, err := s.converter.convert(ctx, input, name)
+		return converted, "application/pdf", err
+	}
 	contentType := strings.ToLower(strings.TrimSpace(strings.Split(response.Header.Get("Content-Type"), ";")[0]))
 	if !rawMIME(path.Ext(grant.Filename), contentType) {
 		return nil, "", entity.ErrInvalid

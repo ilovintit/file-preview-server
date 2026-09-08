@@ -1,0 +1,81 @@
+[
+  {
+    "file": "legacy.wps",
+    "url": "https://sourceforge.net/p/libwps/libwps-reference/ci/bc9019bc453e173112f0b4ac1dee5bbb3aa4ecda/tree/Works-2.00A-DOS/LANDSCAP.WPS",
+    "gitBlob": "ca1fd9152864407cdb68b8b9254e6fdb1051b737",
+    "sha256": "ec1d765711736aa0a6b0e0f539dc5b710b7ea6c8de5b534233170bd75da6e057",
+    "license": "GPL-2.0 (upstream COPYING)"
+  },
+  {
+    "file": "legacy.wpd",
+    "url": "https://raw.githubusercontent.com/apache/tika/e918be5e9d1031a373528215a32ea5a1e6488624/tika-parsers/tika-parsers-standard/tika-parsers-standard-modules/tika-parser-miscoffice-module/src/test/resources/test-documents/testWordPerfect.wpd",
+    "gitBlob": "d577b1c1759f3d0594272dcd91ae95cf1adbeaf3",
+    "sha256": "45ec5771e60fc55c07f398ddec80e9463f3cd7b80bfadacf93743dcfcef866e7",
+    "license": "Apache-2.0"
+  },
+  {
+    "file": "legacy.pages",
+    "url": "https://raw.githubusercontent.com/LibreOffice/core/11ccf4230941895f97e4fb6987631b65b401858b/writerperfect/qa/unit/data/writer/libetonyek/pass/Pages_4.pages",
+    "gitBlob": "43c9213922bd26f9242ae93ed6a5aabcc85df11f",
+    "sha256": "eddc5d4f339143ccd45994bc18da067c98bbf0aae8f9852da1ccf052cd8b6253",
+    "license": "MPL-2.0"
+  },
+  {
+    "file": "legacy.cwk",
+    "url": "https://raw.githubusercontent.com/LibreOffice/core/11ccf4230941895f97e4fb6987631b65b401858b/writerperfect/qa/unit/data/writer/libmwaw/pass/ClarisWorks_6.0.cwk",
+    "gitBlob": "9162e3d2c69ec42d5f6bd53a00fecac2d9f07d07",
+    "sha256": "1b13048f8e947fcfe5113f428b469a6b43c4e391273ddc6cf567cdce6b625adc",
+    "license": "MPL-2.0"
+  },
+  {
+    "file": "legacy.mw",
+    "url": "https://raw.githubusercontent.com/LibreOffice/core/11ccf4230941895f97e4fb6987631b65b401858b/writerperfect/qa/unit/data/writer/libmwaw/pass/MacWrite_4.5",
+    "gitBlob": "725f9ad4fd0a79ebac0b19232cf3ac8a57f38e7f",
+    "sha256": "4ab74befea106f743baa766daf9a938d0e96815b52d0bc24c25374758a43de70",
+    "license": "MPL-2.0"
+  },
+  {
+    "file": "legacy.mcw",
+    "url": "https://raw.githubusercontent.com/LibreOffice/core/11ccf4230941895f97e4fb6987631b65b401858b/writerperfect/qa/unit/data/writer/libmwaw/pass/MacWrite_Pro1.0",
+    "gitBlob": "82e5d860848c2056e425bd7bdda6a7dbd1e384e7",
+    "sha256": "965b5d2d0528bea15d58cbc6e8b2a838674219a1c3110ecea8343535ff8563d7",
+    "license": "MPL-2.0"
+  },
+  {
+    "file": "legacy.psw",
+    "url": "https://raw.githubusercontent.com/LibreOffice/core/11ccf4230941895f97e4fb6987631b65b401858b/writerperfect/qa/unit/data/writer/libwps/pass/PocketWord.psw",
+    "gitBlob": "75c0b60f397cfa1ceb96059abab2bf98fa890bea",
+    "sha256": "bef5eeabfc34d59d14f7f66796aca17a0b1231c1015ce3d0bc9d32e0c8cf1740",
+    "license": "MPL-2.0"
+  },
+  {
+    "file": "legacy.hwp",
+    "url": "https://raw.githubusercontent.com/LibreOffice/core/11ccf4230941895f97e4fb6987631b65b401858b/hwpfilter/qa/cppunit/data/pass/hangul97-3.0.hwp",
+    "gitBlob": "68ff2f51269f3ab619f6465073518cd84694300c",
+    "sha256": "2c98104a01860c809c9192109f74b2231374f5ab266014e976a120572909f9f7",
+    "license": "MPL-2.0"
+  },
+  {
+    "file": "legacy.lwp",
+    "url": "https://raw.githubusercontent.com/LibreOffice/core/11ccf4230941895f97e4fb6987631b65b401858b/lotuswordpro/qa/cppunit/data/pass/wordpro.lwp",
+    "gitBlob": "dc4048cb92204c15784d78afa2a4b64f2b8c77a4",
+    "sha256": "812888b2b621c2fe397881052d4bf8d755037adee9427320d9ea704dbcc66f91",
+    "license": "MPL-2.0"
+  },
+  {
+    "file": "legacy.vor",
+    "url": "https://raw.githubusercontent.com/apache/tika/e918be5e9d1031a373528215a32ea5a1e6488624/tika-parsers/tika-parsers-standard/tika-parsers-standard-integration-tests/src/test/resources/test-documents/testVORWriterTemplate.vor",
+    "gitBlob": "27828eb36f9fdb636000a15b6e262e67a326d2ee",
+    "sha256": "e1ca251637e63e3ab3d4b2535bf2a87479ff3ce62b7c237f57e40a645cda2e85",
+    "license": "Apache-2.0"
+  },
+  {
+    "file": "legacy.sgl",
+    "url": "https://gitlab.freedesktop.org/xdg/shared-mime-info/-/raw/dd8998f4edb0cf06afe2fc199e6ec0c8fda6e756/tests/mime-detection/so5.sgl",
+    "gitBlob": "5a5bcb7526a1879328555774e27fba5348155f83",
+    "sha256": "28be2c6fc4ed42f40f05d880ce72e392d20edf4b8e3a2ba0736448bde21a02cd",
+    "license": "GPL-2.0 (upstream COPYING)",
+    "originalSha256": "aa9b96e587cbe0f48e86bf1ef8b0d4ae4e7a78a480d492e7222bb64d3287acda",
+    "derivation": "fill-starwriter-master.py: native paragraph/statistics/stream-size update; original master CLSID and header preserved"
+  }
+]
