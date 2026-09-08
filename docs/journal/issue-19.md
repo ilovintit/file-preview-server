@@ -26,3 +26,7 @@ MacWrite两个后缀均属于同一真实格式族，分别采用4.5/Pro1.0原�
 本机精简LibreOffice对WPS/WPD/PSW/VOR/SGL会退回乱码纯文本，这些结果未用于预期、更不算Gotenberg验收。WordPerfect改用有上游明确文字断言的Tika原件；Works选用能直接核对文本记录的DOS2原件。manifest冻结28种hash、页数与关键/完整文字；CI必须拒绝源码/二进制乱码作为PDF正文。
 
 下一步在同一PR取得新文字格式的缺失行为红色证据，再实现识别/转换。当前只完成样例与断言编写，不宣称固定镜像的28种格式已通过。
+
+## 测试先行红色证据
+
+PR #34 / head `90c21949a1ab5f13866e5bb915ca5823d8337175`，CI10840 / job18381：28种fixture完整性检查通过；56个文字格式/profile组合均 `text conversion expected302 got422`，确认失败是功能缺失，不是环境或样例hash错误。随后开始实现文字格式的有界识别/转换，TXT/BibTeX先作为转义文本封装为FODT，避免LibreOffice自动误读活动内容；原有raw/coreOffice输出身份保持不变。

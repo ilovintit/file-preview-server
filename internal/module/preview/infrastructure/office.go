@@ -30,6 +30,9 @@ func coreOffice(filename string) bool {
 }
 
 func outputVersion(filename string) string {
+	if textFormat(filename) {
+		return "text-v1-" + officeOutputVersion + "-" + strings.TrimPrefix(strings.ToLower(path.Ext(filename)), ".")
+	}
 	if coreOffice(filename) {
 		return officeOutputVersion + "-" + strings.TrimPrefix(strings.ToLower(path.Ext(filename)), ".")
 	}
@@ -37,7 +40,7 @@ func outputVersion(filename string) string {
 }
 
 func outputMIME(filename, contentType string) bool {
-	if coreOffice(filename) {
+	if coreOffice(filename) || textFormat(filename) {
 		return contentType == "application/pdf"
 	}
 	return rawMIME(path.Ext(filename), contentType)
@@ -154,31 +157,9 @@ func validateOffice(ctx context.Context, data []byte, ext string) (err error) {
 		return entity.ErrUnavailable
 	}
 	if ext == ".doc" || ext == ".xls" || ext == ".ppt" {
-		// Bound allocations driven by untrusted CFB header counts before the
-		// parser allocates DIFAT, directory and mini-FAT slices.
-		if len(data) < 512 {
-			return entity.ErrInvalid
-		}
-		shift := binary.LittleEndian.Uint16(data[30:32])
-		if shift != 9 && shift != 12 {
-			return entity.ErrInvalid
-		}
-		sectors := uint64(len(data)) / (uint64(1) << shift)
-		for _, offset := range []int{40, 44, 64, 72} {
-			if uint64(binary.LittleEndian.Uint32(data[offset:offset+4])) > sectors {
-				return entity.ErrInvalid
-			}
-		}
-		difatCapacity := uint64(binary.LittleEndian.Uint32(data[72:76]))*((uint64(1)<<shift)/4-1) + 109
-		if difatCapacity > sectors+((uint64(1)<<shift)/4)+109 {
-			return entity.ErrInvalid
-		}
-		compound, err := mscfb.New(&officeReaderAt{ctx: ctx, Reader: bytes.NewReader(data)})
-		if ctx.Err() != nil {
-			return entity.ErrUnavailable
-		}
-		if err != nil || len(compound.File) > 4096 {
-			return entity.ErrInvalid
+		compound, err := boundedCompound(ctx, data)
+		if err != nil {
+			return err
 		}
 		found := false
 		for _, entry := range compound.File {
@@ -239,4 +220,33 @@ func validateOffice(ctx context.Context, data []byte, ext string) (err error) {
 		return entity.ErrInvalid
 	}
 	return nil
+}
+
+func boundedCompound(ctx context.Context, data []byte) (*mscfb.Reader, error) {
+	// Bound allocations driven by untrusted header counts before invoking CFB.
+	if len(data) < 512 {
+		return nil, entity.ErrInvalid
+	}
+	shift := binary.LittleEndian.Uint16(data[30:32])
+	if shift != 9 && shift != 12 {
+		return nil, entity.ErrInvalid
+	}
+	sectors := uint64(len(data)) / (uint64(1) << shift)
+	for _, offset := range []int{40, 44, 64, 72} {
+		if uint64(binary.LittleEndian.Uint32(data[offset:offset+4])) > sectors {
+			return nil, entity.ErrInvalid
+		}
+	}
+	difat := uint64(binary.LittleEndian.Uint32(data[72:76]))*((uint64(1)<<shift)/4-1) + 109
+	if difat > sectors+((uint64(1)<<shift)/4)+109 {
+		return nil, entity.ErrInvalid
+	}
+	compound, err := mscfb.New(&officeReaderAt{ctx: ctx, Reader: bytes.NewReader(data)})
+	if ctx.Err() != nil {
+		return nil, entity.ErrUnavailable
+	}
+	if err != nil || len(compound.File) > 4096 {
+		return nil, entity.ErrInvalid
+	}
+	return compound, nil
 }
