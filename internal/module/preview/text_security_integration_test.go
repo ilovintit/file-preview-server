@@ -119,7 +119,22 @@ End Sub]]></script:module>`,
 	}
 	var calls, converterStatus atomic.Int32
 	proxy := httputil.NewSingleHostReverseProxy(endpoint)
-	proxy.ModifyResponse = func(r *http.Response) error { converterStatus.Store(int32(r.StatusCode)); return nil }
+	proxy.ModifyResponse = func(r *http.Response) error {
+		converterStatus.Store(int32(r.StatusCode))
+		if r.StatusCode >= 400 {
+			// This isolated converter receives only our synthetic macro fixture.
+			// Bound its diagnostic body; never log provider responses or signed URLs.
+			detail, err := io.ReadAll(io.LimitReader(r.Body, 4096))
+			r.Body.Close()
+			if err == nil {
+				t.Logf("synthetic macro converter error: %q", string(detail))
+			}
+			r.Body = io.NopCloser(bytes.NewReader(detail))
+			r.ContentLength = int64(len(detail))
+			r.Header.Del("Content-Length")
+		}
+		return nil
+	}
 	converter := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls.Add(1)
 		proxy.ServeHTTP(w, r)
