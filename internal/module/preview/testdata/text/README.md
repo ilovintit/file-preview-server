@@ -29,3 +29,7 @@ SGL来自freedesktop官方的原生StarWriter5主文档。上游原件是空文�
 - 本机精简LibreOffice对部分旧格式会退回乱码纯文本。该结果已识别为无效参考，未采用其页数或正文；不能把这种“成功导出”当作转换成功。
 
 最终必须通过28×两profile的真实转换、PDF解析、页数/文字、异常输入和已有能力回归；任何缺样例、损坏、乱码回退、固定镜像失败都阻断合并，不静默删减范围。
+
+## 密码保护负向样例
+
+`negative/protected.docm` 由 `.gitea/fixtures/encrypt-text-fixture.py` 对本目录真实 `source.docm` 使用 msoffcrypto-tool 5.4.2 的 ECMA-376 Agile 加密生成，不是把 DOCX 改后缀。作者工具解密核对原始字节，仅证明样例完整性，不代替预览服务 CI。测试密码 `S05-fixture-only` 不是部署凭据；固定密文 SHA-256 为 `6d7e94901d30dbf0ce57207b6136783ff6048a9fc53e2658dceabd4ded1749d1`。加密含随机量，重新生成后必须重新审查并冻结 hash。CI 断言重复请求均422、无Location、未调用转换器且无对象发布。

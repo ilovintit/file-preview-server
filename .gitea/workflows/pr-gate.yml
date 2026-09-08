@@ -61,6 +61,7 @@ jobs:
           username: ${{ secrets.CI_HARBOR_USERNAME }}
           password: ${{ secrets.CI_HARBOR_PASSWORD }}
         env:
+          LOG_LEVEL: debug
           API_TIMEOUT: 30s
           API_BODY_LIMIT: 34MB
           API_DISABLE_DOWNLOAD_FROM: 'true'
@@ -105,6 +106,16 @@ jobs:
             if command -v "$browser" >/dev/null 2>&1; then "$browser" --version; fi
           done
           go test -race -tags integration -count=1 -v ./internal/module/preview/...
+
+      - name: 隔离转换器失败诊断
+        if: failure()
+        env:
+          PREVIEW_TEST_CONVERTER_CONTAINER: ${{ job.services.gotenberg.id }}
+        run: |
+          # Only the per-job converter receives repository-owned fixture bytes.
+          # Never inspect provider containers or dump Actions environment values.
+          test -n "$PREVIEW_TEST_CONVERTER_CONTAINER"
+          docker logs --tail 150 "$PREVIEW_TEST_CONVERTER_CONTAINER" 2>&1
 
   browser:
     # Keep the established status context; this job now covers both profiles.

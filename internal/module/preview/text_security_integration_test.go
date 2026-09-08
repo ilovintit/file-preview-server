@@ -50,6 +50,30 @@ func TestTC_S05_AC03_InvalidInputsNeverPublish(t *testing.T) {
 	}
 }
 
+func TestTC_S05_AC03_PasswordProtectedTextNeverPublishes(t *testing.T) {
+	body, err := os.ReadFile("testdata/text/negative/protected.docm")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sha256Hex(body) != "6d7e94901d30dbf0ce57207b6136783ff6048a9fc53e2658dceabd4ded1749d1" {
+		t.Fatal("encrypted DOCM fixture changed")
+	}
+	var calls atomic.Int32
+	converter := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls.Add(1); w.WriteHeader(500) }))
+	defer converter.Close()
+	f, token := officeSetup(t, body, "protected.docm", converter.URL)
+	for i := 0; i < 2; i++ {
+		code, location := profileLocation(t, f, token)
+		if code != 422 || location != "" {
+			t.Fatalf("encrypted DOCM expected422 got%d", code)
+		}
+	}
+	count, err := f.db.Do(context.Background(), "HLEN", f.cfg.Namespace+":objects")
+	if err != nil || count.Int() != 0 || calls.Load() != 0 {
+		t.Fatal("encrypted DOCM reached converter or published an object")
+	}
+}
+
 func TestTC_S05_AC04_DocumentMacroCannotChangePreview(t *testing.T) {
 	data, err := os.ReadFile("testdata/text/source.odt")
 	if err != nil {
