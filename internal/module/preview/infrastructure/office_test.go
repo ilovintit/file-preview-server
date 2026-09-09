@@ -25,7 +25,7 @@ func TestTC_S03_AC02_OutputVersionAndDeployment(t *testing.T) {
 			t.Fatal("Office output must be PDF")
 		}
 	}
-	for _, extension := range []string{"pdf", "jpg", "jpeg", "png", "gif", "webp", "avif"} {
+	for _, extension := range []string{"pdf", "jpg", "jpeg", "png", "gif", "webp"} {
 		if outputVersion("fixture."+extension) != rawOutputVersion || coreOffice("fixture."+extension) {
 			t.Fatal("raw output version changed")
 		}
@@ -82,7 +82,7 @@ func TestTC_S03_AC03_AdmissionAndWaitingBound(t *testing.T) {
 		store.admission <- struct{}{}
 	}
 	start := time.Now()
-	if _, err := store.Prepare(context.Background(), entity.Grant{}); !errors.Is(err, entity.ErrUnavailable) {
+	if _, err := store.Prepare(context.Background(), entity.Grant{Filename: "fixture.docx"}); !errors.Is(err, entity.ErrUnavailable) {
 		t.Fatal("full queue accepted request")
 	}
 	if time.Since(start) > time.Second {
@@ -94,7 +94,7 @@ func TestTC_S03_AC03_AdmissionAndWaitingBound(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
-	if _, err := store.Prepare(ctx, entity.Grant{}); !errors.Is(err, entity.ErrUnavailable) {
+	if _, err := store.Prepare(ctx, entity.Grant{Filename: "fixture.docx"}); !errors.Is(err, entity.ErrUnavailable) {
 		t.Fatal("canceled waiter accepted")
 	}
 	if len(store.admission) != 35 || len(store.slots) != 4 {

@@ -29,18 +29,45 @@ func coreOffice(filename string) bool {
 	return false
 }
 
-func outputVersion(filename string) string {
-	if textFormat(filename) {
-		return "text-v1-" + officeOutputVersion + "-" + strings.TrimPrefix(strings.ToLower(path.Ext(filename)), ".")
+// WPS native compound files use the corresponding Office binary document streams.
+// Validate the actual container before choosing the converter input name.
+func officeInputExtension(filename string) string {
+	ext := strings.ToLower(path.Ext(filename))
+	switch ext {
+	case ".wps":
+		return ".doc"
+	case ".et":
+		return ".xls"
+	case ".dps":
+		return ".ppt"
 	}
 	if coreOffice(filename) {
-		return officeOutputVersion + "-" + strings.TrimPrefix(strings.ToLower(path.Ext(filename)), ".")
+		return ext
+	}
+	return ""
+}
+
+func convertedImage(filename string) bool {
+	switch strings.ToLower(path.Ext(filename)) {
+	case ".bmp", ".tif", ".tiff":
+		return true
+	}
+	return false
+}
+
+func outputVersion(filename string) string {
+	ext := strings.ToLower(path.Ext(filename))
+	if coreOffice(filename) {
+		return officeOutputVersion + "-" + strings.TrimPrefix(ext, ".")
+	}
+	if officeInputExtension(filename) != "" || convertedImage(filename) {
+		return "allowed-v1-" + officeOutputVersion + "-" + strings.TrimPrefix(ext, ".")
 	}
 	return rawOutputVersion
 }
 
 func outputMIME(filename, contentType string) bool {
-	if coreOffice(filename) || textFormat(filename) {
+	if officeInputExtension(filename) != "" || convertedImage(filename) {
 		return contentType == "application/pdf"
 	}
 	return rawMIME(path.Ext(filename), contentType)

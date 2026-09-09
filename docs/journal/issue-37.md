@@ -15,3 +15,13 @@
 现有 .wps 样例来自 Microsoft Works，不再作为 WPS 正向证据。本机 WPS 官方安装包含原生 newfile.wps/newfile.et/newfile.dps，可只读核对真实 CFB 结构。电脑控制权限不可用，未改用其他 UI 技术绕过；原生空白样例不等于非空正文/单元格/幻灯片已验证。
 
 后续依次收紧入口、移除超范围实现/正向 fixture，补 BMP/TIFF 与真实 WPS 适配，再验证当前 PR CI。所有测试运行只在 CI，本地仅构建/类型确认。
+
+## 首轮红色证据
+
+PR #39 / head 0503c19 / CI12478 job20354 在行为断言处失败：.et/.dps 被拒绝、已取消格式仍允许，旧 .txt/.pages/.avif/.docm token 仍调用缓存 preparer。不是编译或环境失败。随后开始实现统一18后缀边界及预览重检，移除旧文字扩展与 AVIF 正向路径。
+
+## 首轮实现
+
+已删除旧文字扩展转换器、正向矩阵与专用生成脚本，移除 AVIF 解码依赖和正向用例，仅保留拒绝测试。核心 Office 缓存身份保持不变；WPS 与新增图片转换使用独立 allowed-v1 身份，避免旧 Works 产物被复用。
+
+本地 go build ./... 与 go test -c -tags 'integration browser'（仅编译，不执行）通过。新增 WPS 三类原生资源的双 profile 转换、Microsoft Works 拒绝、BMP/TIFF 转换后红色图像像素验证，待当前 PR CI；空白 WPS 样例的限制在其 README 明示。

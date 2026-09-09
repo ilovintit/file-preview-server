@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"path"
 	"sort"
 	"time"
 
@@ -129,6 +130,9 @@ func (s *Service) PreparePreview(ctx context.Context, token string) (string, err
 	grant, err := s.Resolve(ctx, token)
 	if err != nil {
 		return "", err
+	}
+	if !entity.SupportedExtension(path.Ext(grant.Filename)) {
+		return "", entity.ErrInvalid
 	}
 	if s.preparer == nil {
 		return "", entity.ErrUnavailable
