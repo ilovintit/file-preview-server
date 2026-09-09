@@ -60,6 +60,9 @@ func outputVersion(filename string) string {
 	if coreOffice(filename) {
 		return officeOutputVersion + "-" + strings.TrimPrefix(ext, ".")
 	}
+	if ext == ".tif" || ext == ".tiff" {
+		return "tiff-png-v2-" + officeOutputVersion + "-" + strings.TrimPrefix(ext, ".")
+	}
 	if officeInputExtension(filename) != "" || convertedImage(filename) {
 		return "allowed-v1-" + officeOutputVersion + "-" + strings.TrimPrefix(ext, ".")
 	}
@@ -88,20 +91,42 @@ func newOfficeConverter(endpoint string) *officeConverter {
 	}}
 }
 
+type officeInput struct {
+	name string
+	body []byte
+}
+
 func (c *officeConverter) convert(ctx context.Context, body []byte, filename string) ([]byte, error) {
+	return c.convertInputs(ctx, []officeInput{{name: "source" + strings.ToLower(path.Ext(filename)), body: body}})
+}
+
+func (c *officeConverter) convertInputs(ctx context.Context, inputs []officeInput) ([]byte, error) {
 	if c == nil {
 		return nil, entity.ErrUnavailable
 	}
-	// One bounded in-memory input, no source URL or arbitrary caller form fields.
+	if len(inputs) == 0 || len(inputs) > 128 {
+		return nil, entity.ErrInvalid
+	}
+	// Bounded in-memory inputs, no source URL or arbitrary caller form fields.
 	// Pipe multipart framing to avoid copying the full 32 MiB input again.
 	reader, writer := io.Pipe()
 	form := multipart.NewWriter(writer)
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		part, err := form.CreateFormFile("files", "source"+strings.ToLower(path.Ext(filename)))
-		if err == nil {
-			_, err = part.Write(body)
+		var err error
+		for _, input := range inputs {
+			var part io.Writer
+			part, err = form.CreateFormFile("files", input.name)
+			if err == nil {
+				_, err = part.Write(input.body)
+			}
+			if err != nil {
+				break
+			}
+		}
+		if err == nil && len(inputs) > 1 {
+			err = form.WriteField("merge", "true")
 		}
 		if err == nil {
 			err = form.WriteField("updateIndexes", "false")

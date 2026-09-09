@@ -260,6 +260,14 @@ func (s *PreviewStore) download(ctx context.Context, grant entity.Grant) ([]byte
 		converted, err := s.converter.convert(ctx, body, "source"+ext)
 		return converted, "application/pdf", err
 	}
+	if ext := strings.ToLower(path.Ext(grant.Filename)); ext == ".tif" || ext == ".tiff" {
+		inputs, err := prepareTIFF(ctx, body)
+		if err != nil {
+			return nil, "", err
+		}
+		converted, err := s.converter.convertInputs(ctx, inputs)
+		return converted, "application/pdf", err
+	}
 	if convertedImage(grant.Filename) {
 		config, format, err := image.DecodeConfig(bytes.NewReader(body))
 		expected := "tiff"

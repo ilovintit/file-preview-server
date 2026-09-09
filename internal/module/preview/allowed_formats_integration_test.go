@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -24,7 +25,7 @@ import (
 	"golang.org/x/image/tiff"
 )
 
-func allowedPDF(t *testing.T, body []byte, filename, profile string) []byte {
+func allowedPDF(t *testing.T, body []byte, filename, profile string, expectedPages int) []byte {
 	t.Helper()
 	endpoint := os.Getenv("GOTENBERG_TEST_URL")
 	if endpoint == "" {
@@ -65,9 +66,9 @@ func allowedPDF(t *testing.T, body []byte, filename, profile string) []byte {
 		t.Fatal(err)
 	}
 	pages, err := pdfapi.PageCount(bytes.NewReader(data), conf)
-	if err != nil || pages != 1 {
+	if err != nil || pages != expectedPages {
 		saveFormatArtifacts(t, filename, profile, body, data)
-		t.Fatalf("expected one fixture page, got %d: %v", pages, err)
+		t.Fatalf("expected %d fixture pages, got %d: %v", expectedPages, pages, err)
 	}
 	return data
 }
@@ -80,6 +81,8 @@ func TestTC_R1_WPSProfileConversion(t *testing.T) {
 	var cases []struct {
 		File, SHA256 string
 		Blank        bool
+		Pages        int
+		Text         []string
 	}
 	if err := json.Unmarshal(manifest, &cases); err != nil {
 		t.Fatal(err)
@@ -91,7 +94,7 @@ func TestTC_R1_WPSProfileConversion(t *testing.T) {
 				if err != nil || sha256Hex(body) != tc.SHA256 {
 					t.Fatal("native WPS fixture changed")
 				}
-				data := allowedPDF(t, body, tc.File, profile)
+				data := allowedPDF(t, body, tc.File, profile, tc.Pages)
 				reader, err := pdftext.NewReader(bytes.NewReader(data), int64(len(data)))
 				if err != nil {
 					t.Fatal(err)
@@ -103,6 +106,11 @@ func TestTC_R1_WPSProfileConversion(t *testing.T) {
 				text, err := io.ReadAll(plain)
 				if err != nil {
 					t.Fatal(err)
+				}
+				for _, expected := range tc.Text {
+					if !strings.Contains(strings.Join(strings.Fields(string(text)), ""), expected) {
+						t.Fatalf("WPS source value %q missing from PDF", expected)
+					}
 				}
 				if !tc.Blank && strings.TrimSpace(string(text)) == "" {
 					t.Fatal("nonempty WPS chart lost all labels")
@@ -137,33 +145,8 @@ func TestTC_R1_BMPAndTIFFProfileContent(t *testing.T) {
 		}
 		for _, profile := range []string{"aliyun-oss", "silo"} {
 			t.Run(ext+"/"+profile, func(t *testing.T) {
-				data := allowedPDF(t, buffer.Bytes(), "pattern."+ext, profile)
-				conf := model.NewDefaultConfiguration()
-				conf.Offline = true
-				pages, err := pdfapi.ExtractImagesRaw(bytes.NewReader(data), nil, conf)
-				if err != nil {
-					t.Fatal(err)
-				}
-				found := false
-				for _, objects := range pages {
-					for _, object := range objects {
-						t.Logf("PDF image type=%s dimensions=%dx%d colorspace=%s filter=%s reader=%t", object.FileType, object.Width, object.Height, object.Cs, object.Filter, object.Reader != nil)
-						if object.Reader == nil {
-							continue
-						}
-						decoded, _, err := image.Decode(object.Reader)
-						if err != nil {
-							t.Logf("PDF image decode error: %v", err)
-							continue
-						}
-						bounds := decoded.Bounds()
-						r, g, b, _ := decoded.At(bounds.Min.X+bounds.Dx()/2, bounds.Min.Y+bounds.Dy()/2).RGBA()
-						t.Logf("PDF image center RGB=%d,%d,%d", r>>8, g>>8, b>>8)
-						if r>>8 > 210 && g>>8 < 60 && b>>8 > 35 && b>>8 < 95 {
-							found = true
-						}
-					}
-				}
+				data := allowedPDF(t, buffer.Bytes(), "pattern."+ext, profile, 1)
+				found := pageHasColor(t, data, 1, [3]int{240, 32, 64})
 				if !found {
 					saveFormatArtifacts(t, "pattern."+ext, profile, buffer.Bytes(), data)
 					t.Fatal("converted PDF lost the red fixture image")
@@ -212,5 +195,57 @@ func saveFormatArtifacts(t *testing.T, filename, profile string, input, output [
 	}
 	if err := os.WriteFile(filepath.Join(folder, profile+"-"+filename+".pdf"), output, 0644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func pageHasColor(t *testing.T, data []byte, page int, want [3]int) bool {
+	t.Helper()
+	conf := model.NewDefaultConfiguration()
+	conf.Offline = true
+	pages, err := pdfapi.ExtractImagesRaw(bytes.NewReader(data), []string{strconv.Itoa(page)}, conf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, objects := range pages {
+		for _, object := range objects {
+			if object.Reader == nil {
+				continue
+			}
+			decoded, _, err := image.Decode(object.Reader)
+			if err != nil {
+				t.Logf("PDF image decode error: %v", err)
+				continue
+			}
+			bounds := decoded.Bounds()
+			r, g, b, a := decoded.At(bounds.Min.X+bounds.Dx()/2, bounds.Min.Y+bounds.Dy()/2).RGBA()
+			values := [3]int{int(r >> 8), int(g >> 8), int(b >> 8)}
+			t.Logf("PDF page %d center RGBA=%d,%d,%d,%d", page, values[0], values[1], values[2], a>>8)
+			matches := true
+			for i, v := range values {
+				if v < want[i]-30 || v > want[i]+30 {
+					matches = false
+				}
+			}
+			if matches {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func TestTC_R1_MultipageTIFFPreservesOrder(t *testing.T) {
+	body, err := os.ReadFile("testdata/images/two-page.tiff")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, profile := range []string{"aliyun-oss", "silo"} {
+		t.Run(profile, func(t *testing.T) {
+			data := allowedPDF(t, body, "two-page.tiff", profile, 2)
+			if !pageHasColor(t, data, 1, [3]int{240, 32, 64}) || !pageHasColor(t, data, 2, [3]int{32, 64, 240}) {
+				saveFormatArtifacts(t, "two-page.tiff", profile, body, data)
+				t.Fatal("TIFF lost a frame or changed page order")
+			}
+		})
 	}
 }

@@ -9,9 +9,20 @@
   {
     "file": "newchart.et",
     "sha256": "8219a3ff1f3285f354923c73576e2fcc937eb8d3c4614f816cbc49d9ab67cd89",
-    "pages": 1,
+    "pages": 2,
     "source": "WPS Office macOS 12.1.28492 official installed resource: office6/mui/zh_CN/templates/newchart.et",
-    "blank": false
+    "blank": false,
+    "text": [
+      "一月",
+      "二月",
+      "三月",
+      "四月",
+      "亚洲区",
+      "欧洲区",
+      "北美区",
+      "76.1",
+      "71.4"
+    ]
   },
   {
     "file": "newfile.dps",
