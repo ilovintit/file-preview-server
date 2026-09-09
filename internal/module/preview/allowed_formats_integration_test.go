@@ -66,6 +66,7 @@ func allowedPDF(t *testing.T, body []byte, filename, profile string) []byte {
 	}
 	pages, err := pdfapi.PageCount(bytes.NewReader(data), conf)
 	if err != nil || pages != 1 {
+		saveFormatArtifacts(t, filename, profile, body, data)
 		t.Fatalf("expected one fixture page, got %d: %v", pages, err)
 	}
 	return data
@@ -146,21 +147,25 @@ func TestTC_R1_BMPAndTIFFProfileContent(t *testing.T) {
 				found := false
 				for _, objects := range pages {
 					for _, object := range objects {
+						t.Logf("PDF image type=%s dimensions=%dx%d colorspace=%s filter=%s reader=%t", object.FileType, object.Width, object.Height, object.Cs, object.Filter, object.Reader != nil)
 						if object.Reader == nil {
 							continue
 						}
 						decoded, _, err := image.Decode(object.Reader)
 						if err != nil {
+							t.Logf("PDF image decode error: %v", err)
 							continue
 						}
 						bounds := decoded.Bounds()
 						r, g, b, _ := decoded.At(bounds.Min.X+bounds.Dx()/2, bounds.Min.Y+bounds.Dy()/2).RGBA()
+						t.Logf("PDF image center RGB=%d,%d,%d", r>>8, g>>8, b>>8)
 						if r>>8 > 210 && g>>8 < 60 && b>>8 > 35 && b>>8 < 95 {
 							found = true
 						}
 					}
 				}
 				if !found {
+					saveFormatArtifacts(t, "pattern."+ext, profile, buffer.Bytes(), data)
 					t.Fatal("converted PDF lost the red fixture image")
 				}
 			})
@@ -193,5 +198,19 @@ func TestTC_R1_SignedAPIRejectsExcludedFormats(t *testing.T) {
 				t.Fatalf("excluded format was issued: HTTP %d code %d", r.StatusCode, result.Code)
 			}
 		})
+	}
+}
+
+func saveFormatArtifacts(t *testing.T, filename, profile string, input, output []byte) {
+	t.Helper()
+	folder := "../../../.cache/format-artifacts"
+	if err := os.MkdirAll(folder, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(folder, profile+"-"+filename), input, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(folder, profile+"-"+filename+".pdf"), output, 0644); err != nil {
+		t.Fatal(err)
 	}
 }

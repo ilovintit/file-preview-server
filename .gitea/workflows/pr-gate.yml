@@ -112,6 +112,14 @@ jobs:
           test -n "$PREVIEW_TEST_CONVERTER_CONTAINER"
           docker logs --tail 150 "$PREVIEW_TEST_CONVERTER_CONTAINER" 2>&1
 
+      - uses: https://git.shw.top/actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32
+        if: failure()
+        with:
+          name: format-failure-evidence
+          path: .cache/format-artifacts
+          if-no-files-found: ignore
+          retention-days: 7
+
   browser:
     # Keep the established status context; this job now covers both profiles.
     name: S02 Chromium 图片与 PDF 跨域读取
