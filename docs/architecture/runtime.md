@@ -6,7 +6,7 @@
 
 ```mermaid
 sequenceDiagram
-    participant M as 小程序 demo
+    participant M as Web 附件示例
     participant D as 仓库内 demo API
     participant A as 预览服务
     participant V as Valkey
@@ -16,11 +16,11 @@ sequenceDiagram
     D->>A: HTTPS Internal 签名请求
     A->>A: 有界读取原始 body，验证传输/角色/签名/时间窗
     A->>V: 原子占用 nonce
-    A->>A: 解码和验证业务字段
+    A->>A: 解码和验证业务字段/产品允许格式
     A->>V: 原子保存 token 与有效期索引
     A-->>D: token 与 expires_at
     D-->>M: 最小展示 DTO
-    M->>H: web-view fragment
+    M->>H: 阅读页 fragment
     H->>H: 读取后清除 fragment，只保留内存展示信息
     H->>A: GET token URL
 ```
@@ -38,7 +38,9 @@ sequenceDiagram
     participant G as Gotenberg
     participant O as 所选缓存 profile
     C->>A: GET token URL
-    A->>V: 读取 token 与缓存状态
+    A->>V: 读取 token
+    A->>A: 检查当前产品允许格式，拒绝超范围旧 token
+    A->>V: 检查缓存状态
     alt token 无效
         A-->>C: 404
     else token 有效

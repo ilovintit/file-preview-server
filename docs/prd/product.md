@@ -1,37 +1,37 @@
 # 文件预览服务产品真相
 
-> 当前状态：`v1.0.0` 产品定义已获用户确认（[Issue #13](https://git.shw.top/shw-project/file-preview-server/issues/13)）；功能实现由 #15–#27 交付，[Issue #1](https://git.shw.top/shw-project/file-preview-server/issues/1) 保留需求汇总，尚未进入 `dev`。本文不将目标架构表述为已上线能力。
+> 当前范围依据：[用户裁决 / Issue #36](https://git.shw.top/shw-project/file-preview-server/issues/36)。本服务长期只支持常见图片、PDF、微软新旧版与金山 WPS 办公文件，其他格式永久不支持。精确图片清单与“办公四件套”第四项待用户答复，见 [格式边界](../architecture/formats.md)。
 
-> 用户已采纳三项契约与 v1.0.0 范围，并确认原型交互。最新 [Issue #28](https://git.shw.top/shw-project/file-preview-server/issues/28) 裁决：首版只需 H5 自动化验证通过后交付业务接入，不要求人工真实验收；实际使用反馈在交付后收集。服务实现尚未完成，见 [综合审查](../architecture/review.md)。
+> dev@37a01a0 已有授权、受控预览、两 profile 与核心 Office；已合入的超范围文字格式需在 #37 收紧，真实金山 WPS、Web 阅读与镜像尚未交付。剩余实施 #37 → #25 → #26，由 [v1.0.0 Milestone](https://git.shw.top/shw-project/file-preview-server/milestone/11) 承载。首版继续使用 #28 的自动验收裁决，业务接入后收集反馈。
 
 ## 用户、问题与价值
 
-本服务供项目内 API server 和管理后台使用，统一处理受控文件预览。它通过 HTTPS 上签名、防重放的服务端调用签发 token，以文件内容 hash 缓存校验后的原样 PDF/安全图片或转换后的 PDF，并将可访问资源包装为会过期的预览链接。`v1.0.0` 支持浏览器和**微信小程序**：小程序通过本仓库 demo H5 预览页的 `web-view` 打开资源。原生 App 的支持验证明确延期到下一版本。
+本服务供业务系统的 API server、H5 和 PC Web 使用，统一处理受控文件预览。它通过 HTTPS 上签名、防重放的服务端调用签发 token，以内容 hash 缓存校验后的原样图片/PDF 或转换 PDF，提供有期限的预览链接。首版交付一套适配手机和桌面浏览器的实际阅读页、可部署镜像及接入说明，让业务系统尽快部署使用。
 
 它解决以下已确认问题：源服务端点裸露、并发转换锁只限单实例、没有预览链接与缓存生命周期管理、对象存储被单一实现绑定，以及 Gotenberg 没有随服务部署。`v1.0.0` 是完整重构，不保留任何历史 HTTP 兼容入口。
 
 ## 目标与非目标
 
-### 本期目标（Issue #1 交付；调用方契约由 [Issue #5](https://git.shw.top/shw-project/file-preview-server/issues/5)、[Issue #7](https://git.shw.top/shw-project/file-preview-server/issues/7)、[Issue #9](https://git.shw.top/shw-project/file-preview-server/issues/9) 和 [Issue #11](https://git.shw.top/shw-project/file-preview-server/issues/11) 定义）
+### 目标
 
 - 以全新服务替代历史 document-processing 实现；不迁移或兼容任何旧 HTTP 路由、数据键、缓存键或调用方式。
 - 只有持有激活调用方密钥的服务端可以通过 HTTPS 上签名且防重放的请求签发、查询或撤销预览 token；资源不直接由业务前端裸露。
 - 通过 `GET /v/{token}` 提供唯一的公开导航入口；图片、PDF 与转换后的文档均以 302 跳转到短时签名资源 URL。调用方持久化和再次打开的只能是 `/v/{token}`，不得保存或复用跳转目标 URL。
-- 对象存储仅经两个待验收 profile 接入：`aliyun-oss` 与 `silo`。阿里云 OSS 是首个应用 profile，silo 是第二个 profile；其他供应商不属于 v1.0.0 范围。
-- 按 [格式支持](../architecture/formats.md) 覆盖部署所固定 Gotenberg 版本能处理的最大文件集合；不以未验证的文件扩展名暗示支持。
+- 对象存储支持已交付的 `aliyun-oss` 与 `silo` 两个 profile；环境可按配置启用其中一个或两个，其他供应商不在当前范围。
+- 仅支持用户要求的常见图片、PDF、微软新旧版和金山 WPS 办公格式，精确允许集合统一见 [格式边界](../architecture/formats.md)。转换器能力列表不是产品需求；集合之外永久不支持、不延期，不以历史实现或新增转换器能力扩大集合。
 - 缓存与锁按 `storage_profile` 及其配置身份隔离，`content_sha256` 是 profile 内的内容身份，输出版本隔离不同处理规则；`cache_ttl` 由每次 token 签发请求显式给出，命中缓存时延长到请求允许的最长有效期；同 profile、同内容、同输出版本的并发预览等待首个准备过程完成；不同 profile 独立下载/处理，不做跨 profile 复制。
 - 为编排提供新的 `/livez` 和 `/readyz` 探针；它们不是历史 `/health` 兼容接口，也不属于用户预览入口。
-- 微信小程序是 v1.0.0 必须支持的调用方：它通过本仓库 demo H5 预览页和 `web-view` 使用 `/v/{token}`；图片经 H5 图片元素展示，PDF/Office 经 H5 PDF 阅读器展示。
-- 本仓库维护微信小程序接入 demo、H5 自动化环境与 fixture：`demo/wechat-miniprogram/`、`demo/preview-h5/` 和 `demo/fixtures/`。v1.0.0 交付接入代码并验证 H5 链路，微信开发者工具/真机实际运行反馈留到业务接入后，不作为首版门槛。
+- H5 和 PC Web 共用图片/PDF 阅读能力，提供基本翻页、缩放、等待、失效提示、重试与返回；不增加管理页面或文件编辑功能。
+- 本仓库维护 Web 接入示例、实际阅读器、自动化环境和允许格式 fixture：目标目录 `demo/preview-h5/`、`demo/fixtures/`。测试适配层与生产接口隔离。
 - 交付文档处理镜像及同 Pod 的 Gotenberg sidecar 部署声明。
 
 ### 明确非目标
 
 - 不保留 `/preview`、`/img/`、`/redact`、`/redact-pdf`、`/pdf-to-images`、`/images-to-pdf`、测试辅助端点或任何历史兼容开关；后续如需处理能力，必须以新的已鉴权产品契约立项。
-- 不创建、修改或依赖任何外部仓库的代码、文档、CI、部署或 Gitea 状态；项目根目录外的文件禁止写入。微信小程序 demo、H5 与所有验收 fixture 均由本仓库交付。
+- 不创建、修改或依赖外部仓库的代码、文档、CI、部署或 Gitea 状态；项目外文件只读。Web 示例与所有验收 fixture 均在本仓库。
 - 本服务不保存业务 SQL 数据；不引入 PostgreSQL 作为本服务的数据源。
 - 不把 Gotenberg 做成独立 Deployment，也不把它与服务二进制打进同一镜像。
-- 原生 App WebView、原生下载和本地查看器的 SDK/容器验证不属于 v1.0.0，下一版本再定义支持范围与验收。
+- 当前客户端仅 H5/PC Web，不交付小程序工程或原生 App SDK/容器；没有额外的平台实施计划。
 
 ## 角色与权限
 
@@ -39,8 +39,7 @@
 | --- | --- | --- |
 | API server（内部调用方） | 提交 HTTPS 源 URL、内容 hash 与 TTL 并签发 token | HTTPS（生产优先 mTLS）+ 已轮换调用方密钥的 HMAC-SHA256 签名 + nonce 防重放 |
 | 管理后台调用方 | 列出活跃 token、撤销 token | 独立角色的已轮换调用方密钥；同样 HTTPS、签名且防重放 |
-| 浏览器或 demo H5 | 将 `/v/{token}` 交给图片元素、PDF 容器或导航容器 | 只持有 token；不能调用内部或管理 API |
-| 微信小程序 demo | 以 demo 附件 ID 调用本仓库 demo API，打开本仓库 H5 `web-view` | 只接收 token、文件名和展示类型；不得取得资源 URL、内部或管理密钥 |
+| H5 / PC Web 用户 | 按附件 ID 取得最小展示 DTO，以 token URL 进入图片/PDF 阅读 | 不取得源 URL 或 Internal/Admin key，不持久化跳转目标 |
 
 内部与管理调用方密钥或 storage profile 未配置时，对应端点必须拒绝请求（503），不得降级为匿名访问。
 
@@ -53,15 +52,16 @@
 - 所有支持文件统一经过受控存储：未命中本 profile 的有效缓存时，首个请求持锁下载源文件并校验内容 hash/类型；PDF 与浏览器安全图片原样上传，其他 [支持格式](../architecture/formats.md)转换为 PDF 后上传。后续同身份请求等待产物可用。成功后只跳转到所选 profile 的短时签名 URL，绝不直跳源 URL；签名到期不晚于 token、缓存与 provider 允许期限的最小值。
 - `cache_ttl` 从每次签发请求计算缓存绝对过期时间；缓存命中只可把过期时间延长到 `max(当前过期时间, 当前时间 + cache_ttl)`，永不缩短。过期后缓存不可再用，物理对象由对应存储适配器的清理策略删除。
 - 撤销或过期会阻止后续访问 `/v/{token}`；已被浏览器或客户端取得的签名目标 URL 可访问至其自身过期。这是短时签名 URL 的边界，调用方不得把它当作可撤销的业务链接。
-- 微信小程序 demo 打开预览时，必须以 demo 附件 ID 调本仓库 demo API，不得把列表行或裸资源 URL 直接带入页面。demo API 负责用内部密钥签发 token，并仅返回 `token`、`filename`、`preview_type`（`image` 或 `pdf`）和 `expires_at`；Office 的展示类型为 `pdf`。
-- 小程序 demo 只通过 `web-view` 加载本仓库 `demo/preview-h5/` 的 HTTPS H5 页面。demo 将 token 等展示信息放入 H5 URL fragment，H5 读取后立即清除 fragment，再以 `/v/{token}` 加载图片或 PDF 阅读器；不得把 token 写入 query、日志、埋点或分享参数。`wx.previewImage`、`wx.downloadFile` 和 `wx.openDocument` 不构成 v1.0.0 的预览契约。
+- Web 示例打开预览时，以 fixture 附件 ID 调仓库内测试适配层，不把列表行或裸资源 URL 带入阅读页。适配层真实调用 Internal API 签发，只返回 `token`、`filename`、`preview_type`（`image` 或 `pdf`）和 `expires_at`；办公文件按 `pdf` 展示。
+- Web 阅读页通过 HTTPS 打开，从 URL fragment 读取展示信息后立即清除，再以 `/v/{token}` 加载图片或 PDF 阅读器；token 不进入 query、日志、埋点、分享或本地存储。业务系统参考同一最小 DTO 集成，不需要另做手机/桌面两套阅读器。
+- 允许清单在签发和预览入口都必须执行；超范围格式不能通过历史 token 或现成缓存继续预览，返回既有 422 语义。该收紧由 #37 落地，文档修正不等于运行行为已经改变。
 - 管理端列表只展示仍有效的 token；撤销幂等，即使 token 不存在也返回成功。
 
 ## 关键流程与异常
 
 1. API server 以调用方 `key_id` 在 HTTPS 上签名并提交源 URL、缓存目的 profile、内容 hash、文件名、token TTL 与缓存 TTL，取得 token 与过期时间。
-2. 浏览器调用方直接使用 `/v/{token}`；微信小程序 demo 则以 fixture 附件 ID 调本仓库 demo API，获得 token、文件名、展示类型和过期时间。
-3. 小程序 demo 打开本仓库 H5 `web-view`；H5 从 URL fragment 读取展示信息并立即清除，图片使用图片元素，PDF/Office 使用 PDF 阅读器。
+2. Web 附件入口按 ID 获取最新预览信息；生产调用方自行完成业务权限判断，仓库示例通过测试适配层真实签发。
+3. 打开共享 Web 阅读页，从 fragment 读取并清除展示信息，图片使用图片容器，PDF/办公文件使用真实 PDF 阅读器。
 4. H5 或浏览器访问 `/v/{token}`；服务在指定 profile 内按内容 hash/输出版本查缓存，必要时下载、校验并原样存储或转换后存储，最后 302 到该 profile 的受控短时签名 URL。源 URL 仅供服务下载。
 5. 管理后台可列出现存 token 并随时撤销；访问被撤销或自然过期的链接得到 404。
 6. 验签、密钥、时间窗或 nonce 失败为统一 401；参数、内容 hash 或不支持格式为 422；未配置存储 profile/密钥为 503；等待转换超时或基础设施故障为 5xx。
@@ -69,16 +69,16 @@
 ## 可验收结果
 
 - HTTPS/mTLS 要求、HMAC 签名、nonce 重放、时间窗、密钥轮换、必填双 TTL、内容 hash 校验、可复用与失效 404 均有 CI API 用例。
-- 阿里云 OSS 与 silo 两个 storage profile、PDF/安全图片原样受控存储、全格式转换、内容 hash 缓存、缓存 TTL 和等待转换均有 CI 覆盖；其他供应商不在 v1.0.0 验收范围。
+- 两个 profile、允许集合的真实格式/内容校验、转换和缓存链路由 CI 验证；集合外输入以及被取消格式的旧 token/缓存都被拒绝。格式正向测试不含已取消的转换器大矩阵。
 - 管理端列出、撤销、过期懒清理及签名认证均有 CI 覆盖。
-- 302 响应不缓存、不泄露 token 至跳转目标；本仓库 H5 在真实浏览器引擎中自动验证附件 ID 获取、图片/PDF/Office、fragment 生命周期、失效/错误恢复和两 profile 的 CORS/Range。小程序入口提供接入工程与构建/契约检查，不宣称微信容器和真机已经验收。原生 App 不在 v1.0.0 范围。
+- 302 不缓存且不泄露 token 至目标；实际 Web 自动化覆盖附件 ID、图片/PDF/办公文件、fragment、等待/错误恢复、CORS/Range，以及手机和桌面视口。静态原型或 jsdom 不能替代实际内容呈现。
 - 构建镜像和双容器 Deployment 声明进入同一交付 PR；真实部署、Fleet 同步和运行健康度由发布/部署流程独立取证。
 
-本仓库 demo 的两个交互入口、角色与跨入口旅程见 [产品原型索引](../design/index.html)，既有原型确认见 [验收记录](../design/acceptance.md)。首版验收依赖真实 H5 自动化，不用静态原型或 jsdom 结果代替。
+Web 附件示例与阅读入口见 [原型索引](../design/index.html)，原型历史和证据边界见 [验收记录](../design/acceptance.md)。当前调整不声称实际阅读页、浏览器布局或镜像已经验收。
 
 ## 首版交付与真实反馈
 
-v1.0.0 以 H5 自动化验收和必要的自动 API/安全/存储/制品检查完成后，提供可运行制品、接入说明、测试 fixture 与小程序/H5 接入 demo，供业务系统使用。不要求人工浏览器验收、微信开发者工具/真机验收、人工部署回滚或固定生产观察时长；交付后业务使用才是本版本的真实测试反馈来源。
+v1.0.0 在允许格式、实际 Web 链路和镜像/配置自动检查通过后，交付版本镜像及 digest、部署模板、环境变量、业务签名与 Web 接入示例。先交付业务系统部署使用，再收集问题；不要求人工浏览器/真机、微信开发者工具、人工部署回滚或固定生产观察。
 
 自动测试失败或本期范围缺失不能被人工豁免为通过。业务接入发现违反当前契约时形成 Bug，新增能力回产品定义；已关闭版本不因后续反馈被追溯为“当时已验证”。本项目不修改外部业务仓库，不以对方的接入完成作为首版交付前置。发布/制品与接入交付事实仍需记录，H5 自动化通过不代表已经部署到生产或取得真实用户效果。
 
