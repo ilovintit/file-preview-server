@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 # All Go build/cache/temp outputs stay under the checkout, locally and in CI.
-preview_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+preview_root="$(git rev-parse --show-toplevel)"
 export GOPATH="$preview_root/.cache/go"
 export GOMODCACHE="$GOPATH/mod"
 export GOCACHE="$GOPATH/build"

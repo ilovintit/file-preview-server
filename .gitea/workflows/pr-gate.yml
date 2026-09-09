@@ -9,8 +9,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  fast:
-    name: 快速层（lint/typecheck/build）
+  docs:
+    name: 文档与原型检查
     runs-on: ubuntu-latest
     steps:
       - uses: https://git.shw.top/actions/checkout@v4.2.2
@@ -20,28 +20,58 @@ jobs:
         run: |
           npm ci --prefix .gitea/checks --ignore-scripts --no-audit --no-fund --cache .cache/npm
           node --test .gitea/checks/prototype.test.cjs
-      - name: 设置 Go
-        if: ${{ hashFiles('go.mod') != '' }}
-        run: |
-          GO_DOWNLOAD_BASE_URL=https://golang.google.cn/dl ./.gitea/scripts/ensure-go.sh
+
+  fast:
+    name: 快速层（lint/typecheck/build）
+    runs-on: ubuntu-latest
+    needs: docs
+    container:
+      image: reg.shw.top/ci-cache/shw-plugin-toolchain@sha256:4b71bd74caa70a65cde2120fa8438dd141a1afe7c8268367cbc76ab202d80b9e
+      credentials:
+        username: ${{ secrets.CI_HARBOR_USERNAME }}
+        password: ${{ secrets.CI_HARBOR_PASSWORD }}
+    steps:
+      - uses: https://git.shw.top/actions/checkout@v4.2.2
+      - name: 验证内网固定 Go 工具链
+        run: test "$(go env GOVERSION)" = go1.25.14
       - name: lint（gofmt + go vet）
         run: |
           if [ ! -f go.mod ]; then echo "go.mod 不存在，骨架期跳过"; exit 0; fi
-          source .gitea/scripts/go-env.sh
+          . .gitea/scripts/go-env.sh
           git ls-files -z '*.go' | xargs -0 gofmt -l | tee .cache/gofmt.out
           test ! -s .cache/gofmt.out
           go vet ./...
       - name: unit tests + build
         run: |
           if [ ! -f go.mod ]; then echo "go.mod 不存在，骨架期跳过"; exit 0; fi
-          source .gitea/scripts/go-env.sh
+          . .gitea/scripts/go-env.sh
           go test ./internal/module/preview/...
           go build ./...
+      - name: 编译浏览器测试供后续任务复用
+        run: |
+          . .gitea/scripts/go-env.sh
+          mkdir -p .cache/browser-runner
+          CGO_ENABLED=0 go test -c -tags 'integration browser' -o .cache/browser-runner/preview-browser.test ./internal/module/preview
+          git rev-parse HEAD > .cache/browser-runner/head.txt
+          sha256sum .cache/browser-runner/preview-browser.test | awk '{print $1}' > .cache/browser-runner/sha256.txt
+      - uses: https://git.shw.top/actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32
+        with:
+          name: preview-browser-tests
+          path: .cache/browser-runner
+          if-no-files-found: error
+          retention-days: 1
 
   heavy:
     name: 重型层（API/E2E/VRT）
     runs-on: ubuntu-latest
     needs: fast
+    container:
+      image: reg.shw.top/ci-cache/shw-plugin-toolchain@sha256:4b71bd74caa70a65cde2120fa8438dd141a1afe7c8268367cbc76ab202d80b9e
+      credentials:
+        username: ${{ secrets.CI_HARBOR_USERNAME }}
+        password: ${{ secrets.CI_HARBOR_PASSWORD }}
+    env:
+      CGO_ENABLED: "1"
     services:
       silo:
         image: reg.shw.top/ci-cache/ci-silo@sha256:15099b2b174fc842a9b323ecfc6fe1c506a2b67ff23e1c49cf4464675f367b0d
@@ -75,9 +105,8 @@ jobs:
           - 6379:6379
     steps:
       - uses: https://git.shw.top/actions/checkout@v4.2.2
-      - name: 设置 Go
-        run: |
-          GO_DOWNLOAD_BASE_URL=https://golang.google.cn/dl ./.gitea/scripts/ensure-go.sh
+      - name: 验证内网固定 Go 工具链
+        run: test "$(go env GOVERSION)" = go1.25.14
       - name: 实际 TLS API、Valkey 与 OSS 集成
         env:
           VALKEY_TEST_ADDR: valkey:6379
@@ -96,7 +125,7 @@ jobs:
           PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_SECRET: ${{ secrets.PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_SECRET }}
           PREVIEW_CI_ALIYUN_OSS_SECURITY_TOKEN: ${{ secrets.PREVIEW_CI_ALIYUN_OSS_SECURITY_TOKEN }}
         run: |
-          source .gitea/scripts/go-env.sh
+          . .gitea/scripts/go-env.sh
           for browser in chromium chromium-browser google-chrome google-chrome-stable; do
             if command -v "$browser" >/dev/null 2>&1; then "$browser" --version; fi
           done
@@ -110,7 +139,7 @@ jobs:
           # Only the per-job converter receives repository-owned fixture bytes.
           # Never inspect provider containers or dump Actions environment values.
           test -n "$PREVIEW_TEST_CONVERTER_CONTAINER"
-          docker logs --tail 150 "$PREVIEW_TEST_CONVERTER_CONTAINER" 2>&1
+          if command -v docker >/dev/null 2>&1; then docker logs --tail 150 "$PREVIEW_TEST_CONVERTER_CONTAINER" 2>&1; fi
 
       - uses: https://git.shw.top/actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32
         if: failure()
@@ -143,9 +172,11 @@ jobs:
         image: valkey/valkey:8
     steps:
       - uses: https://git.shw.top/actions/checkout@v4.2.2
-      - name: 设置 Go
-        run: |
-          GO_DOWNLOAD_BASE_URL=https://golang.google.cn/dl ./.gitea/scripts/ensure-go.sh
+      - name: 读取本次运行的已编译浏览器测试
+        env:
+          PREVIEW_CI_RUN_ID: ${{ github.run_id }}
+          PREVIEW_CI_REPOSITORY_TOKEN: ${{ github.token }}
+        run: python3 .gitea/scripts/download-browser-test.py
       - name: 实际浏览器定向验证
         shell: bash
         env:
@@ -164,8 +195,8 @@ jobs:
           PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_SECRET: ${{ secrets.PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_SECRET }}
           PREVIEW_CI_ALIYUN_OSS_SECURITY_TOKEN: ${{ secrets.PREVIEW_CI_ALIYUN_OSS_SECURITY_TOKEN }}
         run: |
-          source .gitea/scripts/go-env.sh
-          xvfb-run -a go test -tags 'integration browser' -count=1 -v -run '^(TestTC_S02_BrowserNavigation|TestTC_S04_AC04_SiloBrowserNavigation)$' ./internal/module/preview
+          cd internal/module/preview
+          xvfb-run -a ../../../.cache/browser-runner/preview-browser.test -test.v -test.count=1 -test.run '^(TestTC_S02_BrowserNavigation|TestTC_S04_AC04_SiloBrowserNavigation)$'
       - uses: https://git.shw.top/actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32
         if: always()
         with:

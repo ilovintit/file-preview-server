@@ -25,3 +25,9 @@ PR #39 / head 0503c19 / CI12478 job20354 在行为断言处失败：.et/.dps 被
 已删除旧文字扩展转换器、正向矩阵与专用生成脚本，移除 AVIF 解码依赖和正向用例，仅保留拒绝测试。核心 Office 缓存身份保持不变；WPS 与新增图片转换使用独立 allowed-v1 身份，避免旧 Works 产物被复用。
 
 本地 go build ./... 与 go test -c -tags 'integration browser'（仅编译，不执行）通过。新增 WPS 三类原生资源的双 profile 转换、Microsoft Works 拒绝、BMP/TIFF 转换后红色图像像素验证，待当前 PR CI；空白 WPS 样例的限制在其 README 明示。
+
+## CI 工具链根因与收敛
+
+CI12490 首轮在 Go 下载阶段因 dl.google.com TLS 连接重置失败，单次重跑后进入真实测试。只读核对 Harbor：现成 shw-plugin-toolchain@sha256:4b71bd74caa70a65cde2120fa8438dd141a1afe7c8268367cbc76ab202d80b9e 固定 Go1.25.14、Node24、gcc/musl。使用该既有内网镜像运行 Go 检查，单独保留文档检查，删除运行期下载 Go 脚本；浏览器从同一 run 下载并校验编译测试产物，不再下载/编译工具链。未修改外部镜像仓库或 Action 镜像。
+
+当前功能红项为 newchart.et 页数假设和 TIFF 图片内容。已保存失败 PDF/源文件并增加图片对象/像素诊断，先读实际证据再修复，不以缩减允许格式规避失败。
