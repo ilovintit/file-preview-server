@@ -8,11 +8,11 @@
 
 应用镜像只包含 Go 二进制及必要运行资源；Gotenberg 8.34.0 使用独立 sidecar 镜像，不把其二进制或 Office 依赖打入应用镜像。两个镜像均在部署声明中固定不可变 digest；缓存使用 Valkey。对象存储以具名 `storage_profile` 配置：v1 仅有 `aliyun-oss` 与 `silo` 两个 profile。环境变量配置 profile endpoint、bucket、凭据、生命周期、`MAX_CACHE_TTL`（默认 86400，签发要求 ttl ≤ cache_ttl ≤ MAX_CACHE_TTL）、调用方 current/next HMAC key；生产环境配置 HTTPS/mTLS；明文凭据不写入仓库。
 
-只有所选 storage profile 是预览 302 的最终域名；调用方源 URL 仅供服务端下载，客户端不访问源站。部署放行前基础设施侧必须确认：profile 内的原样图片/PDF 与转换 PDF 均经 HTTPS 提供，媒体类型和 `Content-Disposition: inline` 元数据正确；共享 OSS 测试 bucket 对 H5 使用无凭据通配 CORS（`*`），支持 `GET`、`HEAD`、单个 `Range` 并暴露读取所需响应头；缓存对象按请求 `cache_ttl` 通过 provider 生命周期/清理策略删除。通配 CORS 不得与 Cookie/Authorization 等浏览器凭据组合使用。demo 维护预览服务、`aliyun-oss`/`silo` 和 H5 的测试域名配置，项目仓库不保存生产凭据。原生 App 的域名与网络策略在下一版本再定义。
+只有所选 storage profile 是预览 302 的最终域名；调用方源 URL 仅供服务端下载，客户端不访问源站。部署放行前基础设施侧必须确认：profile 内的原样图片/PDF 与转换 PDF 均经 HTTPS 提供，媒体类型和 `Content-Disposition: inline` 元数据正确；共享 OSS 测试 bucket 对 H5 使用无凭据通配 CORS（`*`），支持 `GET`、`HEAD`、单个 `Range` 并暴露读取所需响应头；缓存对象按请求 `cache_ttl` 通过 provider 生命周期/清理策略删除。通配 CORS 不得与 Cookie/Authorization 等浏览器凭据组合使用。demo 维护预览服务、`aliyun-oss`/`silo` 和 H5 的测试域名配置，项目仓库不保存生产凭据。当前不安排小程序或原生 App 的网络/SDK 交付。
 
 ## 当前事实与待交付边界
 
-S03 新增 [Gotenberg sidecar 组件](../../deploy/components/gotenberg/README.md)，固定已同步至 Harbor 的 8.34.0 linux/amd64 digest、原装字体、同 Pod 连接与资源上限。它是待组装的 Deployment patch，不是可独立部署的应用。应用 Dockerfile、完整部署/入口与发布制品仍由 S12 交付；当前未指定 Fleet 目标、集群或 namespace，未取得实际 Kubernetes 部署健康证据。
+S03 新增 [Gotenberg sidecar 组件](../../deploy/components/gotenberg/README.md)，固定已同步至 Harbor 的 8.34.0 linux/amd64 digest、原装字体、同 Pod 连接与资源上限。它是待组装的 Deployment patch，不是可独立部署的应用。应用 Dockerfile、完整部署/入口与发布制品由 R3 / #26 交付；当前未指定 Fleet 目标、集群或 namespace，未取得实际 Kubernetes 部署健康证据。
 
 项目 Agent 只能经统一只读 Kubernetes MCP 观察 Fleet、Deployment、Pod、Service、Events、日志、镜像 digest 和健康状态。禁止使用 kubeconfig、Token、kubectl 写操作、Helm 写操作或 Ansible。
 
@@ -20,7 +20,7 @@ S03 新增 [Gotenberg sidecar 组件](../../deploy/components/gotenberg/README.m
 
 Issue #1 在 `deploy/` 维护应用/sidecar 镜像、Deployment、Service、HTTPS 入口、探针、资源与临时目录限制及环境配置引用；配置只引用环境已提供的 Secret，不能写入真实 key。demo API 与 H5 的测试入口单独声明，H5 与 `/v/` 通过同一 HTTPS Origin 的路径路由接入以支持失败分类，生产不得启用 demo fixture 接口。TLS 可在可信入口终止；后端仅接受该入口，清除外部伪造的 Forwarded 头，不能把任意 X-Forwarded-Proto 当作 HTTPS 证明。
 
-发布记录必须绑定 Git commit、应用 digest、Gotenberg digest、配置版本、Fleet 目标、namespace 与前一已验收版本。尚未登记目标属于 #1/发布的交付项，不编造目标或健康结论。Fleet 拉取项目声明，项目 Agent 仅只读取证。
+镜像发布记录绑定 Git commit/tag、应用 digest、Gotenberg digest 与配置版本。Fleet 目标、namespace 和前一运行版本仅在接入方实际部署时补充，未知值不阻塞首版镜像交付，不编造健康或回滚结论。Fleet 拉取项目声明，项目 Agent 仅只读取证。
 
 回滚条件包括持续 readyz 503、签发/预览 5xx 激增、签名与内容完整性错误、转换结果或 profile 验收回归。由具备权限的基础设施人员恢复项目声明到前一验收组合，经 Fleet 同步；重新检查 rollout、探针、两 profile、签发→预览→撤销及 demo 冒烟。首次发布若无旧版本则停止放行并关闭流量，由基础设施侧处理，不能假称已有回滚目标。
 
@@ -32,9 +32,9 @@ Issue #1 在 `deploy/` 维护应用/sidecar 镜像、Deployment、Service、HTTP
 
 | 项目内声明 / 运行输入 | 内容与责任 | 当前状态 |
 | --- | --- | --- |
-| 应用 Dockerfile / 镜像 | 单 Go 二进制，默认 server；项目发布 CI 构建并推 Harbor，固定 commit 与 digest | 待 #1，未取得制品 |
-| Gotenberg 镜像引用 | 固定版本/digest 与所需字体，独立 sidecar | 目标版本已定义，digest/字体与逐格式证据待 #1 |
-| deploy 工作负载 / Service | 应用仅对 Service 暴露；sidecar 不单独公开；资源上限和临时目录、探针 | 待 #1 |
+| 应用 Dockerfile / 镜像 | 单 Go 二进制，默认 server；项目发布 CI 构建并推 Harbor，固定 commit 与 digest | 待 #26，未取得应用制品 |
+| Gotenberg 镜像引用 | 固定版本/digest 与所需字体，独立 sidecar | 独立组件与固定 digest 已交付；允许格式证据由 #37 收敛 |
+| deploy 工作负载 / Service | 应用仅对 Service 暴露；sidecar 不单独公开；资源上限和临时目录、探针 | 待 #26 |
 | deploy HTTPS 入口 | Internal/Admin 可信 TLS/mTLS 边界、H5 与 /v/ 同源路径、实际目标 Origin | 测试域名与生产目标待基础设施提供 |
 | Valkey 连接 | 网络/TLS/认证、环境命名空间、容量与可靠性配置 | 待环境配置与故障恢复验证 |
 | profile 配置 | 仅 aliyun-oss / silo；启用集合、endpoint、bucket、凭据引用、CORS、清理策略与配置版本 | 不能只给 provider 名称就宣称已接入 |
@@ -42,7 +42,7 @@ Issue #1 在 `deploy/` 维护应用/sidecar 镜像、Deployment、Service、HTTP
 | runtime 预算 | 缓存上限、请求/依赖/关闭预算、并发/队列、文件与临时空间、清理批次 | 约束见 quality，数值和测量待 #1 |
 | Fleet GitRepo 与 target | 本项目 Git URL、发布分支、deploy 路径、cluster selector、namespace、同步状态 | 基础设施登记；本轮未指定目标 |
 
-Harbor 地址、仓库名、机器人凭据与 Fleet target 没有现成证据，不能使用猜测地址或其他仓库资源补齐。PR CI 不注入部署/生产 key；发布 CI 的制品凭据仅由受保护发布环境提供。Fleet 拉取的是本项目内声明，不使用中央仓库承载本项目变更。首版 H5 自动化使用仓库内可复现的 CI 容器/HTTPS/provider 配置；实际业务域名、集群登记和运行反馈在交付接入时落实，不能以当前环境缺少真实业务目标要求人工前置验收。
+CI 已有 Harbor 依赖镜像；应用发布仓库、发布凭据和 Fleet target 尚未取得交付证据，不能使用猜测地址或其他仓库资源补齐。PR CI 不注入部署/生产 key；发布 CI 的制品凭据仅由受保护发布环境提供。Fleet 拉取的是本项目内声明，不使用中央仓库承载本项目变更。首版 H5 自动化使用仓库内可复现的 CI 容器/HTTPS/provider 配置；实际业务域名、集群登记和运行反馈在交付接入时落实，不能以当前环境缺少真实业务目标要求人工前置验收。
 
 ## 启动、就绪与网络权限
 
@@ -69,3 +69,9 @@ Harbor 地址、仓库名、机器人凭据与 Fleet target 没有现成证据�
 回滚验证包含在途请求取消、有效 token 是否受影响、nonce 连续性、旧 generation 清理与新旧 profile 配置身份。不能只恢复镜像而沿用不兼容数据/已退役密钥；也不能通过恢复旧授权快照复活已撤销 token。状态恢复边界见 [quality](quality.md)。
 
 上述恢复机制在本期以自动化配置/镜像组合与 CI 服务容器故障恢复用例验证，实际业务/生产回滚保留操作说明，不要求提前人工演练。真实运行需要变更集群时仍由基础设施/Fleet 执行，项目 Agent 只读观测。首版交付不附加固定 24 小时观察期。
+
+## 首版制品交付顺序
+
+#36 修正范围后，#37 收紧允许格式并补金山 WPS，#25 交付 H5/PC Web 阅读，#26 将应用与实际 Web 资源纳入可部署组合并补镜像发布流程、配置模板和接入说明。应用镜像不得只含静态原型；CI 用实际镜像完成签发到 Web 内容呈现。取消的格式任务与小程序工程不再构成依赖。
+
+部署方只需使用交付的镜像/digest、独立转换器组合和配置说明，配置 Valkey、已支持的存储 profile、HTTPS 与密钥引用；不要求修改其他业务仓库来证明本项目可交付。main 用户 Web UI 合并和 Kubernetes 只读边界继续有效。

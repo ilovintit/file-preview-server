@@ -9,11 +9,13 @@
 - `/v/{token}` 是 bearer URL。成功的 302 必须带 `Cache-Control: no-store` 和 `Referrer-Policy: no-referrer`，避免客户端缓存 token→目标 URL 映射或在请求对象存储时把 token 放入 Referer。
 - 302 会把短时签名目标 URL 交给客户端；撤销只影响后续 token 解析，不能撤回已经取得的目标 URL。因此签名有效期不得超过 token 的剩余 TTL，调用方不得记录、分享或把它作为业务资源链接。
 - v1 的共享 OSS 测试 bucket 采用无凭据通配 CORS（`Access-Control-Allow-Origin: *`），以供多个系统的测试前端读取签名资源；签名 URL 仍是短期 bearer URL，不能携带 Cookie/Authorization 等浏览器凭据。图片元素、iframe 和导航流程不把 CORS 作为鉴权替代。生产 profile 的 CORS 由部署配置决定，但同样不得对通配 Origin 启用凭据。
-- 微信小程序仅从已鉴权的调用方详情/预览接口获得 token、文件名、展示类型和过期时间，不获得资源 URL。小程序传给 H5 的 token 必须位于 URL fragment；H5 读取后立即清除，且日志、埋点、分享和本地存储均须脱敏或排除 token。
+- H5/PC Web 仅从已授权的调用方详情/预览接口取得最小展示 DTO，不取得源 URL 或服务端密钥；token 放在 fragment，读取后立即清除，日志/埋点/分享/本地存储排除 token。
 - 统一 trace 与错误处理中间件记录基础设施失败，返回响应不得泄露对象存储凭据、内部对象引用或调用方密钥材料。
 
-当前仓库没有安全中间件或配置实现；实现需要在 Issue #1 中按此边界和 GoFrame 错误处理约定落地。
+当前 dev 已实现 HMAC/nonce/角色/TTL 等安全链路；新的允许格式约束及旧 token/缓存拒绝由 #37 实施，不能把文档更新当成安全行为已落地。
 
 下载端每一跳都须保持 HTTPS 并验证证书，限制重定向次数、响应字节数、下载/转换总时间与临时空间；不得向源站发送 Internal/Admin 的 HMAC 头。已签名来源证明调用方身份，不证明文件安全或源站可达；网络出站权限必须由部署方限定在已批准环境，不能把签名当作基础设施网络隔离。转换器不执行宏或主动启用外部资源，输出按支持格式验证媒体类型，不能只信 filename。具体预算由 #1 结合固定 fixture 测量后落入配置与 CI，超限用已定义的 422/5xx 语义处理。
 
 nonce 的精确时间、占用顺序和原子性只在 [API 文档](apis.md) 定义；所有 401/404/422/5xx 与 token 签发/管理响应也使用 no-store，并禁止从错误响应泄露文件存在性以外的敏感字段。签名轮换不改变 Internal/Admin 的角色边界；nonce 存储丢失的恢复期间须 fail closed，覆盖残余验签时间窗后才重新开放受保护请求，不能以清空 Valkey 作为普通回滚步骤。
+
+签发与预览均以 [产品允许集合](formats.md) 为边界，历史 token/缓存不能绕过永久取消的格式支持。转换器仅处理允许集合，不开放其全部扩展名。

@@ -1,25 +1,34 @@
-# v1.0.0 文件格式支持
+# 文件格式的永久产品边界
 
-本表是待逐项验证的目标集合，不是已通过用例的支持清单。格式支持以部署时固定的 **Gotenberg 8.34.0** LibreOffice 转换器为唯一来源；升级镜像版本必须重新对比并运行整张格式矩阵。全部支持文件下载校验后进入指定 profile；PDF/安全图片原样存储，其余格式转换为 PDF 后存储预览；扩展名只是初筛，转换前后均以内容处理结果为准。仓库内 `demo/fixtures/` 维护每种格式的已知内容 hash fixture。密码保护、损坏或转换器不能处理的文件返回 422，不做降级直链。
+用户于 2026-09-09 在 [范围修正 #36](https://git.shw.top/shw-project/file-preview-server/issues/36) 明确：服务只支持常见图片、PDF 和微软新旧版/金山 WPS 办公文件，其他格式永久不支持。取消的格式不延期、不进入其他版本或 backlog；转换器升级、文件能被 WPS 打开或历史代码已有分支都不能自动增加产品支持。
 
-## 原样存储后预览（仍须下载校验并签发受控短链）
+## 精确允许集合
 
-- PDF：`.pdf`。
-- 浏览器安全图片：`.jpg`、`.jpeg`、`.png`、`.gif`、`.webp`、`.avif`。
+用户已明确办公为 Word、Excel、PPT 三件套，PDF 单列。图片按本次提出的常见图片清单实施。唯一允许集合共 **18 个后缀**：
 
-其余图形/图片格式走 Gotenberg 转换为 PDF，SVG 不直接嵌入浏览器，避免活动内容风险。
+| 类别 | 允许后缀 | 展示方式 |
+| --- | --- | --- |
+| 常见图片 | `.jpg`、`.jpeg`、`.png`、`.gif`、`.webp`、`.bmp`、`.tif`、`.tiff` | 浏览器安全图片直接显示；需转换的图片以 PDF 阅读 |
+| PDF | `.pdf` | PDF 阅读 |
+| 微软 Word 新旧文档 | `.doc`、`.docx` | 转 PDF |
+| 微软 Excel 新旧表格 | `.xls`、`.xlsx` | 转 PDF |
+| 微软 PowerPoint 新旧演示 | `.ppt`、`.pptx` | 转 PDF |
+| 金山 WPS 原生三类文件 | `.wps`、`.et`、`.dps` | 验证真实金山内容后转 PDF |
 
-## Gotenberg 转换矩阵
+WPS 保存的上述微软格式也按实际内容验证。模板、宏文件、AVIF、其他办公软件家族及任何集合外格式均不支持，不作为后续版本需求。由 [R1 / #37](https://git.shw.top/shw-project/file-preview-server/issues/37) 在签发和预览路径执行这一集合。
 
-| 家族 | 支持扩展名 |
-| --- | --- |
-| 文字 | `.doc`、`.docx`、`.docm`、`.dot`、`.dotm`、`.dotx`、`.odt`、`.fodt`、`.ott`、`.rtf`、`.txt`、`.wps`、`.wpd`、`.pages`、`.abw`、`.zabw`、`.lwp`、`.mw`、`.mcw`、`.hwp`、`.sxw`、`.stw`、`.sgl`、`.vor`、`.602`、`.bib`、`.xml`、`.cwk`、`.psw`、`.uof` |
-| 表格 | `.xls`、`.xlsx`、`.xlsm`、`.xlsb`、`.xlt`、`.xltm`、`.xltx`、`.xlw`、`.ods`、`.fods`、`.ots`、`.csv`、`.numbers`、`.123`、`.wk1`、`.wks`、`.wb2`、`.dbf`、`.dif`、`.slk`、`.sxc`、`.stc`、`.uos`、`.pxl`、`.sdc` |
-| 演示 | `.ppt`、`.pptx`、`.pptm`、`.pot`、`.potm`、`.potx`、`.pps`、`.odp`、`.fodp`、`.otp`、`.key`、`.sxi`、`.sti`、`.uop`、`.sdd`、`.sdp`、`.fopd` |
-| 图形/绘图 | `.odg`、`.fodg`、`.otg`、`.vsd`、`.vsdx`、`.vsdm`、`.vdx`、`.cdr`、`.svg`、`.svm`、`.wmf`、`.emf`、`.cgm`、`.dxf`、`.std`、`.sxd`、`.pub`、`.wpg`、`.sda`、`.odd`、`.met`、`.cmx`、`.eps` |
-| 图像 | `.bmp`、`.tif`、`.tiff`、`.pbm`、`.pgm`、`.ppm`、`.xbm`、`.xpm`、`.pcx`、`.pcd`、`.pct`、`.psd`、`.tga`、`.ras`、`.pwp` |
-| Web/其他 | `.html`、`.htm`、`.xhtml`、`.epub`、`.pdb`、`.ltx`、`.mml`、`.smf`、`.sxm`、`.sxg`、`.oth`、`.odm`、`.swf` |
+## 服务规则
 
-矩阵来源为 [Gotenberg LibreOffice Convert to PDF 支持扩展名](https://gotenberg.dev/docs/convert-with-libreoffice/convert-to-pdf)。每一个扩展名都必须有固定版本 CI 用例；某个格式在实际镜像失败时，在修复前从可签发集合移除，而不是向调用方承诺“理论支持”。
+- 签发检查允许后缀；下载后验证真实内容、媒体类型和 `content_sha256`。后缀在集合内不代表任意同后缀内容都支持。
+- 预览时重检当前允许集合，包括旧 token 与缓存命中路径；取消格式不能通过旧缓存继续取得短链。
+- PDF 与可直接显示的安全图片原样受控存储；允许集合内需转换的办公文件或图片转为 PDF。转换能力只服务于产品允许集合。
+- 集合外、伪装、损坏或不能处理的内容按既有 422 语义拒绝，不发布 ready，不回退源 URL。签名、TTL、profile 隔离与清理契约继续有效。
+- 正向测试仅覆盖产品允许集合；集合外输入、伪装和旧缓存保留拒绝测试。转换器能力列表不再构成本服务的验收矩阵。
 
-2026-09-05 复审：扩展名集合与官方当前文档相符；[v8.34.0 路由源码](https://github.com/gotenberg/gotenberg/blob/v8.34.0/pkg/modules/libreoffice/routes.go) 使用运行时 Extensions 校验文件。该证据不能替代固定镜像的逐格式转换、字体与版式验收，支持声明仍待 #1 CI。
+## 代码现实与缺口
+
+dev@37a01a0 的 #15–#18 已交付授权、两 profile、7 个原样后缀及微软核心 6 格式；#19 / PR #34 额外合入 28 种文字格式。这是旧实现事实，不等于新允许清单。#37 负责移除超范围的正向支持、fixture/测试和转换分支，保留公共安全能力。
+
+现有 `internal/module/preview/testdata/text/manifest.json` 中 `legacy.wps` 来源为 `Works-2.00A-DOS/LANDSCAP.WPS`，**不能证明金山 WPS 文字已经通过**。`.wps/.et/.dps` 必须有可追溯的金山 WPS 原生文件，区分同后缀不同内容家族；不得改后缀伪造样例，也不能因固定转换器障碍静默删掉用户要求的 WPS 能力。
+
+原 130 后缀矩阵仅在 Git/已取消 Issue 中保留历史。固定转换器与部署见 [deployment](deployment.md)，当前验收见 #37 与 [testing](testing.md)。

@@ -1,46 +1,31 @@
-# 产品基线综合审查
+# 产品范围修正与证据边界
 
-> 当前首版验收已由 [Issue #28](https://git.shw.top/shw-project/file-preview-server/issues/28) 的用户裁决更新：只需 H5 自动化验收后交付业务接入，不要求人工浏览器/微信开发者工具/真机、人工部署回滚或固定观察期。此前 #13 的产品契约与原型确认仍有效，人工真实验收要求不再适用于 v1.0.0。
+当前产品变更载体为 [#36](https://git.shw.top/shw-project/file-preview-server/issues/36)，基于 dev@37a01a0。用户于 2026-09-09 明确常见图片、PDF、微软新旧版与金山 WPS 办公格式是服务长期范围；其他格式永久不支持。首版仅 H5/PC Web，优先交付可部署镜像后收集业务问题。
 
-产品定义载体：[Issue #13](https://git.shw.top/shw-project/file-preview-server/issues/13) / [PR #14](https://git.shw.top/shw-project/file-preview-server/pulls/14)。输入基线为 dev@52d52a0，产品/原型/架构在同一分支审查修订。本次用户明确“采纳”三项建议与 v1.0.0 范围，并单独确认“小程序和 H5 两个入口均通过”。
+## 当前裁决
 
-## 用户裁决与复审结论
-
-| 项目 | 已确认契约 | 权威落点 |
+| 项目 | 结论 | 权威位置 |
 | --- | --- | --- |
-| D1：源文件与短链 | 所有支持文件下载校验后进入所选 profile；PDF/安全图片原样存储，其他格式转 PDF；302 只指向该 profile 的短时签名对象，源 URL 不暴露给用户 | [PRD](../prd/product.md)、[API](apis.md)、[运行时](runtime.md) |
-| D2：跨 profile 缓存 | 缓存、准备锁、期限与清理记录按 profile/config 身份隔离；profile 内以内容 hash/输出版本去重；不同 profile 独立下载/准备，不做全局转换复制 | [数据](data.md)、[领域](domains.md) |
-| D3：双 TTL | 签发必须 ttl ≤ cache_ttl ≤ MAX_CACHE_TTL；不满足返回 422；两个 TTL 均从签发时计算，读取/重建不重新起算 | [PRD](../prd/product.md)、[API](apis.md)、[数据](data.md) |
-| 双入口原型 | 用户确认小程序与 H5 两入口交互逻辑均通过 | [原型索引](../design/index.html)、[验收记录](../design/acceptance.md) |
-| 版本范围 | 用户采纳 v1.0.0 独立文件预览服务范围、非目标、依赖与发布门槛 | 合入后由唯一 Gitea Milestone 承载，version 不另建范围文件 |
+| 允许文件 | 产品清单决定支持范围，不由转换器能力或历史代码决定；其他格式永久取消，不安排后续版本 | [PRD](../prd/product.md)、[formats](formats.md) |
+| 客户端 | 一套 H5/PC Web 阅读能力；小程序工程退出首版，不增加管理/编辑 UI | [clients](clients.md)、[demo](demo.md) |
+| 交付顺序 | #37 允许格式/WPS → #25 Web 阅读 → #26 镜像与部署接入 | [Milestone](https://git.shw.top/shw-project/file-preview-server/milestone/11) |
+| 保留的底层契约 | 所有允许文件下载校验后受控存储；profile/config 隔离、内容 hash/输出版本去重；ttl ≤ cache_ttl ≤ MAX_CACHE_TTL；读取不重新起算授权 | [apis](apis.md)、[data](data.md)、[runtime](runtime.md) |
+| 首版放行 | 真实 Web 与镜像自动化；不要求人工真机/生产演练或固定观察；main 仍由用户 Web UI 合并 | [testing](testing.md)、[deployment](deployment.md) |
 
-**产品定义复审：零阻断。** 三项关键裁决已同步 PRD、全部相关架构、原型旅程和测试映射；用户原型交互验收已记录。当前 head CI 成功并合入 dev 后完成基线放行，具体 commit/run 以 Issue/PR 回写为准，不用旧 CI 替代。
+## 精确范围冻结
 
-## 双向审查
+用户明确办公是 Word、Excel、PPT 三件套，PDF 单列。图片按已提出的常见清单实施；总计 18 个后缀见 formats。没有第四种办公软件家族。#36 合入后 #37 开始实施。
 
-| 用户价值 / 约束 | 原型与架构支撑 | 结论 |
-| --- | --- | --- |
-| 仓库内 demo 独立验收 | 小程序/H5 双入口；demo API 持有测试 Internal key，生产六条路由不注册测试入口 | 设计及原型交互已确认，真实 demo 仍由 #1 交付 |
-| 按附件 ID 获取预览 | 小程序获取/取消/重试；H5 fragment 清理、返回后重新获取 | 不把列表数据或源 URL 当详情，不携带密钥 |
-| 所有文件受控短链 | 源下载校验、PDF/图片原样上传、其他格式转换、profile 内准备锁 | 客户端只接触所选 profile，CORS/Range 与签名期限闭环 |
-| 安全签发与撤销 | nonce 完整时间窗、原子占用、角色隔离、raw body 验签、真实 HTTP 状态 | 新解析与并发在途/已发短链的撤销界限明确 |
-| 生命周期与失败恢复 | 绝对期限、owner/generation、发布前复查、独立对象维护记录、条件清理 | 不复活已撤销 token，不用清空 nonce 恢复服务 |
-| 整体架构与部署 | 组件关系与时序、领域端口、质量故障矩阵、双独立镜像、Harbor/Fleet/config 清单与回滚 | 子文档均由 index 索引；Agent 只读观察集群 |
-| 工程规范 | 保留 snake_case/HMAC/同步导航与项目 HTTP 语义 | 通用框架示例不覆盖产品已确认契约 |
+## 代码核对
 
-## 验证层级与明确延期
+- #15–#18 已合入授权、受控图片/PDF、微软核心六格式和 OSS/silo；dev@37a01a0 的 CI 11247 三个 job 成功。
+- #19 / PR #34 的 28 种文字扩展是历史实现，部分超出当前产品范围，#37 要在签发/旧 token/缓存路径实际禁用，不能仅删除文档。
+- 现有 legacy.wps 的来源是 Microsoft Works，不构成金山 WPS 证据；.wps/.et/.dps 的真实样例与支持由 #37 交付。
+- 原表格 PR #35 已取消而未合并；#20–#24 和 #27 取消不代表原 AC 通过。
+- 真实 Web 页面、应用 Dockerfile、镜像与完整部署组合尚未交付；静态原型和旧 Chromium 导航检查不能替代这些结果。
 
-- 当前 PR Gate 检查文档链接、原型脚本语法和 8 项 DOM 状态；CI 输出与 SHA 在 #13 / PR #14 记录。DOM 检查不证明浏览器 CSS 渲染、真实服务、微信 SDK 或真机。
-- 用户确认的是两份原型的交互逻辑；Agent 之前打开本地 HTML 被 URL 策略阻止，未绕过，也未将用户确认伪装成 Agent 渲染/真机测试证据。
-- Go module、服务、真实 H5/fixture、两 profile 集成、格式矩阵、镜像/声明及接入交付由 #15–#27 承担；实际微信/业务使用反馈在首版交付后收集，不作为本期人工前置。文档 CI 不替代上述自动化服务验收。
-- 管理 API 的字段/分页限额/业务 code、资源预算、依赖版本与环境值在 #1 编码前细化并核对实际库契约；这些是已标明的实施参数，不扩大产品边界，若改变对外保证必须重新裁决。
-- 原生 App 明确延期下一版本；其他供应商、旧接口/旧键兼容、跨仓库依赖不在 v1.0.0。
-- 历史审查过程和被否选项保存在 Git 与 [journal](../journal/issue-13.md)，当前文档只维护已确认规则。
+## 原型和历史
 
-合入 dev 后可创建已确认范围的 v1.0.0 Milestone。Milestone 保持 open，后续由 split/test-plan 建立独立交付与验收映射；tag 不等于版本完成。
+#13 / PR #14 曾记录小程序/H5 原型交互确认，#28 调整首版为自动验收。历史记录不继续授予超范围格式或小程序工程的实施要求；当前原型索引明确当前 Web 与旧页面参考的区别。既有模拟页面不证明新范围的真实阅读或布局验收。
 
-## H5 自动化验收变更复审
-
-用户已直接裁决首版验收方式，无需再次确认此前的人工/豁免候选。PRD、Agent 规则、客户端/demo、部署和测试策略均同步：H5 E2E 必须接实际服务链路；支撑链路的 API、安全、双 TTL/hash、两 profile、完整格式、制品/配置和恢复采用自动验证；不设置人工真实验收豁免流程，自动失败仍阻断。
-
-65 条交付 AC 保留身份并映射稳定 TC，#26/#27 的人工环境/真机条款改为 CI 运行环境、构建/契约和 H5 接入交付。发布时提供可运行制品、示例与接入说明，外部业务仓库不在操作范围；真实体验反馈在交付后进入 Bug/需求迭代。原型已确认与已有 8 项 jsdom 通过不构成“实际 H5 验收已通过”。
+本轮逐项检查 PRD、全部适用架构、原型说明、Issue 和实际依赖，保留当前用户的边界，不恢复 130 格式/260 组合或 65 条旧 AC。文档/脚本/DOM 验证只支持本次计划修正，服务实现与镜像证据由后续三个 Issue 独立提供。

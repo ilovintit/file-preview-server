@@ -1,8 +1,8 @@
 # 产品原型逐入口验收
 
-产品定义 [Issue #13](https://git.shw.top/shw-project/file-preview-server/issues/13) / [PR #14](https://git.shw.top/shw-project/file-preview-server/pulls/14)；业务规则以 [PRD](../prd/product.md) 为准。用户在本次会话明确确认“小程序和 H5 两个入口均通过”，以下记录入口整体交互确认，不声称逐个设备尺寸或真机已有测量。本文件只维护原型验收步骤，不复制 TTL 或签名规则。
+当前范围依据 [#36](https://git.shw.top/shw-project/file-preview-server/issues/36) 和 [PRD](../prd/product.md)：H5/PC Web、永久限定的图片/PDF/微软与 WPS 办公格式。#13 / PR #14 的旧原型交互确认仅作历史；本轮修改入口说明不代表重新完成视觉或真实 Web 验收。
 
-## 入口 01：微信小程序
+## 历史参考：原小程序附件入口（取消交付）
 
 [打开原型](wechat-miniprogram/index.html)。角色：本仓库 demo 用户；页面层级为附件列表 → 获取预览 → H5 web-view。
 
@@ -18,13 +18,13 @@
 
 ## 入口 02：H5 / 浏览器阅读
 
-[打开 PDF 原型](preview-h5/index.html#sample=pdf)、[图片原型](preview-h5/index.html#sample=photo)、[Office 旅程](preview-h5/index.html#sample=office)。角色：持有预览展示信息的用户；H5 同时覆盖浏览器与小程序 web-view 形态，无需新增第三个 UI 入口。
+[打开 PDF 原型](preview-h5/index.html#sample=pdf)、[图片原型](preview-h5/index.html#sample=photo)、[Office 旅程](preview-h5/index.html#sample=office)。角色：H5/PC Web 预览用户，共用同一阅读能力。实际附件示例与返回路径由 #25 完成，现有样稿仅为历史交互参考。
 
 | 检查 | 操作 | 预期 | 用户验收 |
 | --- | --- | --- | --- |
 | 图片 | 打开 PNG，缩放至两端边界，再点适合宽度 | 图片显示；不出现文档分页；缩放边界按钮禁用 | 用户确认入口整体通过 |
 | PDF 阅读器 | 打开 PDF，依次翻到第 2、3 页，再返回 | 页码与内容同步，首页/末页方向按钮禁用 | 用户确认入口整体通过 |
-| Office | 点击 Office 场景或从小程序打开 DOCX | 等待后以 PDF 呈现，文件名保留 DOCX | 用户确认入口整体通过 |
+| Office | 点击 Office 场景或由附件示例打开 DOCX | 等待后以 PDF 呈现，文件名保留 DOCX | 用户确认入口整体通过 |
 | 等待中返回 | 在加载或转换期间返回 | 退出在途读取，不会被迟到回调拉回 | 用户确认入口整体通过 |
 | 失效 / 撤销 | 分别切换过期和撤销 | 用户可见文字与动作完全相同，只有返回重新获取，不泄露底层原因 | 用户确认入口整体通过 |
 | 内容错误 | 切换 422 | 显示内容/格式不可用，返回选择其他文件，无无效重试 | 用户确认入口整体通过 |
@@ -40,6 +40,6 @@ PDF 翻页、图片缩放属于已确认阅读器的展示交互；原型中的�
 - 文档链接和 JavaScript 语法由当前 PR CI 的文档步骤检查。
 - `.gitea/checks/prototype.test.cjs` 只在 PR CI 以 jsdom 验证 DOM 状态迁移：取消/迟到响应、失败恢复、fragment 清理、分页/缩放边界、Office 等待、过期/撤销一致性、页面恢复。它不连接网络、不启动浏览器、不验证 CSS 布局或真实跨页导航。
 - 本地浏览器文件 URL 已被安全策略阻止；本轮未重新尝试或绕过，不能宣称渲染、E2E、VRT、微信开发者工具或真机验收通过。
-- 两个入口交互已获用户确认；三项底层契约亦已采纳，见 [审查裁决表](../architecture/review.md)。后续按 Issue #28 裁决执行真实 H5 自动化，不再要求人工浏览器/微信开发者工具/真机作为首版验收前置；微信实际运行反馈在业务接入后收集。
+- 两个入口交互已获用户确认；三项底层契约亦已采纳，见 [审查裁决表](../architecture/review.md)。后续按 #36 的范围与 #28 的自动验收方式交付 H5/PC Web；小程序工程取消，不再保留其验收要求。
 
 既有原型确认由 #13 / PR #14 记录；本表仅保留设计交互参考，不构成 v1.0.0 新的人工验收清单。最新首版验收见 [测试策略](../architecture/testing.md) 与 Issue #28，H5 自动化通过也不等于微信真机已验证。

@@ -1,11 +1,11 @@
 # Preview 领域
 
-`PreviewFile` 是核心领域对象，负责由 `filename`、受检内容类型及 hash 校验结果判定 PDF、可浏览器直接显示的图片、需转换的 Gotenberg 格式或不支持格式。完整集合以 [formats.md](formats.md) 为准。领域层定义以下抽象而不绑定具体驱动：
+`PreviewFile` 是核心领域对象，负责由 `filename`、受检内容类型及 hash 校验结果判定 PDF、可浏览器直接显示的图片、需转换的产品允许格式或不支持格式。唯一允许集合以 [formats.md](formats.md) 为准。领域层定义以下抽象而不绑定具体驱动：
 
 - `TokenStore`：保存、读取、列出与删除预览 token。
 - `ConvertLock`：同一转换资源的互斥获取与安全释放。
 - `ObjectStorage`：按配置 profile 上传/删除预览产物、执行缓存生命周期并签名访问；v1 仅实现阿里 OSS 与 silo 两个 profile。所有文件从签名调用方提交的 HTTPS URL 下载校验，PDF/安全图片原样上传，其余支持格式转换后上传。
-- `DocConverter`：Gotenberg 支持的文档、图形与图片→PDF 转换及健康检查。
+- `DocConverter`：仅产品允许集合内文件的 PDF 转换及健康检查，不暴露转换器全部文件家族。
 
 Token 签发、预览解析、管理列表/撤销和预览缓存检查是 application UseCase；HTTP 路由是 interfaces；Valkey、阿里 OSS、silo 和 Gotenberg 适配器属于 infrastructure。业务规则包括双 TTL 必传、内容 hash、token 可复用、撤销幂等与失效 404，详见 [PRD](../prd/product.md)。
 
