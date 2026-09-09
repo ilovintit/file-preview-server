@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/xml"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -242,10 +243,14 @@ func validateOffice(ctx context.Context, data []byte, ext string) (err error) {
 	}
 	wanted := map[string]string{".docx": "word/document.xml", ".xlsx": "xl/workbook.xml", ".pptx": "ppt/presentation.xml"}[ext]
 	var total uint64
+	var contentTypes []byte
 	seen := make(map[string]bool)
 	for _, entry := range archive.File {
 		if ctx.Err() != nil {
 			return entity.ErrUnavailable
+		}
+		if strings.EqualFold(path.Base(entry.Name), "vbaProject.bin") {
+			return entity.ErrInvalid
 		}
 		if seen[entry.Name] || path.Clean(entry.Name) != strings.TrimSuffix(entry.Name, "/") || strings.HasPrefix(entry.Name, "/") || strings.HasPrefix(entry.Name, "../") || strings.Contains(entry.Name, "\\") || entry.UncompressedSize64 > 64<<20 {
 			return entity.ErrInvalid
@@ -259,7 +264,15 @@ func validateOffice(ctx context.Context, data []byte, ext string) (err error) {
 		if err != nil {
 			return entity.ErrInvalid
 		}
-		_, err = io.Copy(io.Discard, io.LimitReader(officeStreamReader{ctx: ctx, reader: stream}, 64<<20+1))
+		if entry.Name == "[Content_Types].xml" {
+			contentTypes, err = io.ReadAll(io.LimitReader(officeStreamReader{ctx: ctx, reader: stream}, 1<<20+1))
+			if len(contentTypes) > 1<<20 {
+				_ = stream.Close()
+				return entity.ErrInvalid
+			}
+		} else {
+			_, err = io.Copy(io.Discard, io.LimitReader(officeStreamReader{ctx: ctx, reader: stream}, 64<<20+1))
+		}
 		_ = stream.Close()
 		if ctx.Err() != nil {
 			return entity.ErrUnavailable
@@ -271,7 +284,7 @@ func validateOffice(ctx context.Context, data []byte, ext string) (err error) {
 	if wanted == "" || !seen[wanted] || !seen["[Content_Types].xml"] {
 		return entity.ErrInvalid
 	}
-	return nil
+	return validateOfficeContentType(contentTypes, wanted, ext)
 }
 
 func boundedCompound(ctx context.Context, data []byte) (*mscfb.Reader, error) {
@@ -301,4 +314,39 @@ func boundedCompound(ctx context.Context, data []byte) (*mscfb.Reader, error) {
 		return nil, entity.ErrInvalid
 	}
 	return compound, nil
+}
+
+func validateOfficeContentType(data []byte, part, ext string) error {
+	const namespace = "http://schemas.openxmlformats.org/package/2006/content-types"
+	expected := map[string]string{
+		".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml",
+		".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml",
+		".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml",
+	}[ext]
+	if expected == "" || bytes.Contains(data, []byte("<!DOCTYPE")) {
+		return entity.ErrInvalid
+	}
+	var document struct {
+		XMLName   xml.Name
+		Overrides []struct {
+			Part string `xml:"PartName,attr"`
+			Type string `xml:"ContentType,attr"`
+		} `xml:"Override"`
+	}
+	if err := xml.Unmarshal(data, &document); err != nil || document.XMLName.Local != "Types" || document.XMLName.Space != namespace {
+		return entity.ErrInvalid
+	}
+	found := false
+	for _, entry := range document.Overrides {
+		if entry.Part == "/"+part {
+			if found || entry.Type != expected {
+				return entity.ErrInvalid
+			}
+			found = true
+		}
+	}
+	if !found {
+		return entity.ErrInvalid
+	}
+	return nil
 }

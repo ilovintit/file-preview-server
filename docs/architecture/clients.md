@@ -8,7 +8,7 @@ API server 是唯一可以提交 HTTPS 源 URL 并签发 token 的调用方；�
 
 | 调用方与文件 | v1 推荐接入 | 必要条件 | 不应假设 |
 | --- | --- | --- | --- |
-| 浏览器图片 | `<img src="https://preview.example/v/{token}">` | 预览服务与缓存 profile 都为 HTTPS；最终对象有正确图片 `Content-Type` | 用脚本读取跳转 `Location`，或把跨域图片绘制到 Canvas 后读取像素 |
+| JPEG/PNG/GIF/WebP 图片 | `<img src="https://preview.example/v/{token}">` | 预览服务与缓存 profile 都为 HTTPS；最终对象有正确图片 `Content-Type` | 用脚本读取跳转 `Location`，或把跨域图片绘制到 Canvas 后读取像素 |
 | 浏览器 PDF / Office | iframe、object 或新窗口直接导航到 `/v/{token}`；Office 最终得到 PDF | 最终对象返回 `application/pdf` 与 `Content-Disposition: inline`；目标浏览器自身须支持内置 PDF 查看 | 所有浏览器都有相同 PDF 查看器；不支持时调用方需提供自己的阅读器或下载入口 |
 | 浏览器 JavaScript PDF 阅读器 | 阅读器加载 `/v/{token}`，但仅在缓存 profile 已对调用方 Web Origin 开放 CORS 时采用 | 最终域名允许该 Origin 的 `GET`、`HEAD` 与单个 `Range` 请求，并暴露 `Accept-Ranges`、`Content-Length`、`Content-Range` | 初始预览服务同源即可绕过最终域名的 CORS |
 
@@ -28,7 +28,7 @@ Web 附件示例按 fixture ID 调用仓库内测试适配层，由该适配层�
 { token, filename, preview_type: "image" | "pdf", expires_at }
 ```
 
-Web 入口把 DTO 放入阅读页 URL fragment，例如 `https://preview-h5.example/file-preview#token=...&filename=...&preview_type=pdf`。fragment 不随初始 HTTP 请求发送；阅读页读取后立即以 `history.replaceState` 清除，禁止把 token 写入日志、埋点、分享或存储。页面以 `preview_type` 选择图片容器或 PDF 阅读器，只构造 `https://preview.example/v/{token}`；办公文件按 PDF 展示。
+Web 入口把 DTO 放入阅读页 URL fragment，例如 `https://preview-h5.example/file-preview#token=...&filename=...&preview_type=pdf`。fragment 不随初始 HTTP 请求发送；阅读页读取后立即以 `history.replaceState` 清除，禁止把 token 写入日志、埋点、分享或存储。页面以 `preview_type` 选择图片容器或 PDF 阅读器，只构造 `https://preview.example/v/{token}`；办公文件、BMP 和 TIFF 按 PDF 展示。
 
 H5 必须在调用期间展示 loading；404 显示“预览链接已失效”，引导用户返回业务页面重新获取；5xx 显示可重试状态且只重试 `/v/{token}`。PDF 阅读器出现 CORS 或 Range 错误时，显示明确失败反馈，不得回退为裸资源 URL 或不受控的其他读取路径。
 

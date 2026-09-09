@@ -27,7 +27,7 @@ flowchart LR
     H5 -->|跟随跳转读取资源| Store
 ```
 
-图中均为目标组件关系，不是当前已部署拓扑。demo API 是仓库内测试适配层，不能混进生产服务的六条路由；Web 页面 不能持有 Internal/Admin 密钥。所有文件先下载校验后存入指定 profile，再对用户签发短链；原样 PDF/安全图片不调用转换器。缓存和锁按 profile/config 身份隔离，签发必须 cache_ttl ≥ ttl。
+图中均为目标组件关系，不是当前已部署拓扑。demo API 是仓库内测试适配层，不能混进生产服务的六条路由；Web 页面不能持有 Internal/Admin 密钥。所有文件先下载校验后存入指定 profile，再对用户签发短链；原样 PDF/安全图片不调用转换器。缓存和锁按 profile/config 身份隔离，签发必须 cache_ttl ≥ ttl。
 
 ## 组件与运行边界
 
@@ -51,10 +51,10 @@ flowchart LR
 | 运行时主流程 | [runtime.md](runtime.md) | 签发、转换、等待、撤销与清理设计 |
 | 服务与分层 | [services.md](services.md) | GoFrame 模块、请求和清理流程已实现；完整制品待 #26 |
 | 领域 | [domains.md](domains.md) | TokenGrant、授权规则及存储端口已实现；仅产品允许集合由 #37 收紧 |
-| 数据与对象存储 | [data.md](data.md) | Valkey 与两 profile 已交付，当前允许范围收紧由 #37 实施 |
+| 数据与对象存储 | [data.md](data.md) | Valkey 与两 profile 已交付，当前允许范围由 #37 收紧 |
 | 存储适配与运行配置 | [storage-profiles.md](storage-profiles.md) | S04 公共端口、双 profile 配置/隔离与 CI 取证边界 |
-| 文件格式 | [formats.md](formats.md) | 永久限定图片/PDF/微软与 WPS 办公格式，真实 WPS 和拒绝旧格式待 #37 |
-| HTTP API | [apis.md](apis.md) | 6 条业务/探针路由已实现，允许格式约束由 #37 补齐 |
+| 文件格式 | [formats.md](formats.md) | 永久限定图片/PDF/微软与 WPS 办公格式，WPS/TIFF与拒绝旧格式已在 #37 实施，证据见PR #39 |
+| HTTP API | [apis.md](apis.md) | 6 条业务/探针路由已实现，允许格式约束已由 #37 实施 |
 | 安全 | [security.md](security.md) | HMAC/nonce/角色/TTL 已实现，完整版本安全证据仍须汇总 |
 | 质量与失败恢复 | [quality.md](quality.md) | 非功能约束与验证要求，未测容量 |
 | 架构决策 | [decisions.md](decisions.md) | 已确认约束、技术权衡与实施边界 |
