@@ -45,7 +45,7 @@ flowchart LR
 
 | 边界 | 权威文档 | 当前实现状态 |
 | --- | --- | --- |
-| 综合审查与用户裁决 | [review.md](review.md) | 当前范围已裁决，图片清单及办公第四项待精确答复 |
+| 综合审查与用户裁决 | [review.md](review.md) | 范围已冻结：18 个后缀，办公为 Word/Excel/PPT 三件套 |
 | 调用方与浏览器 | [clients.md](clients.md) | 生产调用方外置；本仓库的 demo 是 v1 验收入口 |
 | Demo 与测试环境 | [demo.md](demo.md) | 目标已定义，尚未创建 demo 代码 |
 | 运行时主流程 | [runtime.md](runtime.md) | 签发、转换、等待、撤销与清理设计 |
@@ -69,4 +69,4 @@ flowchart LR
 
 单 GoFrame 服务、同 Pod Gotenberg、Valkey、两 profile、项目内 Web 示例与 Fleet 只读边界继续有效。产品允许集合优先于转换器能力，旧代码和旧 CI 不代表新范围已经落地。当前剩余顺序 #37 → #25 → #26，#1 仅汇总，Milestone 在实际交付完成前保持 open。
 
-首版以真实 H5/PC Web 自动化和可运行镜像放行，业务接入后收集反馈；不追加人工真实验收或固定观察期。格式清单的两个待答复项见 formats，不能以架构稿或静态原型声称它们已通过。
+首版以真实 H5/PC Web 自动化和可运行镜像放行，业务接入后收集反馈；不追加人工真实验收或固定观察期。18 个允许后缀见 formats，不能以架构稿或静态原型声称真实格式或镜像已通过。

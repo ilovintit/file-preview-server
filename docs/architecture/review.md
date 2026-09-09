@@ -12,9 +12,9 @@
 | 保留的底层契约 | 所有允许文件下载校验后受控存储；profile/config 隔离、内容 hash/输出版本去重；ttl ≤ cache_ttl ≤ MAX_CACHE_TTL；读取不重新起算授权 | [apis](apis.md)、[data](data.md)、[runtime](runtime.md) |
 | 首版放行 | 真实 Web 与镜像自动化；不要求人工真机/生产演练或固定观察；main 仍由用户 Web UI 合并 | [testing](testing.md)、[deployment](deployment.md) |
 
-## 待精确答复
+## 精确范围冻结
 
-“常见图片”的候选后缀与“办公四件套”的第四项已向用户提问，见 formats。这两个未确认项不得被 Agent 标记为已确认清单；取消旧矩阵及其发布依赖不必等待这些细节。#36 完成前冻结清单，#37 才开始实施。
+用户明确办公是 Word、Excel、PPT 三件套，PDF 单列。图片按已提出的常见清单实施；总计 18 个后缀见 formats。没有第四种办公软件家族。#36 合入后 #37 开始实施。
 
 ## 代码核对
 

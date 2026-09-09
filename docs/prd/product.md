@@ -1,6 +1,6 @@
 # 文件预览服务产品真相
 
-> 当前范围依据：[用户裁决 / Issue #36](https://git.shw.top/shw-project/file-preview-server/issues/36)。本服务长期只支持常见图片、PDF、微软新旧版与金山 WPS 办公文件，其他格式永久不支持。精确图片清单与“办公四件套”第四项待用户答复，见 [格式边界](../architecture/formats.md)。
+> 当前范围依据：[用户裁决 / Issue #36](https://git.shw.top/shw-project/file-preview-server/issues/36)。本服务长期只支持常见图片、PDF、微软新旧版与金山 WPS 办公文件，其他格式永久不支持。用户已澄清办公为 Word/Excel/PPT 三件套，PDF 单列；18 个允许后缀见 [格式边界](../architecture/formats.md)。
 
 > dev@37a01a0 已有授权、受控预览、两 profile 与核心 Office；已合入的超范围文字格式需在 #37 收紧，真实金山 WPS、Web 阅读与镜像尚未交付。剩余实施 #37 → #25 → #26，由 [v1.0.0 Milestone](https://git.shw.top/shw-project/file-preview-server/milestone/11) 承载。首版继续使用 #28 的自动验收裁决，业务接入后收集反馈。
 

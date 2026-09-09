@@ -4,17 +4,18 @@
 
 ## 精确允许集合
 
-产品类别已确认；下列两个表述细节已向用户提问，答复前不能把候选清单标记为全部已确认。
+用户已明确办公为 Word、Excel、PPT 三件套，PDF 单列。图片按本次提出的常见图片清单实施。唯一允许集合共 **18 个后缀**：
 
-| 类别 | 后缀 / 落地项 | 状态 |
+| 类别 | 允许后缀 | 展示方式 |
 | --- | --- | --- |
-| 常见图片 | 候选 `.jpg`、`.jpeg`、`.png`、`.gif`、`.webp`、`.bmp`、`.tif`、`.tiff`；精简选项为前五项 | 等待用户选择图片清单 |
-| PDF | `.pdf` | 用户明确要求 |
-| 微软新旧常用办公文件 | Word `.doc/.docx`、Excel `.xls/.xlsx`、PowerPoint `.ppt/.pptx` | 常用三类的对应格式，不自动包含模板、宏文件或其他软件家族 |
-| 金山 WPS 办公文件 | 文字 `.wps`、表格 `.et`、演示 `.dps`，以及 WPS 保存的上述微软格式 | 用户要求 WPS 版本，真实样例与转换由 #37 验证 |
-| “办公四件套”的第四项 | 已询问是否为 PDF；不擅自添加 Access、Outlook、Visio 等 | 等待用户澄清 |
+| 常见图片 | `.jpg`、`.jpeg`、`.png`、`.gif`、`.webp`、`.bmp`、`.tif`、`.tiff` | 浏览器安全图片直接显示；需转换的图片以 PDF 阅读 |
+| PDF | `.pdf` | PDF 阅读 |
+| 微软 Word 新旧文档 | `.doc`、`.docx` | 转 PDF |
+| 微软 Excel 新旧表格 | `.xls`、`.xlsx` | 转 PDF |
+| 微软 PowerPoint 新旧演示 | `.ppt`、`.pptx` | 转 PDF |
+| 金山 WPS 原生三类文件 | `.wps`、`.et`、`.dps` | 验证真实金山内容后转 PDF |
 
-完整清单在 #36 按答复冻结，再由 [R1 / #37](https://git.shw.top/shw-project/file-preview-server/issues/37) 实施。表述待澄清不妨碍取消原泛化格式扩展计划。
+WPS 保存的上述微软格式也按实际内容验证。模板、宏文件、AVIF、其他办公软件家族及任何集合外格式均不支持，不作为后续版本需求。由 [R1 / #37](https://git.shw.top/shw-project/file-preview-server/issues/37) 在签发和预览路径执行这一集合。
 
 ## 服务规则
 
