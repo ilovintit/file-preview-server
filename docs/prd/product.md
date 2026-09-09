@@ -2,7 +2,7 @@
 
 > 当前范围依据：[用户裁决 / Issue #36](https://git.shw.top/shw-project/file-preview-server/issues/36)。本服务长期只支持常见图片、PDF、微软新旧版与金山 WPS 办公文件，其他格式永久不支持。用户已澄清办公为 Word/Excel/PPT 三件套，PDF 单列；18 个允许后缀见 [格式边界](../architecture/formats.md)。
 
-> dev@37a01a0 已有授权、受控预览、两 profile 与核心 Office；已合入的超范围文字格式需在 #37 收紧，真实金山 WPS、Web 阅读与镜像尚未交付。剩余实施 #37 → #25 → #26，由 [v1.0.0 Milestone](https://git.shw.top/shw-project/file-preview-server/milestone/11) 承载。首版继续使用 #28 的自动验收裁决，业务接入后收集反馈。
+> 受控预览、两 profile、18 后缀与 WPS/TIFF 适配由 #37 / PR #39 交付，验收以该 PR 当前 head CI 为准；旧扩展格式不再保留运行入口。后续为 #25 的实际 H5/PC 阅读及 #26 的镜像/部署交付，状态由 [v1.0.0 Milestone](https://git.shw.top/shw-project/file-preview-server/milestone/11) 承载。首版继续自动验收，业务接入后收集反馈。
 
 ## 用户、问题与价值
 
@@ -54,7 +54,7 @@
 - 撤销或过期会阻止后续访问 `/v/{token}`；已被浏览器或客户端取得的签名目标 URL 可访问至其自身过期。这是短时签名 URL 的边界，调用方不得把它当作可撤销的业务链接。
 - Web 示例打开预览时，以 fixture 附件 ID 调仓库内测试适配层，不把列表行或裸资源 URL 带入阅读页。适配层真实调用 Internal API 签发，只返回 `token`、`filename`、`preview_type`（`image` 或 `pdf`）和 `expires_at`；办公文件按 `pdf` 展示。
 - Web 阅读页通过 HTTPS 打开，从 URL fragment 读取展示信息后立即清除，再以 `/v/{token}` 加载图片或 PDF 阅读器；token 不进入 query、日志、埋点、分享或本地存储。业务系统参考同一最小 DTO 集成，不需要另做手机/桌面两套阅读器。
-- 允许清单在签发和预览入口都必须执行；超范围格式不能通过历史 token 或现成缓存继续预览，返回既有 422 语义。该收紧由 #37 落地，文档修正不等于运行行为已经改变。
+- 允许清单在签发和预览入口都必须执行；超范围格式不能通过历史 token 或现成缓存继续预览，返回既有 422 语义。运行实现与验证由 #37 / PR #39 记录。
 - 管理端列表只展示仍有效的 token；撤销幂等，即使 token 不存在也返回成功。
 
 ## 关键流程与异常

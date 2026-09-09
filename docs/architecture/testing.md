@@ -18,7 +18,7 @@ dev@37a01a0 的 [CI 11247](https://git.shw.top/shw-project/file-preview-server/a
 | H5 与 PC Web 实际阅读文件 | #25 / R2 | 沿用 `TC:S11-AC01` 至 `TC:S11-AC05`；附件 ID、DTO/fragment、图片/PDF、取消/错误恢复及手机/桌面视口，不含小程序 |
 | 可部署镜像与业务接入包 | #26 / R3 | 沿用 `TC:S12-AC01` 至 `TC:S12-AC05`；镜像/声明/配置、探针/退出/恢复、镜像内 Web 链路与接入资料 |
 
-#15–#18 的签名/角色/nonce、双 TTL/hash、profile 隔离、缓存/lease/清理及核心 Office 测试按改动继续回归。#19 超范围正向测试随 #37 移除；#20–#24 旧矩阵和 #27 小程序构建不再是门槛。必要的集合外拒绝测试保留，取消测试不记为通过。
+#15–#18 的签名/角色/nonce、双 TTL/hash、profile 隔离、缓存/lease/清理及核心 Office 测试按改动继续回归。#19 超范围正向测试已在 #37 移除；#20–#24 旧矩阵和 #27 小程序构建不再是门槛。必要的集合外拒绝测试保留，取消测试不记为通过。
 
 ## Web 与镜像放行链路
 
@@ -43,3 +43,9 @@ dev@37a01a0 的 [CI 11247](https://git.shw.top/shw-project/file-preview-server/a
 剩余交付合入 dev、当前候选的 Web/镜像与必要自动检查通过后创建 dev → main 放行 PR。用户 Web UI 合并 main 后发布 tag 和可追溯镜像，交付 digest、部署模板、环境变量及业务调用说明。
 
 Milestone 在实际镜像与接入交付完成前保持 open，随后按版本关闭流程收口，不添加人工真机或固定观察期。镜像发布不等于业务环境已部署，业务反馈在既定格式边界内迭代。
+
+## R1 当前实施映射
+
+实际代码用例名称映射：允许集合为 TestTC_R1_AllowedFormatBoundary / SignedAPIRejectsExcludedFormats，旧 token 为 HistoricalTokenCannotExposeExcludedCache，WPS 为 WPSContainerIdentity / WPSProfileConversion / RejectWorksMasqueradingAsWPS，图片为 BMPAndTIFFProfileContent / MultipageTIFFPreservesOrder / TIFFFrameNormalization，OOXML伪装为 RejectDisguisedOOXMLTypes；均带 TestTC_R1_ 前缀。原样6后缀、核心Office6、WPS3、BMP/TIFF3合计18，每类在两profile有实际读取或转换证据。
+
+Go检查使用固定内网Go1.25.14/Node工具镜像，浏览器使用本项目 browser-go.Dockerfile 组合镜像，不在job下载Go。两个缓存基础镜像及本项目CI镜像均固定digest；服务镜像仍待#26。CI API无法读取v3上传制品时不把上传响应当成可下载验证，也不以制品传递作为浏览器执行前置。

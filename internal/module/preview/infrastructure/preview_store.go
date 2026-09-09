@@ -21,8 +21,9 @@ import (
 
 	"git.shw.top/shw-project/file-preview-server/internal/module/preview/domain/entity"
 	"git.shw.top/shw-project/file-preview-server/internal/module/preview/domain/repository"
-	_ "github.com/gen2brain/avif"
 	"github.com/gogf/gf/v2/errors/gerror"
+	_ "golang.org/x/image/bmp"
+	_ "golang.org/x/image/tiff"
 	_ "golang.org/x/image/webp"
 )
 
@@ -62,6 +63,9 @@ func newPreviewStore(cfg Config, cache *ValkeyStore, clock func() time.Time, sto
 func (s *PreviewStore) Prepare(ctx context.Context, grant entity.Grant) (string, error) {
 	if s == nil {
 		return "", entity.ErrUnavailable
+	}
+	if !entity.SupportedExtension(path.Ext(grant.Filename)) {
+		return "", entity.ErrInvalid
 	}
 	select {
 	case s.admission <- struct{}{}:
@@ -249,19 +253,34 @@ func (s *PreviewStore) download(ctx context.Context, grant entity.Grant) ([]byte
 	if hex.EncodeToString(sum[:]) != grant.ContentSHA256 {
 		return nil, "", entity.ErrInvalid
 	}
-	if coreOffice(grant.Filename) {
-		if err := validateOffice(ctx, body, strings.ToLower(path.Ext(grant.Filename))); err != nil {
+	if ext := officeInputExtension(grant.Filename); ext != "" {
+		if err := validateOffice(ctx, body, ext); err != nil {
 			return nil, "", err
 		}
-		converted, err := s.converter.convert(ctx, body, grant.Filename)
+		converted, err := s.converter.convert(ctx, body, "source"+ext)
 		return converted, "application/pdf", err
 	}
-	if textFormat(grant.Filename) {
-		input, name, err := prepareText(ctx, body, grant.Filename)
+	if ext := strings.ToLower(path.Ext(grant.Filename)); ext == ".tif" || ext == ".tiff" {
+		inputs, err := prepareTIFF(ctx, body)
 		if err != nil {
 			return nil, "", err
 		}
-		converted, err := s.converter.convert(ctx, input, name)
+		converted, err := s.converter.convertInputs(ctx, inputs)
+		return converted, "application/pdf", err
+	}
+	if convertedImage(grant.Filename) {
+		config, format, err := image.DecodeConfig(bytes.NewReader(body))
+		expected := "tiff"
+		if strings.EqualFold(path.Ext(grant.Filename), ".bmp") {
+			expected = "bmp"
+		}
+		if err != nil || format != expected || config.Width < 1 || config.Height < 1 || int64(config.Width)*int64(config.Height) > 40000000 {
+			return nil, "", entity.ErrInvalid
+		}
+		if _, _, err := image.Decode(bytes.NewReader(body)); err != nil {
+			return nil, "", entity.ErrInvalid
+		}
+		converted, err := s.converter.convert(ctx, body, grant.Filename)
 		return converted, "application/pdf", err
 	}
 	contentType := strings.ToLower(strings.TrimSpace(strings.Split(response.Header.Get("Content-Type"), ";")[0]))
@@ -276,7 +295,7 @@ func (s *PreviewStore) download(ctx context.Context, grant entity.Grant) ([]byte
 		if err := validatePDF(ctx, body); err != nil {
 			return nil, "", err
 		}
-	case "image/jpeg", "image/png", "image/gif", "image/webp", "image/avif":
+	case "image/jpeg", "image/png", "image/gif", "image/webp":
 		config, format, err := image.DecodeConfig(bytes.NewReader(body))
 		if err != nil || config.Width < 1 || config.Height < 1 || int64(config.Width)*int64(config.Height) > 40000000 || contentType != "image/"+format {
 			return nil, "", entity.ErrInvalid
@@ -300,8 +319,6 @@ func rawMIME(ext, contentType string) bool {
 		return contentType == "image/gif"
 	case ".webp":
 		return contentType == "image/webp"
-	case ".avif":
-		return contentType == "image/avif"
 	default:
 		return false
 	}

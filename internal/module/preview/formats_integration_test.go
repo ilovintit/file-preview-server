@@ -18,7 +18,7 @@ import (
 )
 
 // 固定 16x16 RGB(240,32,64) 图案：PNG/JPEG/GIF 使用 Go 编码器；
-// WebP 来自 cwebp，AVIF 来自 gen2brain/avif v0.4.4，源码保存编码字节。
+// WebP 来自 cwebp，源码保存编码字节。
 func rawFixtures(t *testing.T) map[string]struct {
 	body []byte
 	mime string
@@ -61,7 +61,6 @@ func rawFixtures(t *testing.T) map[string]struct {
 	}{append([]byte(nil), b.Bytes()...), "image/gif"}
 	for ext, encoded := range map[string]string{
 		"webp": "UklGRjgAAABXRUJQVlA4ICwAAACQAQCdASoQABAAAgA0JaACdLoAA5gA/u0HL18AU9Uf/eM//uM//uM/+RAAAA==",
-		"avif": "AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUIAAADybWV0YQAAAAAAAAAoaGRscgAAAAAAAAAAcGljdAAAAAAAAAAAAAAAAGxpYmF2aWYAAAAADnBpdG0AAAAAAAEAAAAeaWxvYwAAAABEAAABAAEAAAABAAABGgAAAB0AAAAoaWluZgAAAAAAAQAAABppbmZlAgAAAAABAABhdjAxQ29sb3IAAAAAamlwcnAAAABLaXBjbwAAABRpc3BlAAAAAAAAABAAAAAQAAAAEHBpeGkAAAAAAwgICAAAAAxhdjFDgQAMAAAAABNjb2xybmNseAACAAIAAoAAAAAXaXBtYQAAAAAAAAABAAEEAQKDBAAAACVtZGF0EgAKBhgM/9gQgDIRFkAGGGGEADlSB5LbI3y3F+k=",
 	} {
 		data, err := base64.StdEncoding.DecodeString(encoded)
 		if err != nil {
@@ -138,7 +137,7 @@ func testRawFormatMatrix(t *testing.T, profile string) {
 
 func TestTC_S02_AC01_TruncatedImages(t *testing.T) {
 	fixtures := rawFixtures(t)
-	for _, ext := range []string{"jpg", "jpeg", "png", "gif", "webp", "avif"} {
+	for _, ext := range []string{"jpg", "jpeg", "png", "gif", "webp"} {
 		t.Run(ext, func(t *testing.T) {
 			value := fixtures[ext]
 			value.body = value.body[:16]

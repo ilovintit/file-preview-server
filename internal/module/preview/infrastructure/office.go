@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/xml"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -29,18 +30,48 @@ func coreOffice(filename string) bool {
 	return false
 }
 
-func outputVersion(filename string) string {
-	if textFormat(filename) {
-		return "text-v1-" + officeOutputVersion + "-" + strings.TrimPrefix(strings.ToLower(path.Ext(filename)), ".")
+// WPS native compound files use the corresponding Office binary document streams.
+// Validate the actual container before choosing the converter input name.
+func officeInputExtension(filename string) string {
+	ext := strings.ToLower(path.Ext(filename))
+	switch ext {
+	case ".wps":
+		return ".doc"
+	case ".et":
+		return ".xls"
+	case ".dps":
+		return ".ppt"
 	}
 	if coreOffice(filename) {
-		return officeOutputVersion + "-" + strings.TrimPrefix(strings.ToLower(path.Ext(filename)), ".")
+		return ext
+	}
+	return ""
+}
+
+func convertedImage(filename string) bool {
+	switch strings.ToLower(path.Ext(filename)) {
+	case ".bmp", ".tif", ".tiff":
+		return true
+	}
+	return false
+}
+
+func outputVersion(filename string) string {
+	ext := strings.ToLower(path.Ext(filename))
+	if coreOffice(filename) {
+		return officeOutputVersion + "-" + strings.TrimPrefix(ext, ".")
+	}
+	if ext == ".tif" || ext == ".tiff" {
+		return "tiff-png-v2-" + officeOutputVersion + "-" + strings.TrimPrefix(ext, ".")
+	}
+	if officeInputExtension(filename) != "" || convertedImage(filename) {
+		return "allowed-v1-" + officeOutputVersion + "-" + strings.TrimPrefix(ext, ".")
 	}
 	return rawOutputVersion
 }
 
 func outputMIME(filename, contentType string) bool {
-	if coreOffice(filename) || textFormat(filename) {
+	if officeInputExtension(filename) != "" || convertedImage(filename) {
 		return contentType == "application/pdf"
 	}
 	return rawMIME(path.Ext(filename), contentType)
@@ -61,20 +92,42 @@ func newOfficeConverter(endpoint string) *officeConverter {
 	}}
 }
 
+type officeInput struct {
+	name string
+	body []byte
+}
+
 func (c *officeConverter) convert(ctx context.Context, body []byte, filename string) ([]byte, error) {
+	return c.convertInputs(ctx, []officeInput{{name: "source" + strings.ToLower(path.Ext(filename)), body: body}})
+}
+
+func (c *officeConverter) convertInputs(ctx context.Context, inputs []officeInput) ([]byte, error) {
 	if c == nil {
 		return nil, entity.ErrUnavailable
 	}
-	// One bounded in-memory input, no source URL or arbitrary caller form fields.
+	if len(inputs) == 0 || len(inputs) > 128 {
+		return nil, entity.ErrInvalid
+	}
+	// Bounded in-memory inputs, no source URL or arbitrary caller form fields.
 	// Pipe multipart framing to avoid copying the full 32 MiB input again.
 	reader, writer := io.Pipe()
 	form := multipart.NewWriter(writer)
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		part, err := form.CreateFormFile("files", "source"+strings.ToLower(path.Ext(filename)))
-		if err == nil {
-			_, err = part.Write(body)
+		var err error
+		for _, input := range inputs {
+			var part io.Writer
+			part, err = form.CreateFormFile("files", input.name)
+			if err == nil {
+				_, err = part.Write(input.body)
+			}
+			if err != nil {
+				break
+			}
+		}
+		if err == nil && len(inputs) > 1 {
+			err = form.WriteField("merge", "true")
 		}
 		if err == nil {
 			err = form.WriteField("updateIndexes", "false")
@@ -190,10 +243,14 @@ func validateOffice(ctx context.Context, data []byte, ext string) (err error) {
 	}
 	wanted := map[string]string{".docx": "word/document.xml", ".xlsx": "xl/workbook.xml", ".pptx": "ppt/presentation.xml"}[ext]
 	var total uint64
+	var contentTypes []byte
 	seen := make(map[string]bool)
 	for _, entry := range archive.File {
 		if ctx.Err() != nil {
 			return entity.ErrUnavailable
+		}
+		if strings.EqualFold(path.Base(entry.Name), "vbaProject.bin") {
+			return entity.ErrInvalid
 		}
 		if seen[entry.Name] || path.Clean(entry.Name) != strings.TrimSuffix(entry.Name, "/") || strings.HasPrefix(entry.Name, "/") || strings.HasPrefix(entry.Name, "../") || strings.Contains(entry.Name, "\\") || entry.UncompressedSize64 > 64<<20 {
 			return entity.ErrInvalid
@@ -207,7 +264,15 @@ func validateOffice(ctx context.Context, data []byte, ext string) (err error) {
 		if err != nil {
 			return entity.ErrInvalid
 		}
-		_, err = io.Copy(io.Discard, io.LimitReader(officeStreamReader{ctx: ctx, reader: stream}, 64<<20+1))
+		if entry.Name == "[Content_Types].xml" {
+			contentTypes, err = io.ReadAll(io.LimitReader(officeStreamReader{ctx: ctx, reader: stream}, 1<<20+1))
+			if len(contentTypes) > 1<<20 {
+				_ = stream.Close()
+				return entity.ErrInvalid
+			}
+		} else {
+			_, err = io.Copy(io.Discard, io.LimitReader(officeStreamReader{ctx: ctx, reader: stream}, 64<<20+1))
+		}
 		_ = stream.Close()
 		if ctx.Err() != nil {
 			return entity.ErrUnavailable
@@ -219,7 +284,7 @@ func validateOffice(ctx context.Context, data []byte, ext string) (err error) {
 	if wanted == "" || !seen[wanted] || !seen["[Content_Types].xml"] {
 		return entity.ErrInvalid
 	}
-	return nil
+	return validateOfficeContentType(contentTypes, wanted, ext)
 }
 
 func boundedCompound(ctx context.Context, data []byte) (*mscfb.Reader, error) {
@@ -249,4 +314,39 @@ func boundedCompound(ctx context.Context, data []byte) (*mscfb.Reader, error) {
 		return nil, entity.ErrInvalid
 	}
 	return compound, nil
+}
+
+func validateOfficeContentType(data []byte, part, ext string) error {
+	const namespace = "http://schemas.openxmlformats.org/package/2006/content-types"
+	expected := map[string]string{
+		".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml",
+		".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml",
+		".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml",
+	}[ext]
+	if expected == "" || bytes.Contains(data, []byte("<!DOCTYPE")) {
+		return entity.ErrInvalid
+	}
+	var document struct {
+		XMLName   xml.Name
+		Overrides []struct {
+			Part string `xml:"PartName,attr"`
+			Type string `xml:"ContentType,attr"`
+		} `xml:"Override"`
+	}
+	if err := xml.Unmarshal(data, &document); err != nil || document.XMLName.Local != "Types" || document.XMLName.Space != namespace {
+		return entity.ErrInvalid
+	}
+	found := false
+	for _, entry := range document.Overrides {
+		if entry.Part == "/"+part {
+			if found || entry.Type != expected {
+				return entity.ErrInvalid
+			}
+			found = true
+		}
+	}
+	if !found {
+		return entity.ErrInvalid
+	}
+	return nil
 }
