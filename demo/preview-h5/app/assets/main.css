@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme:light; --primary:#2864dc; --text:#182940; --secondary:#62718a; --border:#dfe5ef; --surface:#fff; --background:#e8edf4; }
+* { box-sizing:border-box; }
+html,body,#__nuxt { margin:0; height:100%; width:100%; }
+body { color:var(--text); background:var(--background); font:15px/1.6 system-ui,-apple-system,"PingFang SC",sans-serif; }
+button { font:inherit; cursor:pointer; touch-action:manipulation; border:1px solid var(--border); border-radius:8px; background:#fff; min-height:40px; padding:6px 12px; color:var(--text); }
+button:hover:not(:disabled) { border-color:var(--primary); color:var(--primary); }
+button:disabled { opacity:.4; cursor:default; }
+:focus-visible { outline:3px solid var(--primary); outline-offset:3px; }
+.reader-app { display:flex; flex-direction:column; height:100vh; height:100dvh; width:100%; overflow:hidden; }
+.reader-header { display:flex; align-items:center; gap:14px; min-height:64px; padding:12px 24px; background:var(--surface); border-bottom:1px solid var(--border); }
+.reader-header h1 { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:16px; font-weight:650; margin:0; }
+.text-button { border-color:transparent; color:var(--secondary); white-space:nowrap; padding-inline:6px; }
+.file-tag { border-radius:6px; padding:3px 10px; font-size:12px; font-weight:600; color:var(--primary); background:#edf3ff; }
+.reader-toolbar { display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:20px; padding:10px 16px; background:var(--surface); border-bottom:1px solid var(--border); }
+.tool-group { display:flex; align-items:center; gap:8px; }
+.tool-group button { width:40px; padding:0; font-size:21px; }
+.tool-group span { min-width:58px; text-align:center; font-variant-numeric:tabular-nums; font-size:13px; }
+.fit-button { font-size:13px; }
+.reader-viewport { position:relative; flex:1; min-height:0; overflow:auto; padding:20px 16px; overscroll-behavior:contain; }
+.document-area { width:max-content; min-width:100%; min-height:100%; display:flex; align-items:flex-start; justify-content:center; }
+.document-area.preparing { visibility:hidden; }
+.document-area canvas { display:block; flex:none; background:#fff; box-shadow:0 3px 22px #1c355218; }
+.document-area img { display:block; flex:none; object-fit:contain; height:auto; max-width:none; max-height:none; margin:auto; box-shadow:0 3px 22px #1c355218; }
+.reader-feedback { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; padding:28px; text-align:center; background:var(--background); }
+.reader-feedback h2 { margin:18px 0 8px; font-size:20px; font-weight:650; }
+.reader-feedback p { margin:0; color:var(--secondary); max-width:340px; font-size:14px; }
+.feedback-mark { display:grid; place-items:center; width:48px; height:48px; border-radius:50%; color:var(--secondary); background:#dfe5ef; font-size:24px; }
+.spinner { width:36px; height:36px; border-radius:50%; border:3px solid #d1ddf3; border-top-color:var(--primary); animation:spin 1s linear infinite; }
+.feedback-actions { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-top:24px; }
+.primary-button { color:#fff; background:var(--primary); border-color:var(--primary); }
+.primary-button:hover:not(:disabled) { color:#fff; background:#2058c8; }
+.secondary-button { color:var(--secondary); }
+.reader-footer { display:flex; justify-content:space-between; gap:12px; padding:8px 24px; border-top:1px solid var(--border); background:var(--surface); color:var(--secondary); font-size:11px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+@media(max-width:600px) { .reader-header { min-height:58px; padding:8px 12px; gap:8px; } .reader-header h1 { font-size:14px; } .reader-toolbar { gap:8px 12px; padding:8px; } .reader-viewport { padding:16px; } .reader-footer { padding:8px 12px; } .fit-button { padding-inline:8px; } .tool-group { gap:4px; } .tool-group span { min-width:48px; } }
+@media(prefers-reduced-motion:reduce) { .spinner { animation-duration:2s; } }

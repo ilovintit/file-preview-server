@@ -15,3 +15,8 @@
 /.worktrees/
 /.cache/
 node_modules/
+demo/preview-h5/.nuxt/
+demo/preview-h5/.output/
+demo/preview-h5/public/pdfjs/
+internal/module/preview/interfaces/reader-assets/*
+!internal/module/preview/interfaces/reader-assets/README.md

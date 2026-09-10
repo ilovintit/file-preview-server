@@ -43,6 +43,7 @@ func New(cfg infrastructure.Config, clock func() time.Time) (*Module, error) {
 	configuredProfiles := preparer.Profiles()
 	service := application.New(store, preparer, clock, cfg.MaxCacheTTL, configuredProfiles)
 	controller := interfaces.New(service)
+	reader := interfaces.Reader()
 	auth := infrastructure.NewAuthenticator(cfg, store, clock)
 	issue := auth.Wrap("internal", controller.Issue, controller.Error)
 	query := auth.Wrap("admin", controller.Query, controller.Error)
@@ -69,6 +70,8 @@ func New(cfg infrastructure.Config, clock func() time.Time) (*Module, error) {
 		defer stopCancellation()
 		r = r.WithContext(ctx)
 		switch {
+		case (r.Method == "GET" || r.Method == "HEAD") && strings.HasPrefix(r.URL.Path, "/reader/"):
+			reader.ServeHTTP(w, r)
 		case r.Method == "POST" && r.URL.Path == "/internal/tokens":
 			issue.ServeHTTP(w, r)
 		case r.Method == "POST" && r.URL.Path == "/admin/tokens/query":
