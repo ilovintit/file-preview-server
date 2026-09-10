@@ -7,7 +7,8 @@ COPY . .
 RUN --mount=type=secret,id=go_proxy GOPROXY="$(cat /run/secrets/go_proxy)" go build -trimpath -ldflags="-s -w" -o /out/file-preview-server ./
 
 FROM reg.shw.top/library/alpine@sha256:dabf91b69c191a1a0a1628fd6bdd029c0c4018041c7f052870bb13c5a222ae76
-RUN apk add --no-cache ca-certificates tzdata && addgroup -S preview && adduser -S -G preview -H -s /sbin/nologin preview
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+RUN addgroup -S preview && adduser -S -G preview -H -s /sbin/nologin preview
 COPY --from=build /out/file-preview-server /usr/local/bin/file-preview-server
 USER preview
 EXPOSE 9501

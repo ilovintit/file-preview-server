@@ -38,11 +38,13 @@ jobs:
           encoded="$(python3 -c 'import os,urllib.parse;print(urllib.parse.quote(os.environ["GO_TOKEN"],safe=""))')"
           echo "url=https://gop:${encoded}@gop.shw.top" >> "$GITHUB_OUTPUT"
       - name: 登录 Harbor
-        uses: docker/login-action@v3
-        with:
-          registry: reg.shw.top
-          username: ${{ secrets.CI_HARBOR_USERNAME }}
-          password: ${{ secrets.CI_HARBOR_PASSWORD }}
+        shell: bash
+        env:
+          HARBOR_USERNAME: ${{ secrets.CI_HARBOR_USERNAME }}
+          HARBOR_PASSWORD: ${{ secrets.CI_HARBOR_PASSWORD }}
+        run: |
+          test -n "$HARBOR_USERNAME" && test -n "$HARBOR_PASSWORD"
+          printf '%s' "$HARBOR_PASSWORD" | docker login reg.shw.top --username "$HARBOR_USERNAME" --password-stdin
       - name: 构建并推送
         shell: bash
         env:
