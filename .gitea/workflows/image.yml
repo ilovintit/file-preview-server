@@ -49,6 +49,6 @@ jobs:
           IMAGE: reg.shw.top/shw-project/file-preview-server:${{ steps.metadata.outputs.tag }}
           GO_PROXY: ${{ steps.go_proxy.outputs.url }}
         run: |
-          docker build --platform linux/amd64 --build-arg GO_PROXY="$GO_PROXY" --label org.opencontainers.image.revision="$GITHUB_SHA" --tag "$IMAGE" .
+          docker build --platform linux/amd64 --secret id=go_proxy,env=GO_PROXY --label org.opencontainers.image.revision="$GITHUB_SHA" --tag "$IMAGE" .
           docker push "$IMAGE"
           docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE" | tee image-digest.txt
