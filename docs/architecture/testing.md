@@ -34,7 +34,7 @@ dev@37a01a0 的 [CI 11247](https://git.shw.top/shw-project/file-preview-server/a
 
 每 run 采用隔离测试资源，凭据由环境注入。实际业务域名/Fleet 目标由接入方配置，不阻塞制品交付；本次自动测试所需 profile/fixture/证书缺失不能算通过。
 
-本地只做构建/类型确认，lint、单元、API/集成、Web E2E/VRT 与安全检查在 PR CI 取当前 head 证据。Issue → dev 按变更和 AC 选择相关文件/模块/用例，文档及原型说明变更只需文档/脚本/既有 DOM 范围。#37/#25/#26 分别维护适用测试选择器；空选择或失效映射不能扩大到全量或当成功。
+本地只做构建/类型确认。lint、单元与构建在 `pr-gate.yml`（`ci-fast`，required）取当前 head 证据；TLS API/Valkey/OSS 集成与 Chromium 双 profile 浏览器导航自 #45 起在 `regression-report.yml`（`ci-heavy`，dev push/手动，非阻断）运行，结果如实记录、不汇入门禁。基线维护仅经 `/shw-baseline`，当前无已接受 API/E2E/VRT 基线。Issue → dev 按变更和 AC 选择相关文件/模块/用例，文档及原型说明变更只需文档/脚本/既有 DOM 范围。#37/#25/#26 分别维护适用测试选择器；空选择或失效映射不能扩大到全量或当成功。
 
 仅 dev → main 发布 PR 对当前产品允许范围执行全量门禁，“全量”不能恢复已取消格式。失败按真实日志修复，不通过跳过失败、扩大无关矩阵、重复环境重跑或静态样稿代替可用性。报告记录 commit/head、TC/AC、fixture/profile、镜像/浏览器版本与实际结果。
 
