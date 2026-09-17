@@ -1,0 +1,7 @@
+.git
+.worktrees
+.cache
+demo/preview-h5/node_modules
+demo/preview-h5/.nuxt
+demo/preview-h5/.output
+docs/design

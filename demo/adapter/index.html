@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>附件预览示例</title>
+<style>body{font:15px/1.6 system-ui,sans-serif;margin:0;background:#f3f5f9;color:#182940}main{max-width:720px;margin:40px auto;padding:24px}h1{font-size:24px}p{color:#62718a}ul{list-style:none;padding:0}li{margin:12px 0}button{font:inherit;min-height:44px;padding:10px 16px;border:1px solid #dfe5ef;border-radius:10px;background:white;color:#2864dc;cursor:pointer}li button{width:100%;text-align:left}button:disabled{opacity:.5}button:focus-visible{outline:3px solid #2864dc;outline-offset:3px}[hidden]{display:none!important}</style></head>
+<body><main><h1>附件预览示例</h1><p>选择一个示例，获取最新预览信息后打开阅读页。</p><ul id="files"></ul><p id="status" role="status" aria-live="polite">正在加载附件</p><button id="cancel" hidden>取消并返回</button><button id="retry-list" hidden>重新加载</button></main>
+<script>
+const files = document.getElementById('files'), status = document.getElementById('status');
+const cancel = document.getElementById('cancel'), retry = document.getElementById('retry-list');
+let generation = 0, request;
+function stop() { generation++; request?.abort(); request = undefined; cancel.hidden = true; files.querySelectorAll('button').forEach(b=>b.disabled=false); }
+async function loadList() {
+  stop(); const current = generation; request = new AbortController();
+  files.replaceChildren(); retry.hidden = true; status.textContent = '正在加载附件';
+  try {
+    const response = await fetch('/demo/fixtures',{cache:'no-store',signal:request.signal});
+    const result = await response.json();
+    if(current!==generation)return;
+    if(!response.ok || result.code!==0)throw new Error('list failed');
+    for(const item of result.data){const li=document.createElement('li'),button=document.createElement('button');button.textContent=item.filename;button.dataset.id=item.id;button.onclick=()=>openFile(item.id);li.append(button);files.append(li);}
+    status.textContent = result.data.length ? '' : '暂无附件';
+  } catch { if(current===generation){status.textContent='附件加载失败，请重试';retry.hidden=false;} }
+}
+async function openFile(id) {
+  stop(); const current=generation; request=new AbortController();
+  files.querySelectorAll('button').forEach(b=>b.disabled=true);cancel.hidden=false;status.textContent='正在获取预览';
+  try {
+    const response=await fetch('/demo/fixtures/'+encodeURIComponent(id)+'/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}',cache:'no-store',signal:request.signal});
+    const result=await response.json();if(current!==generation)return;
+    if(!response.ok || result.code!==0)throw new Error('detail failed');
+    const data=result.data;
+    const fragment=new URLSearchParams({token:data.token,filename:data.filename,preview_type:data.preview_type,expires_at:String(data.expires_at)});
+    location.assign('/reader/#'+fragment.toString());
+  } catch {if(current===generation){stop();status.textContent='获取预览失败，请重新选择附件';}}
+}
+cancel.onclick=()=>{stop();status.textContent='已取消，请选择附件';};retry.onclick=loadList;
+window.addEventListener('pagehide',stop);window.addEventListener('pageshow',e=>{if(e.persisted)loadList();});loadList();
+</script></body></html>
