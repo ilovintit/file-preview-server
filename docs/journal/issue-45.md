@@ -22,6 +22,6 @@
 | 公共库 submodule/replace | go.mod 无 replace | — | 无 | — |
 
 ## 未完成 / 需用户处理
-- **分支保护 required contexts**：Agent 无权限读取。需在 Gitea Web UI 核对 `dev`/`main` 保护规则，移除 `重型层（API/E2E/VRT）` 与 `S02 Chromium 图片与 PDF 跨域读取` 旧 context（若已设为 required），否则 PR 会永久 pending。
+- **分支保护 required contexts**：用户确认（#47）保护规则为 `*` 通配。PR 事件仅产生 PR Gate「文档与原型检查」「快速层」状态，回归报告只在 dev push/手动触发，无需移除旧 context；#46 合并已验证。
 - `image.yml` 仍用 `CI_HARBOR_*` Secret 名；公共 `HARBOR_*` 变量是否已由管理员提供未核实，暂不切换以免断开 CI。
 - Fleet 目标、GitOps publisher 接入随 #26 交付。
