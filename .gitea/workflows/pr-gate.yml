@@ -126,7 +126,7 @@ jobs:
           test -n "$PREVIEW_TEST_CONVERTER_CONTAINER"
           if command -v docker >/dev/null 2>&1; then docker logs --tail 150 "$PREVIEW_TEST_CONVERTER_CONTAINER" 2>&1; fi
 
-      - uses: https://git.shw.top/actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32
+      - uses: https://git.shw.top/actions/gitea-upload-artifact@ffc5e248cc483620d776d7f8f2e18b8c2ccdd1e5
         if: failure()
         with:
           name: format-failure-evidence
@@ -179,7 +179,7 @@ jobs:
         run: |
           . .gitea/scripts/go-env.sh
           xvfb-run -a go test -tags 'integration browser' -count=1 -v -run '^(TestTC_S02_BrowserNavigation|TestTC_S04_AC04_SiloBrowserNavigation)$' ./internal/module/preview
-      - uses: https://git.shw.top/actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32
+      - uses: https://git.shw.top/actions/gitea-upload-artifact@ffc5e248cc483620d776d7f8f2e18b8c2ccdd1e5
         if: always()
         with:
           name: dual-profile-browser-screenshots
