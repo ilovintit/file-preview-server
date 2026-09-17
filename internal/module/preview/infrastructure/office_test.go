@@ -34,7 +34,7 @@ func TestTC_S03_AC02_OutputVersionAndDeployment(t *testing.T) {
 	if !strings.Contains(officeOutputVersion, digest) {
 		t.Fatal("output identity lost converter digest")
 	}
-	for _, file := range []string{"../../../../deploy/components/gotenberg/sidecar.yaml", "../../../../.gitea/workflows/pr-gate.yml"} {
+	for _, file := range []string{"../../../../deploy/components/gotenberg/sidecar.yaml", "../../../../.gitea/workflows/regression-report.yml"} {
 		body, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatal(err)

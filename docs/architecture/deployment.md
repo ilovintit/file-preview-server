@@ -18,7 +18,7 @@ S03 新增 [Gotenberg sidecar 组件](../../deploy/components/gotenberg/README.m
 
 ## 声明、放行与回滚
 
-Issue #1 在 `deploy/` 维护应用/sidecar 镜像、Deployment、Service、HTTPS 入口、探针、资源与临时目录限制及环境配置引用；配置只引用环境已提供的 Secret，不能写入真实 key。demo API 与 H5 的测试入口单独声明，H5 与 `/v/` 通过同一 HTTPS Origin 的路径路由接入以支持失败分类，生产不得启用 demo fixture 接口。TLS 可在可信入口终止；后端仅接受该入口，清除外部伪造的 Forwarded 头，不能把任意 X-Forwarded-Proto 当作 HTTPS 证明。
+Issue #1 在 `deploy/` 维护应用/sidecar 镜像、Deployment、Service、HTTPS 入口、探针、资源与临时目录限制及环境配置引用；运行配置统一经 ConfigMap（`configMapKeyRef`/`configMapRef`）注入，不声明 Kubernetes Secret 或 Secret 引用；镜像拉取仅按名称引用基础设施预置 `imagePullSecrets`，不能写入真实 key。demo API 与 H5 的测试入口单独声明，H5 与 `/v/` 通过同一 HTTPS Origin 的路径路由接入以支持失败分类，生产不得启用 demo fixture 接口。TLS 可在可信入口终止；后端仅接受该入口，清除外部伪造的 Forwarded 头，不能把任意 X-Forwarded-Proto 当作 HTTPS 证明。
 
 镜像发布记录绑定 Git commit/tag、应用 digest、Gotenberg digest 与配置版本。Fleet 目标、namespace 和前一运行版本仅在接入方实际部署时补充，未知值不阻塞首版镜像交付，不编造健康或回滚结论。Fleet 拉取项目声明，项目 Agent 仅只读取证。
 

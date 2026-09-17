@@ -11,7 +11,7 @@ concurrency:
 jobs:
   docs:
     name: 文档与原型检查
-    runs-on: ubuntu-latest
+    runs-on: ci-fast
     steps:
       - uses: https://git.shw.top/actions/checkout@v4.2.2
       - name: 文档链接与原型脚本语法
@@ -23,7 +23,7 @@ jobs:
 
   fast:
     name: 快速层（lint/typecheck/build）
-    runs-on: ubuntu-latest
+    runs-on: ci-fast
     needs: docs
     container:
       image: reg.shw.top/ci-cache/shw-plugin-toolchain@sha256:4b71bd74caa70a65cde2120fa8438dd141a1afe7c8268367cbc76ab202d80b9e
@@ -47,142 +47,3 @@ jobs:
           . .gitea/scripts/go-env.sh
           go test ./internal/module/preview/...
           go build ./...
-
-  heavy:
-    name: 重型层（API/E2E/VRT）
-    runs-on: ubuntu-latest
-    needs: fast
-    container:
-      image: reg.shw.top/ci-cache/shw-plugin-toolchain@sha256:4b71bd74caa70a65cde2120fa8438dd141a1afe7c8268367cbc76ab202d80b9e
-      credentials:
-        username: ${{ secrets.CI_HARBOR_USERNAME }}
-        password: ${{ secrets.CI_HARBOR_PASSWORD }}
-    env:
-      CGO_ENABLED: "1"
-    services:
-      silo:
-        image: reg.shw.top/ci-cache/ci-silo@sha256:15099b2b174fc842a9b323ecfc6fe1c506a2b67ff23e1c49cf4464675f367b0d
-        credentials:
-          username: ${{ secrets.CI_HARBOR_USERNAME }}
-          password: ${{ secrets.CI_HARBOR_PASSWORD }}
-        env:
-          # Public fixture-only credentials; isolated per-run service, no host port.
-          MINIO_ROOT_USER: preview-ci
-          MINIO_ROOT_PASSWORD: preview-ci-isolated-service-only
-      gotenberg:
-        image: reg.shw.top/ci-cache/ci-gotenberg@sha256:0ec4b0a125c55ff1dfaed071cab30e0f37cc4326f7d53d903ee5b24e4f27fd85
-        credentials:
-          username: ${{ secrets.CI_HARBOR_USERNAME }}
-          password: ${{ secrets.CI_HARBOR_PASSWORD }}
-        env:
-          LOG_LEVEL: debug
-          API_TIMEOUT: 30s
-          API_BODY_LIMIT: 34MB
-          API_DISABLE_DOWNLOAD_FROM: 'true'
-          LIBREOFFICE_AUTO_START: 'true'
-          LIBREOFFICE_MAX_QUEUE_SIZE: '4'
-          LIBREOFFICE_DENY_LIST: '.*'
-          LIBREOFFICE_DENY_PRIVATE_IPS: 'true'
-          LIBREOFFICE_DENY_PUBLIC_IPS: 'true'
-          CHROMIUM_DISABLE_ROUTES: 'true'
-        options: --memory 2g --cpus 2 --pids-limit 256 --tmpfs /tmp:rw,nosuid,nodev,size=536870912
-      valkey:
-        image: valkey/valkey:8
-    steps:
-      - uses: https://git.shw.top/actions/checkout@v4.2.2
-      - name: 验证内网固定 Go 工具链
-        run: test "$(go env GOVERSION)" = go1.25.14
-      - name: 实际 TLS API、Valkey 与 OSS 集成
-        env:
-          VALKEY_TEST_ADDR: valkey:6379
-          GOTENBERG_TEST_URL: http://gotenberg:3000
-          SILO_TEST_ENDPOINT: http://silo:9000
-          SILO_TEST_ACCESS_KEY: preview-ci
-          SILO_TEST_SECRET_KEY: preview-ci-isolated-service-only
-          PREVIEW_CI_ALIYUN_OSS_ENDPOINT: ${{ vars.PREVIEW_CI_ALIYUN_OSS_ENDPOINT }}
-          PREVIEW_CI_ALIYUN_OSS_PREVIEW_ENDPOINT: ${{ vars.PREVIEW_CI_ALIYUN_OSS_PREVIEW_ENDPOINT }}
-          PREVIEW_CI_ALIYUN_OSS_REGION: ${{ vars.PREVIEW_CI_ALIYUN_OSS_REGION }}
-          PREVIEW_CI_ALIYUN_OSS_BUCKET: ${{ vars.PREVIEW_CI_ALIYUN_OSS_BUCKET }}
-          PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE: ${{ vars.PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE }}/${{ github.run_id }}
-          PREVIEW_CI_OSS_SIGNED_URL_MAX_TTL_SECONDS: ${{ vars.PREVIEW_CI_OSS_SIGNED_URL_MAX_TTL_SECONDS }}
-          PREVIEW_CI_OSS_CORS_ALLOWED_ORIGIN: ${{ vars.PREVIEW_CI_OSS_CORS_ALLOWED_ORIGIN }}
-          PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_ID: ${{ secrets.PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_ID }}
-          PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_SECRET: ${{ secrets.PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_SECRET }}
-          PREVIEW_CI_ALIYUN_OSS_SECURITY_TOKEN: ${{ secrets.PREVIEW_CI_ALIYUN_OSS_SECURITY_TOKEN }}
-        run: |
-          . .gitea/scripts/go-env.sh
-          for browser in chromium chromium-browser google-chrome google-chrome-stable; do
-            if command -v "$browser" >/dev/null 2>&1; then "$browser" --version; fi
-          done
-          go test -race -tags integration -count=1 -v ./internal/module/preview/...
-
-      - name: 隔离转换器失败诊断
-        if: failure()
-        env:
-          PREVIEW_TEST_CONVERTER_CONTAINER: ${{ job.services.gotenberg.id }}
-        run: |
-          # Only the per-job converter receives repository-owned fixture bytes.
-          # Never inspect provider containers or dump Actions environment values.
-          test -n "$PREVIEW_TEST_CONVERTER_CONTAINER"
-          if command -v docker >/dev/null 2>&1; then docker logs --tail 150 "$PREVIEW_TEST_CONVERTER_CONTAINER" 2>&1; fi
-
-      - uses: https://git.shw.top/actions/gitea-upload-artifact@ffc5e248cc483620d776d7f8f2e18b8c2ccdd1e5
-        if: failure()
-        with:
-          name: format-failure-evidence
-          path: .cache/format-artifacts
-          if-no-files-found: ignore
-          retention-days: 7
-
-  browser:
-    # Keep the established status context; this job now covers both profiles.
-    name: S02 Chromium 图片与 PDF 跨域读取
-    runs-on: ubuntu-latest
-    needs: fast
-    container:
-      image: reg.shw.top/ci-cache/file-preview-server-browser-go@sha256:11509f51c17b96c37d67d0ec2d93ea4f903219b6a8b2e427b09382f2d19615f2
-      credentials:
-        username: ${{ secrets.CI_HARBOR_USERNAME }}
-        password: ${{ secrets.CI_HARBOR_PASSWORD }}
-    services:
-      silo:
-        image: reg.shw.top/ci-cache/ci-silo@sha256:15099b2b174fc842a9b323ecfc6fe1c506a2b67ff23e1c49cf4464675f367b0d
-        credentials:
-          username: ${{ secrets.CI_HARBOR_USERNAME }}
-          password: ${{ secrets.CI_HARBOR_PASSWORD }}
-        env:
-          MINIO_ROOT_USER: preview-ci
-          MINIO_ROOT_PASSWORD: preview-ci-isolated-service-only
-      valkey:
-        image: valkey/valkey:8
-    steps:
-      - uses: https://git.shw.top/actions/checkout@v4.2.2
-      - name: 验证内网固定 Go 工具链
-        run: test "$(go env GOVERSION)" = go1.25.14
-      - name: 实际浏览器定向验证
-        shell: bash
-        env:
-          VALKEY_TEST_ADDR: valkey:6379
-          SILO_TEST_ENDPOINT: http://silo:9000
-          SILO_TEST_ACCESS_KEY: preview-ci
-          SILO_TEST_SECRET_KEY: preview-ci-isolated-service-only
-          PREVIEW_CI_ALIYUN_OSS_ENDPOINT: ${{ vars.PREVIEW_CI_ALIYUN_OSS_ENDPOINT }}
-          PREVIEW_CI_ALIYUN_OSS_PREVIEW_ENDPOINT: ${{ vars.PREVIEW_CI_ALIYUN_OSS_PREVIEW_ENDPOINT }}
-          PREVIEW_CI_ALIYUN_OSS_REGION: ${{ vars.PREVIEW_CI_ALIYUN_OSS_REGION }}
-          PREVIEW_CI_ALIYUN_OSS_BUCKET: ${{ vars.PREVIEW_CI_ALIYUN_OSS_BUCKET }}
-          PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE: ${{ vars.PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE }}/${{ github.run_id }}/browser
-          PREVIEW_CI_OSS_SIGNED_URL_MAX_TTL_SECONDS: ${{ vars.PREVIEW_CI_OSS_SIGNED_URL_MAX_TTL_SECONDS }}
-          PREVIEW_CI_OSS_CORS_ALLOWED_ORIGIN: ${{ vars.PREVIEW_CI_OSS_CORS_ALLOWED_ORIGIN }}
-          PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_ID: ${{ secrets.PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_ID }}
-          PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_SECRET: ${{ secrets.PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_SECRET }}
-          PREVIEW_CI_ALIYUN_OSS_SECURITY_TOKEN: ${{ secrets.PREVIEW_CI_ALIYUN_OSS_SECURITY_TOKEN }}
-        run: |
-          . .gitea/scripts/go-env.sh
-          xvfb-run -a go test -tags 'integration browser' -count=1 -v -run '^(TestTC_S02_BrowserNavigation|TestTC_S04_AC04_SiloBrowserNavigation)$' ./internal/module/preview
-      - uses: https://git.shw.top/actions/gitea-upload-artifact@ffc5e248cc483620d776d7f8f2e18b8c2ccdd1e5
-        if: always()
-        with:
-          name: dual-profile-browser-screenshots
-          path: .cache/browser-artifacts
-          if-no-files-found: error
-          retention-days: 7
