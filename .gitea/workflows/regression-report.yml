@@ -153,10 +153,39 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  imagee2e:
+    name: 实际镜像端到端（Web 旅程、运行预算与恢复）
+    runs-on: ci-heavy
+    steps:
+      - uses: https://git.shw.top/actions/checkout@v4.2.2
+      - name: 登录内部镜像仓库
+        shell: bash
+        env:
+          HARBOR_USERNAME: ${{ secrets.CI_HARBOR_USERNAME }}
+          HARBOR_PASSWORD: ${{ secrets.CI_HARBOR_PASSWORD }}
+        run: |
+          test -n "$HARBOR_USERNAME" && test -n "$HARBOR_PASSWORD"
+          printf '%s' "$HARBOR_PASSWORD" | docker login reg.shw.top --username "$HARBOR_USERNAME" --password-stdin
+      - name: 构建镜像并执行端到端验证
+        shell: bash
+        env:
+          PREVIEW_TOOLCHAIN_IMAGE: reg.shw.top/ci-cache/shw-plugin-toolchain@sha256:4b71bd74caa70a65cde2120fa8438dd141a1afe7c8268367cbc76ab202d80b9e
+          PREVIEW_VALKEY_IMAGE: reg.shw.top/ci-cache/valkey/valkey@sha256:e55eb7bfbce02957d1a91fb1e26d69aa36eb18f77bf9f86ff6eff81f864b13b7
+          PREVIEW_SILO_IMAGE: reg.shw.top/ci-cache/ci-silo@sha256:15099b2b174fc842a9b323ecfc6fe1c506a2b67ff23e1c49cf4464675f367b0d
+          PREVIEW_GOTENBERG_IMAGE: reg.shw.top/ci-cache/ci-gotenberg@sha256:0ec4b0a125c55ff1dfaed071cab30e0f37cc4326f7d53d903ee5b24e4f27fd85
+        run: bash tests/image/run.sh
+      - uses: https://git.shw.top/actions/gitea-upload-artifact@ffc5e248cc483620d776d7f8f2e18b8c2ccdd1e5
+        if: always()
+        with:
+          name: image-e2e-evidence
+          path: .cache/image-evidence
+          if-no-files-found: error
+          retention-days: 7
+
   report:
     name: 回归报告汇总
     runs-on: ci-fast
-    needs: [heavy, browser]
+    needs: [heavy, browser, imagee2e]
     if: always()
     steps:
       - name: 记录候选与各项真实状态
@@ -165,7 +194,7 @@ jobs:
           mkdir -p .cache/regression-report
           cat > .cache/regression-report/report.json <<JSON
           {"candidateSha":"${GITHUB_SHA}","ref":"${GITHUB_REF_NAME}","scope":"full","baseline":"unbaselined",
-           "jobs":{"integration":"${{ needs.heavy.result }}","browser":"${{ needs.browser.result }}"}}
+           "jobs":{"integration":"${{ needs.heavy.result }}","browser":"${{ needs.browser.result }}","imageE2E":"${{ needs.imagee2e.result }}"}}
           JSON
           cat .cache/regression-report/report.json
       - uses: https://git.shw.top/actions/gitea-upload-artifact@ffc5e248cc483620d776d7f8f2e18b8c2ccdd1e5

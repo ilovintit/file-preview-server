@@ -1,0 +1,13 @@
+# 仓库内声明的非敏感运行默认值。凭据（CALLER_KEYS_JSON、SILO_ACCESS_KEY_*、
+# VALKEY_PASSWORD 等）由基础设施侧预置的 ConfigMap `file-preview-server-runtime`
+# 提供，本仓库不声明 Kubernetes Secret，也不写入任何真实凭据值。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: file-preview-server-defaults
+data:
+  LISTEN_ADDR: ":9501"
+  KEY_NAMESPACE: "preview:v1"
+  MAX_CACHE_TTL: "86400"
+  # 同 Pod 的 Gotenberg sidecar 绑定 loopback，不经 Service 暴露。
+  GOTENBERG_URL: "http://localhost:3000"

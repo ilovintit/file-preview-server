@@ -1,0 +1,72 @@
+# dev 自管中间件：仅供开发环境，无持久化、不承载任何生产数据。
+# 镜像固定内部缓存 digest，与回归报告使用的服务镜像一致。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: file-preview-valkey
+  labels:
+    app.kubernetes.io/name: file-preview-valkey
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: file-preview-valkey
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: file-preview-valkey
+    spec:
+      imagePullSecrets:
+        - name: harbor
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: valkey
+          image: reg.shw.top/ci-cache/valkey/valkey@sha256:e55eb7bfbce02957d1a91fb1e26d69aa36eb18f77bf9f86ff6eff81f864b13b7
+          args: ["valkey-server", "--save", "", "--appendonly", "no"]
+          ports:
+            - name: valkey
+              containerPort: 6379
+          readinessProbe:
+            tcpSocket:
+              port: valkey
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: '1'
+              memory: 512Mi
+              ephemeral-storage: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          emptyDir:
+            sizeLimit: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: file-preview-valkey
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: file-preview-valkey
+  ports:
+    - name: valkey
+      port: 6379
+      targetPort: valkey

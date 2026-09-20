@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# 开发环境：应用 + 自管 Valkey/silo。test 与生产只部署应用并连接外部中间件，
+# 不使用本 overlay。Fleet 目标尚未登记，namespace 由 Fleet 侧指定。
+resources:
+  - ../app
+  - valkey.yaml
+  - silo.yaml
+  - configmap.yaml

@@ -59,7 +59,8 @@ flowchart LR
 | 质量与失败恢复 | [quality.md](quality.md) | 非功能约束与验证要求，未测容量 |
 | 架构决策 | [decisions.md](decisions.md) | 已确认约束、技术权衡与实施边界 |
 | 测试与 CI | [testing.md](testing.md) | dev 既有 CI 已通过；新允许范围、实际 Web 与镜像待三个交付 Issue |
-| 部署 | [deployment.md](deployment.md) | 已有 Gotenberg 组件；完整应用/发布制品待 #26，无生产部署结论 |
+| 部署 | [deployment.md](deployment.md) | 镜像、deploy 声明与镜像级验证已交付；无任何集群部署或生产观察结论 |
+| 接入交付 | [integration.md](integration.md) | 镜像、配置、签发与 H5/PC 接入说明；域名与 digest 待登记 |
 
 产品价值、范围与验收以 [PRD](../prd/product.md) 为准；交互入口边界见 [design index](../design/index.html)。
 

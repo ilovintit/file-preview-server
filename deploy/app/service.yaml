@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: file-preview-server
+  labels:
+    app.kubernetes.io/name: file-preview-server
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: file-preview-server
+  ports:
+    # 只暴露应用端口；Gotenberg sidecar 绑定 loopback，没有 Service 端口。
+    - name: http
+      port: 9501
+      targetPort: http
