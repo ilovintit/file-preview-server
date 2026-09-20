@@ -98,7 +98,7 @@ docker run -d --name "preview-gotenberg-$run_id" --network "$network" --network-
   "$gotenberg_image" >/dev/null
 
 step "准备一次性证书与隔离 bucket"
-command="go run ./tests/image/prepare -out .cache/image-e2e -silo-endpoint http://silo:9000 -silo-access-key $silo_user -silo-secret-key $silo_password -bucket $bucket" \
+command="go build -o .cache/image-e2e/probe ./tests/image/probe && go run ./tests/image/prepare -out .cache/image-e2e -silo-endpoint http://silo:9000 -silo-access-key $silo_user -silo-secret-key $silo_password -bucket $bucket" \
   in_work --name "preview-prepare-$run_id"
 
 start_app() {
@@ -128,12 +128,14 @@ start_app() {
 }
 
 probe() {
-  command="go run ./tests/image/probe -url 'https://app:9501$1' -ca .cache/image-e2e/ca.pem" in_work
+  command=".cache/image-e2e/probe -url 'https://app:9501$1' -ca .cache/image-e2e/ca.pem" in_work
 }
 
+# 全新命名空间冷启动时，授权状态守卫有 601 秒保护窗口，/readyz 在窗口内
+# 正当返回 503。这里只放宽等待期限，不缩短或跳过该窗口。
 wait_probe() {
   expected="$1"
-  deadline=$((SECONDS + 180))
+  deadline=$((SECONDS + ${2:-300}))
   while [ "$SECONDS" -lt "$deadline" ]; do
     if [ "$(probe /readyz)" = "$expected" ]; then return 0; fi
     sleep 2
@@ -142,9 +144,9 @@ wait_probe() {
   return 1
 }
 
-step "启动实际镜像进程"
+step "启动实际镜像进程（等待 601 秒授权状态保护窗口）"
 start_app
-wait_probe 200
+wait_probe 200 900
 test "$(probe /livez)" = 200
 
 step "TC:S12-AC03 运行预算与可观测性"
@@ -155,10 +157,12 @@ if docker run --rm -e KEY_NAMESPACE='invalid namespace!' "$app_image" >"$evidenc
   echo "无效配置未被拒绝" >&2
   exit 1
 fi
-# 依赖故障：Valkey 不可用时就绪探针关闭，恢复后自动回到就绪。
-docker stop "preview-valkey-$run_id" >/dev/null
+# 依赖故障：Valkey 不可达时就绪探针关闭，恢复后自动回到就绪。
+# 用断网而不是停容器：自管 Valkey 无持久化，停容器会清掉授权状态，
+# 等于人为制造第二个保护窗口，测不出真正的依赖恢复。
+docker network disconnect "$network" "preview-valkey-$run_id"
 wait_probe 503
-docker start "preview-valkey-$run_id" >/dev/null
+docker network connect --alias valkey "$network" "preview-valkey-$run_id"
 wait_probe 200
 
 step "TC:S12-AC05 与 TC:S12-AC02 Web 关键旅程与生产路由边界"
