@@ -326,6 +326,10 @@ func TestTC_S12_ImageWebJourney(t *testing.T) {
 	})
 	decode(t, response)
 
+	// 编排脚本在容器外读取这个纯文本文件核对日志脱敏，不解析 JSON。
+	if err := os.WriteFile(filepath.Join(filepath.Dir(e.statePath), "live-token.txt"), []byte(imageToken), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	persist(t, e.statePath, state{LiveToken: imageToken, RevokedToken: revoked, UsedNonce: nonce, UsedStamp: stamp, UsedBody: string(replayBody)})
 }
 

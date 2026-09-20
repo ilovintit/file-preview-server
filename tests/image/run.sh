@@ -17,7 +17,9 @@ gotenberg_image="${PREVIEW_GOTENBERG_IMAGE:?PREVIEW_GOTENBERG_IMAGE 未设置}"
 run_id="${GITHUB_RUN_ID:-local}-$$"
 network="preview-image-$run_id"
 app_image="file-preview-server-image-e2e:$run_id"
-materials="$root/.cache/image-e2e"
+# Gitea runner 把 job 本身跑在容器里，宿主 docker daemon 解析不到 job 容器内的
+# 路径，因此工作区与一次性证书只能经 docker volume 传给兄弟容器，不能 bind mount。
+workspace="preview-work-$run_id"
 evidence="$root/.cache/image-evidence"
 bucket="preview-ci-$(date +%s)"
 # 一次性 fixture 凭据：只存在于本次运行的隔离网络。
@@ -35,8 +37,8 @@ print(json.dumps([
 PY
 )"
 
-rm -rf "$materials" "$evidence"
-mkdir -p "$materials" "$evidence"
+rm -rf "$evidence"
+mkdir -p "$evidence"
 
 cleanup() {
   status=$?
@@ -46,12 +48,26 @@ cleanup() {
     docker rm -f "$name" >/dev/null 2>&1 || true
   done
   docker network rm "$network" >/dev/null 2>&1 || true
+  docker volume rm -f "$workspace" >/dev/null 2>&1 || true
   docker image rm -f "$app_image" >/dev/null 2>&1 || true
   exit "$status"
 }
 trap cleanup EXIT
 
 step() { printf '\n=== %s\n' "$1"; }
+
+# 在一次性 volume 里执行工具链命令；volume 持有本次运行的工作区副本。
+in_work() {
+  docker run --rm --network "$network" "$@" -v "$workspace:/work" -w /work "$toolchain" \
+    sh -lc ". .gitea/scripts/go-env.sh && $command"
+}
+
+step "把工作区复制进一次性 volume"
+docker volume create "$workspace" >/dev/null
+docker run -d --name "preview-seed-$run_id" -v "$workspace:/work" "$toolchain" sleep 600 >/dev/null
+# 带上 .git：go-env.sh 用 git rev-parse 定位根目录。排除本地缓存。
+tar -C "$root" --exclude=./.cache -cf - . | docker cp - "preview-seed-$run_id:/work"
+docker rm -f "preview-seed-$run_id" >/dev/null
 
 step "构建实际应用镜像"
 GO_PROXY="$GOPROXY" docker build --platform linux/amd64 \
@@ -82,9 +98,8 @@ docker run -d --name "preview-gotenberg-$run_id" --network "$network" --network-
   "$gotenberg_image" >/dev/null
 
 step "准备一次性证书与隔离 bucket"
-docker run --rm --name "preview-prepare-$run_id" --network "$network" \
-  -v "$root:/work" -w /work "$toolchain" \
-  sh -lc ". .gitea/scripts/go-env.sh && go run ./tests/image/prepare -out .cache/image-e2e -silo-endpoint http://silo:9000 -silo-access-key $silo_user -silo-secret-key $silo_password -bucket $bucket"
+command="go run ./tests/image/prepare -out .cache/image-e2e -silo-endpoint http://silo:9000 -silo-access-key $silo_user -silo-secret-key $silo_password -bucket $bucket" \
+  in_work --name "preview-prepare-$run_id"
 
 start_app() {
   docker rm -f "preview-app-$run_id" >/dev/null 2>&1 || true
@@ -92,10 +107,10 @@ start_app() {
   docker run -d --name "preview-app-$run_id" --network "$network" --network-alias app \
     --read-only --tmpfs /tmp:rw,nosuid,nodev,size=536870912 \
     --memory 1g --cpus 2 --pids-limit 512 \
-    -v "$materials:/certs:ro" \
-    -e SSL_CERT_FILE=/certs/ca.pem \
+    -v "$workspace:/certs:ro" \
+    -e SSL_CERT_FILE=/certs/.cache/image-e2e/ca.pem \
     -e LISTEN_ADDR=:9501 \
-    -e TLS_CERT_FILE=/certs/app-cert.pem -e TLS_KEY_FILE=/certs/app-key.pem \
+    -e TLS_CERT_FILE=/certs/.cache/image-e2e/app-cert.pem -e TLS_KEY_FILE=/certs/.cache/image-e2e/app-key.pem \
     -e KEY_NAMESPACE="preview:image-e2e" \
     -e VALKEY_ADDR=valkey:6379 \
     -e GOTENBERG_URL=http://gotenberg:3000 \
@@ -113,8 +128,7 @@ start_app() {
 }
 
 probe() {
-  docker run --rm --network "$network" -v "$root:/work" -w /work "$toolchain" \
-    sh -lc ". .gitea/scripts/go-env.sh && go run ./tests/image/probe -url 'https://app:9501$1' -ca .cache/image-e2e/ca.pem"
+  command="go run ./tests/image/probe -url 'https://app:9501$1' -ca .cache/image-e2e/ca.pem" in_work
 }
 
 wait_probe() {
@@ -148,18 +162,19 @@ docker start "preview-valkey-$run_id" >/dev/null
 wait_probe 200
 
 step "TC:S12-AC05 与 TC:S12-AC02 Web 关键旅程与生产路由边界"
-docker run --rm --name "preview-harness-$run_id" --network "$network" --network-alias harness \
-  -v "$root:/work" -w /work \
+command="go test -tags image -count=1 -v -run TestTC_S12_ImageWebJourney ./tests/image" \
+  in_work --name "preview-harness-$run_id" --network-alias harness \
   -e PREVIEW_IMAGE_MATERIALS=/work/.cache/image-e2e \
   -e PREVIEW_IMAGE_BASE_URL=https://app:9501 \
   -e PREVIEW_IMAGE_SILO_ENDPOINT=http://silo:9000 \
   -e PREVIEW_IMAGE_INTERNAL_KEY_ID=ci-internal -e PREVIEW_IMAGE_INTERNAL_KEY="$internal_secret" \
-  -e PREVIEW_IMAGE_ADMIN_KEY_ID=ci-admin -e PREVIEW_IMAGE_ADMIN_KEY="$admin_secret" \
-  "$toolchain" sh -lc ". .gitea/scripts/go-env.sh && go test -tags image -count=1 -v -run TestTC_S12_ImageWebJourney ./tests/image"
+  -e PREVIEW_IMAGE_ADMIN_KEY_ID=ci-admin -e PREVIEW_IMAGE_ADMIN_KEY="$admin_secret"
 
 step "日志脱敏"
 docker logs "preview-app-$run_id" >"$evidence/app.log" 2>&1
-live_token="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["live_token"])' "$materials/state.json")"
+# 令牌值由上一阶段写入一次性 volume 的纯文本文件，避免在 shell 里解析 JSON。
+live_token="$(docker run --rm -v "$workspace:/work" "$toolchain" cat /work/.cache/image-e2e/live-token.txt)"
+test -n "$live_token"
 if grep -q "$live_token" "$evidence/app.log"; then
   echo "应用日志泄漏了 token" >&2
   exit 1
@@ -172,14 +187,13 @@ fi
 step "TC:S12-AC04 重启后的授权连续性"
 docker restart "preview-app-$run_id" >/dev/null
 wait_probe 200
-docker run --rm --name "preview-harness-$run_id" --network "$network" --network-alias harness \
-  -v "$root:/work" -w /work \
+command="go test -tags image -count=1 -v -run TestTC_S12_RecoveryAfterRestart ./tests/image" \
+  in_work --name "preview-harness-$run_id" --network-alias harness \
   -e PREVIEW_IMAGE_MATERIALS=/work/.cache/image-e2e \
   -e PREVIEW_IMAGE_BASE_URL=https://app:9501 \
   -e PREVIEW_IMAGE_SILO_ENDPOINT=http://silo:9000 \
   -e PREVIEW_IMAGE_INTERNAL_KEY_ID=ci-internal -e PREVIEW_IMAGE_INTERNAL_KEY="$internal_secret" \
-  -e PREVIEW_IMAGE_ADMIN_KEY_ID=ci-admin -e PREVIEW_IMAGE_ADMIN_KEY="$admin_secret" \
-  "$toolchain" sh -lc ". .gitea/scripts/go-env.sh && go test -tags image -count=1 -v -run TestTC_S12_RecoveryAfterRestart ./tests/image"
+  -e PREVIEW_IMAGE_ADMIN_KEY_ID=ci-admin -e PREVIEW_IMAGE_ADMIN_KEY="$admin_secret"
 
 step "结果"
 echo "镜像级端到端验证完成；证据位于 .cache/image-evidence。"
