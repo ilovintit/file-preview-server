@@ -32,11 +32,11 @@ Issue #1 在 `deploy/` 维护应用/sidecar 镜像、Deployment、Service、HTTP
 
 | 项目内声明 / 运行输入 | 内容与责任 | 当前状态 |
 | --- | --- | --- |
-| 应用 Dockerfile / 镜像 | 单 Go 二进制，默认 server；项目发布 CI 构建并推 Harbor，固定 commit 与 digest | 待 #26，未取得应用制品 |
+| 应用 Dockerfile / 镜像 | 单 Go 二进制，默认 server；项目发布 CI 构建并推 Harbor，固定 commit 与 digest | Dockerfile 与 image.yml 已交付；正式版本 digest 在 v1.0.0 tag 构建后取得 |
 | Gotenberg 镜像引用 | 固定版本/digest 与所需字体，独立 sidecar | 独立组件与固定 digest 已交付；允许格式证据由 #37 收敛 |
-| deploy 工作负载 / Service | 应用仅对 Service 暴露；sidecar 不单独公开；资源上限和临时目录、探针 | 待 #26 |
-| deploy HTTPS 入口 | Internal/Admin 可信 TLS/mTLS 边界、H5 与 /v/ 同源路径、实际目标 Origin | 测试域名与生产目标待基础设施提供 |
-| Valkey 连接 | 网络/TLS/认证、环境命名空间、容量与可靠性配置 | 待环境配置与故障恢复验证 |
+| deploy 工作负载 / Service | 应用仅对 Service 暴露；sidecar 不单独公开；资源上限和临时目录、探针 | [deploy/app](../../deploy/app/kustomization.yaml) 已交付并有结构门禁；无集群部署证据 |
+| deploy HTTPS 入口 | Internal/Admin 可信 TLS/mTLS 边界、H5 与 /v/ 同源路径、实际目标 Origin | Ingress 声明已交付，只暴露 /reader/ 与 /v/；业务域名保留占位符待登记 |
+| Valkey 连接 | 网络/TLS/认证、环境命名空间、容量与可靠性配置 | dev overlay 声明自管实例；依赖故障与恢复由镜像级验证取证 |
 | profile 配置 | 仅 aliyun-oss / silo；启用集合、endpoint、bucket、凭据引用、CORS、清理策略与配置版本 | 不能只给 provider 名称就宣称已接入 |
 | caller keys | 按 Internal/Admin 分组的激活 key_id 与 current/next 密钥引用 | 环境注入；不在 PR 中填明文 |
 | runtime 预算 | 缓存上限、请求/依赖/关闭预算、并发/队列、文件与临时空间、清理批次 | 约束见 quality，数值和测量待 #1 |
@@ -75,3 +75,7 @@ CI 已有 Harbor 依赖镜像；应用发布仓库、发布凭据和 Fleet targe
 #36 修正范围后，#37 收紧允许格式并补金山 WPS，#25 交付 H5/PC Web 阅读，#26 将应用与实际 Web 资源纳入可部署组合并补镜像发布流程、配置模板和接入说明。应用镜像不得只含静态原型；CI 用实际镜像完成签发到 Web 内容呈现。取消的格式任务与小程序工程不再构成依赖。
 
 部署方只需使用交付的镜像/digest、独立转换器组合和配置说明，配置 Valkey、已支持的存储 profile、HTTPS 与密钥引用；不要求修改其他业务仓库来证明本项目可交付。main 用户 Web UI 合并和 Kubernetes 只读边界继续有效。
+
+## 接入交付
+
+部署方与业务接入方使用的镜像、配置、签发与前端接入说明见 [integration.md](integration.md)；声明目录说明见 [deploy/README.md](../../deploy/README.md)。以实际构建镜像执行的 Web 旅程、运行预算与重启恢复验证由回归报告的镜像端到端 job 产出，非阻断，失败如实记录，不得改写为通过。

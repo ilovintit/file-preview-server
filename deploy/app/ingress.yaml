@@ -1,0 +1,29 @@
+# H5 阅读页与 /v/ 预览经同一 HTTPS Origin 的路径路由接入，便于失败分类。
+# Internal/Admin 端点不在本入口暴露，由集群内 Service 或受限入口访问。
+# TLS 在可信入口终止，证书由基础设施管理，本仓库不声明 Secret。
+# 业务域名尚未登记，保留显式占位符，由 GitOps publisher 在 fleet 分支写入。
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: file-preview-server
+  labels:
+    app.kubernetes.io/name: file-preview-server
+spec:
+  rules:
+    - host: preview-host-not-registered.invalid
+      http:
+        paths:
+          - path: /reader/
+            pathType: Prefix
+            backend:
+              service:
+                name: file-preview-server
+                port:
+                  name: http
+          - path: /v/
+            pathType: Prefix
+            backend:
+              service:
+                name: file-preview-server
+                port:
+                  name: http
