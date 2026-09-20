@@ -59,7 +59,7 @@ step() { printf '\n=== %s\n' "$1"; }
 # 在一次性 volume 里执行工具链命令；volume 持有本次运行的工作区副本。
 in_work() {
   docker run --rm --network "$network" "$@" -v "$workspace:/work" -w /work "$toolchain" \
-    sh -lc ". .gitea/scripts/go-env.sh && $command"
+    sh /work/tests/image/in-container.sh "$command"
 }
 
 step "把工作区复制进一次性 volume"
