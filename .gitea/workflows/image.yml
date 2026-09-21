@@ -37,11 +37,12 @@ jobs:
           test -n "$GO_TOKEN"
           encoded="$(python3 -c 'import os,urllib.parse;print(urllib.parse.quote(os.environ["GO_TOKEN"],safe=""))')"
           echo "url=https://gop:${encoded}@gop.shw.top" >> "$GITHUB_OUTPUT"
+      # 发布推送必须用带 push 权限的公共凭据；CI_HARBOR_* 只能从 ci-cache 拉取。
       - name: 登录 Harbor
         shell: bash
         env:
-          HARBOR_USERNAME: ${{ secrets.CI_HARBOR_USERNAME }}
-          HARBOR_PASSWORD: ${{ secrets.CI_HARBOR_PASSWORD }}
+          HARBOR_USERNAME: ${{ secrets.HARBOR_USERNAME }}
+          HARBOR_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
         run: |
           test -n "$HARBOR_USERNAME" && test -n "$HARBOR_PASSWORD"
           printf '%s' "$HARBOR_PASSWORD" | docker login reg.shw.top --username "$HARBOR_USERNAME" --password-stdin
