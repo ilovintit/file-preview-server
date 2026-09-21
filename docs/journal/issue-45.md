@@ -25,3 +25,7 @@
 - **分支保护 required contexts**：用户确认（#47）保护规则为 `*` 通配。PR 事件仅产生 PR Gate「文档与原型检查」「快速层」状态，回归报告只在 dev push/手动触发，无需移除旧 context；#46 合并已验证。
 - `image.yml` 仍用 `CI_HARBOR_*` Secret 名；公共 `HARBOR_*` 变量是否已由管理员提供未核实，暂不切换以免断开 CI。
 - Fleet 目标、GitOps publisher 接入随 #26 交付。
+
+## 后续核实（#57，2026-09-21）
+
+`image.yml` 的 Harbor Secret 名已确认需要更换：`CI_HARBOR_*` 只能从 `ci-cache` 拉取，对 `shw-project` 项目没有推送权限，v1.0.0 tag 的 Build Image run 32337 在 `docker push` 的 blob HEAD 阶段返回 401。用户确认组织已提供带推送权限的公共 `HARBOR_USERNAME` / `HARBOR_PASSWORD`，发布登录改用这一组；其余 workflow 里仅用于拉取的 `CI_HARBOR_*` 不变。
