@@ -1,6 +1,3 @@
-# change 族执行草稿（本地，不入库）
-.changes/
-
 # Go
 *.exe
 *.test
@@ -13,3 +10,12 @@
 
 # macOS
 .DS_Store
+
+# 项目内 worktree 与验证依赖
+/.worktrees/
+/.cache/
+node_modules/
+demo/preview-h5/.nuxt/
+demo/preview-h5/.output/
+demo/preview-h5/dist
+demo/preview-h5/public/pdfjs/

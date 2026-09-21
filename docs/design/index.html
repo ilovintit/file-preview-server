@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>文件预览 · 产品原型</title><link rel="stylesheet" href="prototype.css"></head>
+<body><main class="shell">
+  <header class="topbar"><a class="brand" href="index.html"><span class="brand-mark">F</span>文件预览</a><span class="tag">产品原型 · v1.0.0</span></header>
+  <section class="hero"><div><p class="eyebrow">PRODUCT EXPERIENCE</p><h1>从打开附件，到安心阅读。</h1><p>一个附件入口，一份清晰的阅读体验。以仓库内示例文件说明 H5 与 PC Web 共用的预览旅程，范围以当前 PRD 为准。</p><p class="muted">设计样稿 · 合成数据 · 未连接真实服务</p></div><div><div class="hero-count">01</div><p class="muted">当前阅读入口</p></div></section>
+  <nav class="cards" aria-label="原型入口">
+    <a class="entry-card" href="preview-h5/index.html#sample=pdf"><span class="tag">01 / H5 · PC Web</span><h2>阅读文件</h2><p>图片查看和 PDF 阅读；将转换等待、失效与异常反馈连接到明确的下一步。</p><small>图片缩放 · PDF 翻页 · 窄屏 · 失效 · 重试与返回</small><span class="open"><span>进入 H5 原型</span><span>↗</span></span></a>
+  </nav>
+  <section class="panel"><p class="eyebrow">CONNECTED JOURNEY</p><h2>跨入口主流程</h2><div class="journey">
+<article><span class="muted">01</span><h3>选择附件</h3><p>Web 用户按附件 ID 获取最新预览信息；实际附件示例由 #25 交付。</p></article>
+    <article><span class="muted">02</span><h3>获取预览</h3><p>demo API 以服务端身份签发 token，返回最小展示信息；页面展示等待。</p><span class="muted">服务端动作，无独立 UI</span></article>
+    <article><span class="muted">03</span><h3>进入阅读</h3><p>H5 读取并清除 fragment，通过 token URL 加载；服务在所选 profile 内校验并缓存原样图片/PDF 或转换 PDF 后签发短链。</p><a href="preview-h5/index.html#sample=office">体验 Office 等待</a></article>
+    <article><span class="muted">04</span><h3>失败后恢复</h3><p>失效返回附件列表重新获取；暂时故障重试预览，不暴露资源 URL。</p><a href="preview-h5/index.html#sample=pdf&state=expired">体验失效返回</a></article>
+  </div></section>
+  <section class="panel"><h2>入口、角色与验收边界</h2><div class="matrix-wrap"><table class="matrix"><thead><tr><th>入口 / 角色</th><th>页面与动作</th><th>当前验收状态</th></tr></thead><tbody>
+    <tr><td>H5 / 浏览器预览用户</td><td>图片 / PDF 阅读 → 错误恢复；宽窄屏</td><td>既有交互参考；实际 Web 阅读待 #25</td></tr>
+    <tr><td>Internal API 调用方</td><td>签发 token；HTTPS HMAC 服务端调用</td><td>无独立界面，见 API 契约</td></tr>
+    <tr><td>Admin API 调用方</td><td>列出 / 撤销 token；独立角色服务端调用</td><td>无本仓库管理 UI，撤销后与失效同屏</td></tr>
+  </tbody></table></div><p class="muted">只读阅读无提交或删除行为，无需虚构确认弹窗。取消在途等待直接返回；撤销属于 Admin API，原型仅模拟其用户可见结果。</p></section>
+  <details><summary>设计依据、产品裁决与实现边界</summary><p>业务真相见 <a href="../prd/product.md">唯一 PRD</a>，技术支撑见 <a href="../architecture/clients.md">客户端契约</a>、<a href="../architecture/demo.md">仓库内 demo</a> 与 <a href="../architecture/apis.md">API 契约</a>。</p><p><a href="../architecture/review.md">三项契约已确认</a>：所有文件校验后受控存储、profile 内去重、cache_ttl ≥ ttl。当前范围由 #36 修正：仅常见图片、PDF 与微软/WPS 办公文件，其他格式永久不支持。#37 收紧格式，#25 实际 Web 阅读，#26 镜像与部署交付。原型为模拟参考，不代表实际服务或镜像已完成。</p><p><a href="acceptance.md">逐入口验收清单与证据边界</a></p><p>历史页面：<a href="wechat-miniprogram/index.html">原小程序附件选择样稿</a>仅保留交互追溯，不是当前交付入口或微信兼容承诺；旧阅读页的返回链接仍指向该样稿，实际 Web 附件返回由 #25 实现。</p></details>
+</main></body></html>

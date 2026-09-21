@@ -1,48 +1,51 @@
 name: PR Gate
 on:
   pull_request:
-    branches: [dev, main, test]
+    branches: [dev, main]
   push:
-    branches: [dev, main, test]
+    branches: [dev, main]
 concurrency:
   group: ci-${{ github.event.number || github.sha }}
   cancel-in-progress: true
 
 jobs:
+  docs:
+    name: 文档与原型检查
+    runs-on: ci-fast
+    steps:
+      - uses: https://git.shw.top/actions/checkout@v4.2.2
+      - name: 文档链接与原型脚本语法
+        run: python3 .gitea/scripts/check-docs.py
+      - name: 部署声明结构检查（不代表任何集群已部署）
+        run: python3 .gitea/scripts/check-deploy.py
+      - name: 原型 DOM 交互检查（不代替视觉与真机验收）
+        run: |
+          npm ci --prefix .gitea/checks --ignore-scripts --no-audit --no-fund --cache .cache/npm
+          node --test .gitea/checks/prototype.test.cjs
+
   fast:
     name: 快速层（lint/typecheck/build）
-    runs-on: ubuntu-latest
+    runs-on: ci-fast
+    needs: docs
+    container:
+      image: reg.shw.top/ci-cache/shw-plugin-toolchain@sha256:4b71bd74caa70a65cde2120fa8438dd141a1afe7c8268367cbc76ab202d80b9e
+      credentials:
+        username: ${{ secrets.CI_HARBOR_USERNAME }}
+        password: ${{ secrets.CI_HARBOR_PASSWORD }}
     steps:
-      - uses: actions/checkout@v4
-      - name: 设置 Go
-        if: ${{ hashFiles('go.mod') != '' }}
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
+      - uses: https://git.shw.top/actions/checkout@v4.2.2
+      - name: 验证内网固定 Go 工具链
+        run: test "$(go env GOVERSION)" = go1.25.14
       - name: lint（gofmt + go vet）
         run: |
           if [ ! -f go.mod ]; then echo "go.mod 不存在，骨架期跳过"; exit 0; fi
-          gofmt -l . | tee /tmp/gofmt.out
-          test ! -s /tmp/gofmt.out
+          . .gitea/scripts/go-env.sh
+          git ls-files -z '*.go' | xargs -0 gofmt -l | tee .cache/gofmt.out
+          test ! -s .cache/gofmt.out
           go vet ./...
       - name: unit tests + build
         run: |
           if [ ! -f go.mod ]; then echo "go.mod 不存在，骨架期跳过"; exit 0; fi
-          go test ./...
+          . .gitea/scripts/go-env.sh
+          go test ./internal/module/preview/...
           go build ./...
-
-  heavy:
-    name: 重型层（API/E2E/VRT）
-    runs-on: ubuntu-latest
-    needs: fast
-    services:
-      valkey:
-        image: valkey/valkey:8
-        ports:
-          - 6379:6379
-    steps:
-      - uses: actions/checkout@v4
-      - name: API/E2E/VRT
-        run: |
-          echo "TODO: 技术栈命令落地后适配——起 docproc 服务跑 API 接口测试、E2E 与 VRT（截图 diff，不更新基线）"
-          echo "依赖参考：valkey(localhost:6379)、gotenberg(sidecar 或 localhost:3000)"

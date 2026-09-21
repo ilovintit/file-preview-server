@@ -1,0 +1,20 @@
+# dev 环境的非敏感结构化取值。凭据（silo access key、caller HMAC key）仍由
+# 基础设施预置的 `file-preview-server-runtime` ConfigMap 提供。
+# SILO_PREVIEW_ENDPOINT 必须是浏览器可达的 HTTPS Origin：dev 的对象存储入口
+# 域名尚未登记，保留显式占位符，由 GitOps publisher 在 fleet/dev 写入真实值。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: file-preview-server-defaults
+data:
+  LISTEN_ADDR: ":9501"
+  KEY_NAMESPACE: "preview:v1"
+  MAX_CACHE_TTL: "86400"
+  GOTENBERG_URL: "http://localhost:3000"
+  VALKEY_ADDR: "file-preview-valkey:6379"
+  STORAGE_PROFILES: "silo"
+  SILO_ENDPOINT: "http://file-preview-silo:9000"
+  SILO_PREVIEW_ENDPOINT: "https://silo-host-not-registered.invalid"
+  SILO_BUCKET: "file-preview-dev"
+  SILO_PREFIX_BASE: "dev/preview"
+  SILO_SIGNED_URL_MAX_TTL_SECONDS: "300"

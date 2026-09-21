@@ -1,0 +1,60 @@
+# Strategic merge patch for the application Deployment (assembled in S12).
+# This is not a standalone workload and is not applied by this Issue.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: file-preview-server
+spec:
+  template:
+    spec:
+      securityContext:
+        fsGroup: 1001
+      containers:
+        - name: file-preview-server
+          env:
+            - name: GOTENBERG_URL
+              value: http://localhost:3000
+        - name: gotenberg
+          image: reg.shw.top/ci-cache/ci-gotenberg@sha256:0ec4b0a125c55ff1dfaed071cab30e0f37cc4326f7d53d903ee5b24e4f27fd85
+          args:
+            - gotenberg
+            - --api-bind-ip=127.0.0.1
+            - --api-timeout=30s
+            - --api-body-limit=34MB
+            - --api-disable-download-from=true
+            - --libreoffice-auto-start=true
+            - --libreoffice-max-queue-size=4
+            - --libreoffice-deny-list=.*
+            - --libreoffice-deny-private-ips=true
+            - --libreoffice-deny-public-ips=true
+            - --chromium-disable-routes=true
+          securityContext:
+            runAsUser: 1001
+            runAsGroup: 1001
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: '2'
+              memory: 2Gi
+              ephemeral-storage: 1Gi
+          volumeMounts:
+            - name: gotenberg-tmp
+              mountPath: /tmp
+            - name: gotenberg-home
+              mountPath: /home/gotenberg
+      volumes:
+        - name: gotenberg-tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 512Mi
+        - name: gotenberg-home
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi

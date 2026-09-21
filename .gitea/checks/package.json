@@ -1,0 +1,9 @@
+{
+  "name": "preview-prototype-checks",
+  "private": true,
+  "version": "1.0.0",
+  "description": "CI-only DOM interaction checks for static design prototypes",
+  "devDependencies": {
+    "jsdom": "26.1.0"
+  }
+}
