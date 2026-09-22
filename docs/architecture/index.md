@@ -61,6 +61,7 @@ flowchart LR
 | 测试与 CI | [testing.md](testing.md) | dev 既有 CI 已通过；新允许范围、实际 Web 与镜像待三个交付 Issue |
 | 部署 | [deployment.md](deployment.md) | 镜像、deploy 声明与镜像级验证已交付；无任何集群部署或生产观察结论 |
 | 接入交付 | [integration.md](integration.md) | 镜像、配置、签发与 H5/PC 接入说明；域名与 digest 待登记 |
+| dev 演示环境 | [playground.md](playground.md) | v1.1.0 的 playground 链路、集群内 TLS 与待提供取值；无集群部署结论 |
 
 产品价值、范围与验收以 [PRD](../prd/product.md) 为准；交互入口边界见 [design index](../design/index.html)。
 

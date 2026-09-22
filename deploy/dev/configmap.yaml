@@ -1,20 +1,20 @@
-# dev 环境的非敏感结构化取值。凭据（silo access key、caller HMAC key）仍由
-# 基础设施预置的 `file-preview-server-runtime` ConfigMap 提供。
-# SILO_PREVIEW_ENDPOINT 必须是浏览器可达的 HTTPS Origin：dev 的对象存储入口
-# 域名尚未登记，保留显式占位符，由 GitOps publisher 在 fleet/dev 写入真实值。
+# dev 环境的非敏感结构化取值。凭据（OSS access key、caller HMAC key、
+# playground 访问口令）与自签证书由基础设施预置的
+# `file-preview-server-runtime` ConfigMap 提供，仓库内不含任何密钥。
+#
+# v1.1.0 起 dev 使用阿里云 OSS 测试 bucket 作为存储 profile：OSS 端点天然
+# HTTPS，不依赖集群入口证书。集群内自管 silo 不再用于 dev 演示。
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: file-preview-server-defaults
 data:
   LISTEN_ADDR: ":9501"
-  KEY_NAMESPACE: "preview:v1"
+  KEY_NAMESPACE: "preview:dev"
   MAX_CACHE_TTL: "86400"
   GOTENBERG_URL: "http://localhost:3000"
   VALKEY_ADDR: "file-preview-valkey:6379"
-  STORAGE_PROFILES: "silo"
-  SILO_ENDPOINT: "http://file-preview-silo:9000"
-  SILO_PREVIEW_ENDPOINT: "https://silo-host-not-registered.invalid"
-  SILO_BUCKET: "file-preview-dev"
-  SILO_PREFIX_BASE: "dev/preview"
-  SILO_SIGNED_URL_MAX_TTL_SECONDS: "300"
+  STORAGE_PROFILES: "aliyun-oss"
+  # 受保护 API 要求真实 HTTPS；集群内用自签证书，文件由 runtime ConfigMap 挂载。
+  TLS_CERT_FILE: "/etc/file-preview/tls/tls.crt"
+  TLS_KEY_FILE: "/etc/file-preview/tls/tls.key"

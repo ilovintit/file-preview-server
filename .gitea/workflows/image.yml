@@ -46,12 +46,22 @@ jobs:
         run: |
           test -n "$HARBOR_USERNAME" && test -n "$HARBOR_PASSWORD"
           printf '%s' "$HARBOR_PASSWORD" | docker login reg.shw.top --username "$HARBOR_USERNAME" --password-stdin
-      - name: 构建并推送
+      - name: 构建并推送应用镜像
         shell: bash
         env:
           IMAGE: reg.shw.top/shw-project/file-preview-server:${{ steps.metadata.outputs.tag }}
           GO_PROXY: ${{ steps.go_proxy.outputs.url }}
         run: |
-          docker build --platform linux/amd64 --secret id=go_proxy,env=GO_PROXY --label org.opencontainers.image.revision="$GITHUB_SHA" --tag "$IMAGE" .
+          docker build --platform linux/amd64 --target server --secret id=go_proxy,env=GO_PROXY --label org.opencontainers.image.revision="$GITHUB_SHA" --tag "$IMAGE" .
           docker push "$IMAGE"
           docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE" | tee image-digest.txt
+      # playground 只在开发环境部署，单独成像；生产镜像不含它。
+      - name: 构建并推送 playground 镜像
+        shell: bash
+        env:
+          IMAGE: reg.shw.top/shw-project/file-preview-playground:${{ steps.metadata.outputs.tag }}
+          GO_PROXY: ${{ steps.go_proxy.outputs.url }}
+        run: |
+          docker build --platform linux/amd64 --target playground --secret id=go_proxy,env=GO_PROXY --label org.opencontainers.image.revision="$GITHUB_SHA" --tag "$IMAGE" .
+          docker push "$IMAGE"
+          docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE" | tee playground-digest.txt

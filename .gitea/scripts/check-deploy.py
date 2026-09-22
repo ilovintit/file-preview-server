@@ -1,8 +1,9 @@
 """CI-only structural gate for deploy/ declarations.
 
 Scope: text-level structural constraints of the repository's own manifests.
-It does not contact any cluster, does not prove a successful rollout and is not
-evidence that any environment is running.
+Actual kustomize rendering is verified separately in the PR gate's fast job,
+where the internal Go toolchain is available. Neither contacts any cluster,
+proves a successful rollout, or is evidence that any environment is running.
 """
 from pathlib import Path
 import re
@@ -11,6 +12,7 @@ import sys
 # 未登记的外部事实使用显式占位符，禁止编造 digest、域名或浮动标签。
 PLACEHOLDERS = {
     "reg.shw.top/shw-project/file-preview-server:UNPINNED-SEE-RELEASE-RECORD",
+    "reg.shw.top/shw-project/file-preview-playground:UNPINNED-SEE-RELEASE-RECORD",
     "preview-host-not-registered.invalid",
     "https://silo-host-not-registered.invalid",
 }
@@ -45,6 +47,11 @@ sidecar = Path("deploy/components/gotenberg/sidecar.yaml").read_text(encoding="u
 for required in ("--api-bind-ip=127.0.0.1", "--api-disable-download-from=true", "--chromium-disable-routes=true"):
     if required not in sidecar:
         raise SystemExit(f"Gotenberg sidecar 缺少固定参数：{required}")
+
+# playground 只允许出现在 dev overlay：生产与 test 不部署 demo fixture 入口。
+for manifest in manifests:
+    if "file-preview-playground" in manifest.read_text(encoding="utf-8") and not str(manifest).startswith("deploy/dev/"):
+        raise SystemExit(f"{manifest}: playground 只能在 dev overlay 中声明")
 
 service = Path("deploy/app/service.yaml").read_text(encoding="utf-8")
 if "3000" in service:
