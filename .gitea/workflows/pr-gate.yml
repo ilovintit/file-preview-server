@@ -43,6 +43,20 @@ jobs:
           git ls-files -z '*.go' | xargs -0 gofmt -l | tee .cache/gofmt.out
           test ! -s .cache/gofmt.out
           go vet ./...
+      # runner 上没有 kustomize/kubectl，用内网 Go 代理拉起 kustomize 真实渲染。
+      # 纯文本检查看不出跨目录 patch 这类结构错误（#26 的声明就一直渲染不出来）。
+      - name: 部署声明渲染检查（不代表任何集群已部署）
+        run: |
+          . .gitea/scripts/go-env.sh
+          for overlay in deploy/app deploy/dev; do
+            rendered=".cache/$(basename "$overlay")-rendered.yaml"
+            go run sigs.k8s.io/kustomize/kustomize/v5@v5.7.1 build "$overlay" > "$rendered"
+            if grep -qE 'secretKeyRef|secretRef|kind: Secret' "$rendered"; then
+              echo "$overlay 渲染结果包含 Secret 引用" >&2
+              exit 1
+            fi
+            echo "$overlay 渲染出 $(grep -c '^kind:' "$rendered") 个对象"
+          done
       - name: unit tests + build
         run: |
           if [ ! -f go.mod ]; then echo "go.mod 不存在，骨架期跳过"; exit 0; fi

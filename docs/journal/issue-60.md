@@ -25,3 +25,11 @@ Rancher + Fleet 管理，应用按 `<项目>-dev` 分 namespace，dev 中间件�
 ## 待用户提供
 
 namespace、对外 host、OSS endpoint/region/bucket/前缀/凭据、自签证书三件套、访问口令、bucket 的 CORS 允许来源。仓库内保留显式占位符。
+
+## 渲染检查放在哪里
+
+第一版把 `kustomize build` 塞进 `check-deploy.py`，CI 直接失败：ci-fast runner 上没有 kustomize 也没有 kubectl。按"不静默跳过"的原则，脚本是显式报错退出的，这次失败本身是符合预期的行为。
+
+改法：纯文本检查留在文档任务（python3 在那里已验证可用），渲染检查用 shell + `go run sigs.k8s.io/kustomize/kustomize/v5@v5.7.1` 放进快速层（那里有内网 Go 工具链与代理，已本地实测可拉取）。没有把检查降级成"有就查、没有就跳过"，也没有引入公网下载。
+
+工具链容器里是否有 python3 无法本地确认，所以不把 python 脚本放进那个容器——每项检查都放在依赖已被证实的地方。
