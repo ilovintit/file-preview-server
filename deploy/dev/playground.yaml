@@ -1,0 +1,101 @@
+# playground 只在开发环境部署：它携带仓库内示例附件，以集群内 HTTPS 提供
+# 源文件，并用 internal 角色密钥向预览服务签发 token。生产与 test 不部署。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: file-preview-playground
+  labels:
+    app.kubernetes.io/name: file-preview-playground
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: file-preview-playground
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: file-preview-playground
+    spec:
+      imagePullSecrets:
+        - name: harbor
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: file-preview-playground
+          # 发布记录中的不可变 digest 由 GitOps publisher 写入 fleet 分支。
+          image: reg.shw.top/shw-project/file-preview-playground:UNPINNED-SEE-RELEASE-RECORD
+          ports:
+            - name: https
+              containerPort: 8443
+          env:
+            - name: PLAYGROUND_ADDR
+              value: ":8443"
+            - name: PLAYGROUND_TLS_CERT_FILE
+              value: /etc/file-preview/tls/tls.crt
+            - name: PLAYGROUND_TLS_KEY_FILE
+              value: /etc/file-preview/tls/tls.key
+            # 预览服务下载示例文件与校验证书都用这套集群内名称。
+            - name: PLAYGROUND_SOURCE_ORIGIN
+              value: https://file-preview-playground:8443
+            - name: PREVIEW_API_ORIGIN
+              value: https://file-preview-server:9501
+            - name: SSL_CERT_FILE
+              value: /etc/file-preview/tls/ca.crt
+            - name: PLAYGROUND_STORAGE_PROFILE
+              value: aliyun-oss
+          envFrom:
+            # 访问口令与 internal 角色密钥由基础设施预置，不在本仓库声明。
+            - configMapRef:
+                name: file-preview-playground-runtime
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: https
+              scheme: HTTPS
+            periodSeconds: 10
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /livez
+              port: https
+              scheme: HTTPS
+            periodSeconds: 10
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+              ephemeral-storage: 128Mi
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: tls
+              mountPath: /etc/file-preview/tls
+              readOnly: true
+      volumes:
+        - name: tls
+          configMap:
+            name: file-preview-tls
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: file-preview-playground
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: file-preview-playground
+  ports:
+    - name: https
+      port: 8443
+      targetPort: https

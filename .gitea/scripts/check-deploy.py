@@ -6,11 +6,14 @@ evidence that any environment is running.
 """
 from pathlib import Path
 import re
+import shutil
+import subprocess
 import sys
 
 # 未登记的外部事实使用显式占位符，禁止编造 digest、域名或浮动标签。
 PLACEHOLDERS = {
     "reg.shw.top/shw-project/file-preview-server:UNPINNED-SEE-RELEASE-RECORD",
+    "reg.shw.top/shw-project/file-preview-playground:UNPINNED-SEE-RELEASE-RECORD",
     "preview-host-not-registered.invalid",
     "https://silo-host-not-registered.invalid",
 }
@@ -46,6 +49,11 @@ for required in ("--api-bind-ip=127.0.0.1", "--api-disable-download-from=true", 
     if required not in sidecar:
         raise SystemExit(f"Gotenberg sidecar 缺少固定参数：{required}")
 
+# playground 只允许出现在 dev overlay：生产与 test 不部署 demo fixture 入口。
+for manifest in manifests:
+    if "file-preview-playground" in manifest.read_text(encoding="utf-8") and not str(manifest).startswith("deploy/dev/"):
+        raise SystemExit(f"{manifest}: playground 只能在 dev overlay 中声明")
+
 service = Path("deploy/app/service.yaml").read_text(encoding="utf-8")
 if "3000" in service:
     raise SystemExit("Service 不得暴露转换器端口")
@@ -54,6 +62,21 @@ deployment = Path("deploy/app/deployment.yaml").read_text(encoding="utf-8")
 for required in ("/livez", "/readyz", "readOnlyRootFilesystem: true", "ephemeral-storage"):
     if required not in deployment:
         raise SystemExit(f"应用 Deployment 缺少必需声明：{required}")
+
+# 真实渲染每个 overlay：#60 之前 deploy/app 引用了目录外的 patch 文件，
+# 纯文本检查看不出来，实际 kustomize build 直接失败。
+builder = shutil.which("kustomize") or shutil.which("kubectl")
+if builder is None:
+    raise SystemExit("缺少 kustomize/kubectl，无法验证声明可渲染；不静默跳过")
+for overlay in ("deploy/app", "deploy/dev"):
+    command = [builder, "build", overlay] if builder.endswith("kustomize") else [builder, "kustomize", overlay]
+    rendered = subprocess.run(command, capture_output=True, text=True)
+    if rendered.returncode != 0:
+        raise SystemExit(f"{overlay} 无法渲染：{rendered.stderr.strip()}")
+    for pattern, reason in FORBIDDEN:
+        if pattern.search(rendered.stdout):
+            raise SystemExit(f"{overlay} 渲染结果：{reason}")
+    print(f"{overlay}: 渲染出 {rendered.stdout.count(chr(10) + 'kind:') + rendered.stdout.startswith('kind:')} 个对象")
 
 unregistered = sorted({value for _, value in images if value in PLACEHOLDERS})
 print(f"Manifests: {len(manifests)}; image references: {len(images)}; unpinned placeholders: {len(unregistered)}")

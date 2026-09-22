@@ -1,0 +1,19 @@
+# dev 专用：把自签证书挂进预览服务容器。受保护 API 与 demo 适配层都要求
+# 真实 HTTPS，证书文件由基础设施预置的 ConfigMap 提供。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: file-preview-server
+spec:
+  template:
+    spec:
+      containers:
+        - name: file-preview-server
+          volumeMounts:
+            - name: tls
+              mountPath: /etc/file-preview/tls
+              readOnly: true
+      volumes:
+        - name: tls
+          configMap:
+            name: file-preview-tls
