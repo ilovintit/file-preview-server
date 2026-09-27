@@ -5,6 +5,6 @@ resources:
   - deployment.yaml
   - service.yaml
   - ingress.yaml
-patches:
+components:
   # S03 交付的 Gotenberg sidecar 组件，在此装配进应用 Deployment。
-  - path: ../components/gotenberg/sidecar.yaml
+  - ../components/gotenberg

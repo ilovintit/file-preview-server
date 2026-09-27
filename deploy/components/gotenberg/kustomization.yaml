@@ -1,0 +1,6 @@
+# 作为 kustomize Component 装配：patch 文件必须位于 kustomization 自身目录内，
+# 跨目录直接引用 patch 会被 kustomize 拒绝。
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+patches:
+  - path: sidecar.yaml
