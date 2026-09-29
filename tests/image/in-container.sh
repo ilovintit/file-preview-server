@@ -14,5 +14,7 @@ if ! command -v go >/dev/null 2>&1; then
   find / -maxdepth 6 -type f -name go -perm -u+x 2>/dev/null | head -5 >&2
   exit 127
 fi
+# volume 里的工作区保留 runner 的文件属主，容器内以 root 运行 git 会拒绝它。
+git config --global --add safe.directory /work
 . scripts/go-env.sh
 exec bash -c "$1"
