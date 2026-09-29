@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # 兄弟容器内的引导：docker run 起的容器不会继承 runner 给 job 容器注入的 PATH，
 # 所以这里补上常见 Go 安装目录；找不到 go 时打印真实 PATH 与搜索结果再失败，
 # 不静默跳过验证。
@@ -15,4 +15,4 @@ if ! command -v go >/dev/null 2>&1; then
   exit 127
 fi
 . scripts/go-env.sh
-exec sh -c "$1"
+exec bash -c "$1"
