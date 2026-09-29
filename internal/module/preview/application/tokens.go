@@ -9,9 +9,9 @@ import (
 	"sort"
 	"time"
 
-	"git.shw.top/shw-project/file-preview-server/internal/module/preview/domain/entity"
-	"git.shw.top/shw-project/file-preview-server/internal/module/preview/domain/repository"
 	"github.com/gogf/gf/v2/errors/gerror"
+	"github.com/ilovintit/file-preview-server/internal/module/preview/domain/entity"
+	"github.com/ilovintit/file-preview-server/internal/module/preview/domain/repository"
 )
 
 type Service struct {

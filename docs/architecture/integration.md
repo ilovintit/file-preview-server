@@ -1,22 +1,21 @@
-# 接入与交付说明（v1.0.0）
+# 接入与交付说明
 
-面向部署本服务并从业务系统接入的同事。本文只描述本仓库交付的镜像、声明与契约，不包含任何集群部署、生产观察或回滚演练的结论——这些在实际部署时由部署方取证。
+面向部署本服务并从业务系统接入的开发者。本文只描述本仓库交付的镜像、声明与契约，不包含任何集群部署、生产观察或回滚演练的结论——这些在实际部署时由部署方取证。
 
 ## 交付物
 
 | 交付物 | 位置 | 说明 |
 | --- | --- | --- |
-| 应用镜像 | `reg.shw.top/shw-project/file-preview-server` | 单 Go 二进制，默认 `server` 子命令，监听 9501；由 [image.yml](../../.gitea/workflows/image.yml) 在 `v*` tag 或手动触发时构建并推送，digest 打印在该运行的日志中 |
-| 转换器镜像 | `reg.shw.top/ci-cache/ci-gotenberg@sha256:0ec4b0a1…` | Gotenberg 8.34.0 linux/amd64，作为同 Pod sidecar，见 [组件说明](../../deploy/components/gotenberg/README.md) |
+| 应用镜像 | `docker.io/ilovintit/file-preview-server`（备用 `ghcr.io/ilovintit/file-preview-server`） | 单 Go 二进制，默认 `server` 子命令，监听 9501；由 [release.yml](../../.github/workflows/release.yml) 在 `v*` tag 时构建并推送，digest 写入该运行的摘要 |
+| 转换器镜像 | `gotenberg/gotenberg:8.34.0@sha256:0ec4b0a1…` | Gotenberg 8.34.0 linux/amd64，作为同 Pod sidecar，见 [组件说明](../../deploy/components/gotenberg/README.md) |
 | 部署声明 | [`deploy/app`](../../deploy/app/kustomization.yaml) | Deployment（应用 + sidecar）、Service、Ingress、默认 ConfigMap |
-| 开发环境 overlay | [`deploy/dev`](../../deploy/dev/kustomization.yaml) | 额外声明自管 Valkey 与 silo；test/生产不使用本 overlay |
 | 镜像级验证 | [`tests/image/run.sh`](../../tests/image/run.sh) | 用实际构建的镜像跑通 Web 旅程、运行预算与重启恢复，随回归报告执行 |
 
-镜像 digest 与业务域名尚未登记：仓库内声明保留显式占位符（`UNPINNED-SEE-RELEASE-RECORD`、`*.invalid`），由 GitOps publisher 在 fleet 分支写入发布记录中的真实值。占位符不是可直接部署的取值，也不得改成浮动标签。
+应用镜像版本与域名在仓库内保留显式占位符（`UNPINNED-SEE-RELEASE-RECORD`、`*.invalid`），部署时替换为已发布版本与实际域名，见 [deploy/README.md](../../deploy/README.md)。占位符不是可直接部署的取值，也不应改成浮动标签。
 
 ## 运行配置
 
-所有运行配置只经 ConfigMap 注入：仓库内 `file-preview-server-defaults` 提供非敏感默认值，基础设施预置的 `file-preview-server-runtime` 提供环境相关取值与凭据。本仓库不声明 Kubernetes Secret，也不包含任何真实凭据。
+运行配置经环境变量注入：仓库内 ConfigMap `file-preview-server-defaults` 提供非敏感默认值，部署方创建的 Secret `file-preview-server-runtime` 提供环境相关取值与凭据。本仓库不包含任何真实凭据。
 
 | 变量 | 必填 | 说明 |
 | --- | --- | --- |
@@ -54,8 +53,8 @@ X-Preview-Signature = hex(hmac_sha256(secret, canonical))
 
 ## 首次发布与停止
 
-首版没有可回滚的上一版本：出现持续 `readyz` 503、签发/预览 5xx 激增或内容完整性错误时，按 [deployment.md](deployment.md) 停止入口流量并恢复配置，由具备权限的基础设施人员处理，不能假称存在旧镜像回滚目标。项目 Agent 对 Kubernetes 只读。
+出现持续 `readyz` 503、签发/预览 5xx 激增或内容完整性错误时，停止入口流量，回滚到上一个已发布镜像版本或恢复配置。
 
 ## 反馈
 
-使用中的问题提交到本仓库 Issue（缺陷走 `/bug` 流程），附请求 traceId、时间、profile 与可复现输入。不要在 Issue 中粘贴 token、签名 URL 或凭据。
+使用中的问题提交到本仓库 [GitHub Issues](https://github.com/ilovintit/file-preview-server/issues)，附请求 traceId、时间、profile 与可复现输入。安全问题请按 [SECURITY.md](../../SECURITY.md) 私下报告。不要在 Issue 中粘贴 token、签名 URL 或凭据。

@@ -1,0 +1,73 @@
+name: Docs
+# 用 Hugo + OINK 构建 website/ 文档站；main 分支推送时发布到 GitHub Pages。
+on:
+  pull_request:
+    paths: ['website/**', '.github/workflows/docs.yml']
+  push:
+    branches: [main]
+    paths: ['website/**', '.github/workflows/docs.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  HUGO_VERSION: 0.165.0
+  # hugo_extended_0.165.0_linux-amd64.tar.gz
+  HUGO_SHA256: f43494894cdf4a8630a201d5c828051c77f523cc66bb3938b30806835470ac20
+  GOWORK: off
+  HUGO_MODULE_WORKSPACE: off
+  HUGO_CACHEDIR: ${{ github.workspace }}/.hugo_cache
+
+jobs:
+  build:
+    name: 构建文档站
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # enableGitInfo 需要 git 历史
+      # OINK 模块要求 Go 1.27；Hugo 用 go 解析主题模块。
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: website/go.mod
+          cache-dependency-path: website/go.sum
+      - name: 安装 Hugo Extended
+        run: |
+          archive="$RUNNER_TEMP/hugo.tar.gz"
+          curl --fail --location --silent --show-error --output "$archive" \
+            "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.tar.gz"
+          echo "${HUGO_SHA256}  ${archive}" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/hugo"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/hugo" hugo
+          echo "$RUNNER_TEMP/hugo" >> "$GITHUB_PATH"
+      - name: 下载 OINK 主题模块
+        run: go mod download github.com/pgsty/oink
+      - name: 构建（警告即失败）
+        run: |
+          hugo --cleanDestinationDir --gc --minify --environment production \
+            --printPathWarnings --panicOnWarning
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        if: github.event_name != 'pull_request'
+        with:
+          path: website/public
+
+  deploy:
+    name: 发布到 GitHub Pages
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+        id: deployment

@@ -75,6 +75,7 @@ func rawFixtures(t *testing.T) map[string]struct {
 }
 
 func TestTC_S02_AC01_RawFormatMatrix(t *testing.T) {
+	requireOSS(t)
 	testRawFormatMatrix(t, "aliyun-oss")
 }
 

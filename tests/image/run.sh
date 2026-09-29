@@ -7,7 +7,7 @@ set -euo pipefail
 root="$(git rev-parse --show-toplevel)"
 cd "$root"
 # shellcheck source=/dev/null
-. .gitea/scripts/go-env.sh
+. scripts/go-env.sh
 
 toolchain="${PREVIEW_TOOLCHAIN_IMAGE:?PREVIEW_TOOLCHAIN_IMAGE 未设置}"
 valkey_image="${PREVIEW_VALKEY_IMAGE:?PREVIEW_VALKEY_IMAGE 未设置}"
@@ -17,8 +17,8 @@ gotenberg_image="${PREVIEW_GOTENBERG_IMAGE:?PREVIEW_GOTENBERG_IMAGE 未设置}"
 run_id="${GITHUB_RUN_ID:-local}-$$"
 network="preview-image-$run_id"
 app_image="file-preview-server-image-e2e:$run_id"
-# Gitea runner 把 job 本身跑在容器里，宿主 docker daemon 解析不到 job 容器内的
-# 路径，因此工作区与一次性证书只能经 docker volume 传给兄弟容器，不能 bind mount。
+# 兄弟容器可能由宿主 docker daemon 启动（例如 job 本身跑在容器里），解析不到
+# job 内的路径，因此工作区与一次性证书只经 docker volume 传递，不用 bind mount。
 workspace="preview-work-$run_id"
 evidence="$root/.cache/image-evidence"
 bucket="preview-ci-$(date +%s)"
@@ -59,7 +59,7 @@ step() { printf '\n=== %s\n' "$1"; }
 # 在一次性 volume 里执行工具链命令；volume 持有本次运行的工作区副本。
 in_work() {
   docker run --rm --network "$network" "$@" -v "$workspace:/work" -w /work "$toolchain" \
-    sh /work/tests/image/in-container.sh "$command"
+    bash /work/tests/image/in-container.sh "$command"
 }
 
 step "把工作区复制进一次性 volume"
@@ -70,8 +70,8 @@ tar -C "$root" --exclude=./.cache -cf - . | docker cp - "preview-seed-$run_id:/w
 docker rm -f "preview-seed-$run_id" >/dev/null
 
 step "构建实际应用镜像"
-GO_PROXY="$GOPROXY" docker build --platform linux/amd64 \
-  --secret id=go_proxy,env=GO_PROXY \
+docker build --platform linux/amd64 \
+  --build-arg GOPROXY="$GOPROXY" \
   --label org.opencontainers.image.revision="${GITHUB_SHA:-local}" \
   --tag "$app_image" .
 
@@ -89,7 +89,7 @@ step "启动一次性依赖服务"
 docker network create "$network" >/dev/null
 docker run -d --name "preview-valkey-$run_id" --network "$network" --network-alias valkey "$valkey_image" >/dev/null
 docker run -d --name "preview-silo-$run_id" --network "$network" --network-alias silo \
-  -e MINIO_ROOT_USER="$silo_user" -e MINIO_ROOT_PASSWORD="$silo_password" "$silo_image" >/dev/null
+  -e MINIO_ROOT_USER="$silo_user" -e MINIO_ROOT_PASSWORD="$silo_password" "$silo_image" server /data >/dev/null
 docker run -d --name "preview-gotenberg-$run_id" --network "$network" --network-alias gotenberg \
   --memory 2g --cpus 2 --pids-limit 256 --tmpfs /tmp:rw,nosuid,nodev,size=536870912 \
   -e API_TIMEOUT=30s -e API_BODY_LIMIT=34MB -e API_DISABLE_DOWNLOAD_FROM=true \

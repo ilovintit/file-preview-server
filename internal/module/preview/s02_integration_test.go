@@ -48,6 +48,8 @@ func makeFixturePDF() []byte {
 }
 
 func TestTC_S02_AC02_ControlledOSSNavigation(t *testing.T) {
+	// Asserts OSS signed-URL behavior.
+	requireOSS(t)
 	var downloads atomic.Int32
 	source := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/fixture.pdf" {

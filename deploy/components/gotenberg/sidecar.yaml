@@ -15,7 +15,7 @@ spec:
             - name: GOTENBERG_URL
               value: http://localhost:3000
         - name: gotenberg
-          image: reg.shw.top/ci-cache/ci-gotenberg@sha256:0ec4b0a125c55ff1dfaed071cab30e0f37cc4326f7d53d903ee5b24e4f27fd85
+          image: docker.io/gotenberg/gotenberg:8.34.0@sha256:0ec4b0a125c55ff1dfaed071cab30e0f37cc4326f7d53d903ee5b24e4f27fd85
           args:
             - gotenberg
             - --api-bind-ip=127.0.0.1

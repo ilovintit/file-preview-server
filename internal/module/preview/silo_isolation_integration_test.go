@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"git.shw.top/shw-project/file-preview-server/internal/module/preview/infrastructure"
+	"github.com/ilovintit/file-preview-server/internal/module/preview/infrastructure"
 	s3 "github.com/minio/minio-go/v7"
 )
 
@@ -54,6 +54,7 @@ func profileDeadline(t *testing.T, f *fixture, profile string) int64 {
 }
 
 func TestTC_S04_AC02_ProfileCacheLockIsolation(t *testing.T) {
+	requireOSS(t)
 	for _, format := range []string{"pdf", "docx"} {
 		t.Run(format, func(t *testing.T) {
 			body, mediaType := rawPDF, "application/pdf"

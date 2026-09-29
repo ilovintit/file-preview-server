@@ -1,0 +1,59 @@
+name: CI
+# 必须通过的工程检查：文档/原型脚本、部署声明、gofmt/vet、单元测试与构建。
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  docs:
+    name: 文档与原型检查
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: 文档链接与原型脚本语法
+        run: python3 scripts/check-docs.py
+      - name: 部署声明结构检查（不代表任何集群已部署）
+        run: python3 scripts/check-deploy.py
+      - name: 原型 DOM 交互检查（不代替视觉与真机验收）
+        run: |
+          npm ci --prefix scripts/checks --ignore-scripts --no-audit --no-fund
+          node --test scripts/checks/prototype.test.cjs
+
+  go:
+    name: Go（lint/test/build）
+    runs-on: ubuntu-latest
+    env:
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: 1.25.14
+      - name: lint（gofmt + go vet）
+        run: |
+          unformatted="$(git ls-files -z '*.go' | xargs -0 gofmt -l)"
+          if [ -n "$unformatted" ]; then echo "$unformatted"; exit 1; fi
+          go vet ./...
+      # 纯文本检查看不出跨目录 patch 这类结构错误，这里用 kustomize 真实渲染。
+      - name: 部署声明渲染检查（不代表任何集群已部署）
+        run: |
+          rendered="$RUNNER_TEMP/app-rendered.yaml"
+          go run sigs.k8s.io/kustomize/kustomize/v5@v5.7.1 build deploy/app > "$rendered"
+          if grep -qE '^kind: Secret' "$rendered"; then
+            echo "deploy/app 渲染结果声明了 Secret 对象" >&2
+            exit 1
+          fi
+          echo "deploy/app 渲染出 $(grep -c '^kind:' "$rendered") 个对象"
+      - name: unit tests + build
+        run: |
+          go test ./internal/module/preview/... ./demo/...
+          go build ./...

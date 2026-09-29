@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"git.shw.top/shw-project/file-preview-server/internal/module/preview/domain/entity"
+	"github.com/ilovintit/file-preview-server/internal/module/preview/domain/entity"
 	"github.com/richardlehane/mscfb"
 )
 

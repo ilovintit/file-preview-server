@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"git.shw.top/shw-project/file-preview-server/internal/module/preview/application"
-	"git.shw.top/shw-project/file-preview-server/internal/module/preview/domain/entity"
-	"git.shw.top/shw-project/file-preview-server/internal/module/preview/infrastructure"
-	"git.shw.top/shw-project/file-preview-server/internal/module/preview/interfaces"
+	"github.com/ilovintit/file-preview-server/internal/module/preview/application"
+	"github.com/ilovintit/file-preview-server/internal/module/preview/domain/entity"
+	"github.com/ilovintit/file-preview-server/internal/module/preview/infrastructure"
+	"github.com/ilovintit/file-preview-server/internal/module/preview/interfaces"
 )
 
 type Module struct {

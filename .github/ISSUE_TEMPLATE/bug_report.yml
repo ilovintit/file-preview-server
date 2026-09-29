@@ -1,0 +1,27 @@
+name: Bug 报告
+description: 报告一个可复现的问题
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: 安全漏洞请不要在这里提交，参见 SECURITY.md。请勿粘贴 token、签名 URL 或任何凭据。
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      description: 镜像 tag 或 digest
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望与实际结果
+      description: 附上 traceId、HTTP 状态码、存储 profile 与文件扩展名
+    validations:
+      required: true

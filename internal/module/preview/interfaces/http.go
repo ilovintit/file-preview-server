@@ -13,10 +13,10 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"git.shw.top/shw-project/file-preview-server/internal/module/preview/application"
-	"git.shw.top/shw-project/file-preview-server/internal/module/preview/domain/entity"
 	"github.com/gogf/gf/v2/errors/gcode"
 	"github.com/gogf/gf/v2/errors/gerror"
+	"github.com/ilovintit/file-preview-server/internal/module/preview/application"
+	"github.com/ilovintit/file-preview-server/internal/module/preview/domain/entity"
 )
 
 type Controller struct{ service *application.Service }

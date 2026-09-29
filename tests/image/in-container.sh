@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # 兄弟容器内的引导：docker run 起的容器不会继承 runner 给 job 容器注入的 PATH，
 # 所以这里补上常见 Go 安装目录；找不到 go 时打印真实 PATH 与搜索结果再失败，
 # 不静默跳过验证。
@@ -14,5 +14,7 @@ if ! command -v go >/dev/null 2>&1; then
   find / -maxdepth 6 -type f -name go -perm -u+x 2>/dev/null | head -5 >&2
   exit 127
 fi
-. .gitea/scripts/go-env.sh
-exec sh -c "$1"
+# volume 里的工作区保留 runner 的文件属主，容器内以 root 运行 git 会拒绝它。
+git config --global --add safe.directory /work
+. scripts/go-env.sh
+exec bash -c "$1"

@@ -9,14 +9,6 @@ mkdir -p "$NPM_CONFIG_CACHE" "$TMPDIR"
 cd "$preview_root/demo/preview-h5"
 
 if [ "${PREVIEW_WEB_INSTALL:-1}" = 1 ]; then
-  : "${NPM_TOKEN:?NPM_TOKEN is required for the company npm cache}"
-  export NPM_CONFIG_USERCONFIG="$preview_root/.cache/web-npmrc"
-  trap 'rm -f "$NPM_CONFIG_USERCONFIG"' EXIT
-  node --input-type=module -e '
-    import { writeFileSync } from "node:fs";
-    const auth = Buffer.from("shared:" + process.env.NPM_TOKEN).toString("base64");
-    writeFileSync(process.env.NPM_CONFIG_USERCONFIG, "registry=https://npm.shw.top/\n//npm.shw.top/:_auth=" + auth + "\n", { mode: 0o600 });
-  '
   npm ci --ignore-scripts --no-audit --no-fund --include=optional
 elif [ "${CI:-}" = true ]; then
   echo "CI may not skip the locked frontend install" >&2

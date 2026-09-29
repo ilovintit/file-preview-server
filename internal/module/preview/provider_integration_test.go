@@ -4,8 +4,8 @@ package preview_test
 
 import (
 	"context"
-	"git.shw.top/shw-project/file-preview-server/internal/module/preview/infrastructure"
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
+	"github.com/ilovintit/file-preview-server/internal/module/preview/infrastructure"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -25,6 +25,8 @@ func TestTC_S02_AC06_UnconfiguredStorageFailsClosed(t *testing.T) {
 }
 
 func TestTC_S02_AC05_MissingObjectRebuildKeepsDeadline(t *testing.T) {
+	// Deletes the published object through the OSS SDK.
+	requireOSS(t)
 	var missing atomic.Bool
 	var downloads atomic.Int32
 	source := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -104,6 +106,8 @@ func TestTC_S02_AC05_MissingObjectRebuildKeepsDeadline(t *testing.T) {
 }
 
 func TestTC_S02_AC06_SignedHeadAndExpiry(t *testing.T) {
+	// silo coverage: TestTC_S04_AC04_SiloCORSRangeAndRealExpiry.
+	requireOSS(t)
 	source := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/pdf")
 		_, _ = w.Write(rawPDF)

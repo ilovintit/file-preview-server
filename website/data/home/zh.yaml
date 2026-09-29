@@ -1,0 +1,41 @@
+sections: [hero, cards, cta]
+
+hero:
+  align: center
+  eyebrow: 开源 · Apache-2.0
+  title_lines:
+    - words: [{ text: 签名受控的 }]
+    - words: [{ text: 文件在线预览。 }]
+  lead: 业务后端签发短期 token，浏览器只拿到预览链接，永远看不到源文件地址与存储凭据。
+  actions:
+    - { label: 快速开始, url: docs/getting-started/, icon: fa-solid fa-rocket, style: primary }
+    - { label: GitHub, url: 'https://github.com/ilovintit/file-preview-server', icon: fa-brands fa-github, style: ghost }
+
+cards:
+  eyebrow: 能做什么
+  title: 一个服务，处理预览的全部环节
+  columns: 2
+  items:
+    - title: 18 种常见格式
+      desc: 常见图片、PDF、微软 Word/Excel/PowerPoint 新旧版与金山 WPS 文件；Office 与 BMP/TIFF 转为 PDF 阅读。
+      icon: fa-solid fa-file-lines
+      url: docs/formats/
+    - title: HMAC 签名与防重放
+      desc: 签发与管理接口只接受 HTTPS 上的 HMAC-SHA256 签名请求，nonce 原子占用，支持双密钥轮换。
+      icon: fa-solid fa-shield-halved
+      url: docs/integration/
+    - title: 内容 hash 转换缓存
+      desc: 以内容 SHA-256 与转换器版本为身份缓存产物，按 token 与缓存双 TTL 自动清理。
+      icon: fa-solid fa-layer-group
+      url: docs/configuration/
+    - title: 可替换对象存储
+      desc: 内置 S3 兼容（silo/MinIO）与阿里云 OSS 两种存储 profile，预览以短时签名 URL 302 跳转。
+      icon: fa-solid fa-database
+      url: docs/configuration/
+
+cta:
+  title: 几分钟接入你的业务系统。
+  text: 部署服务、签发 token、打开阅读页。
+  label: 阅读接入指南
+  url: docs/integration/
+  style: primary

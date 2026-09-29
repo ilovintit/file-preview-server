@@ -5,7 +5,7 @@ import (
 	"context"
 	"sync"
 
-	"git.shw.top/shw-project/file-preview-server/internal/module/preview/domain/entity"
+	"github.com/ilovintit/file-preview-server/internal/module/preview/domain/entity"
 	pdfapi "github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 )

@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"git.shw.top/shw-project/file-preview-server/internal/module/preview/domain/entity"
+	"github.com/ilovintit/file-preview-server/internal/module/preview/domain/entity"
 	s3 "github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )

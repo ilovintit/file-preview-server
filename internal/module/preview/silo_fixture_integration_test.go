@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"git.shw.top/shw-project/file-preview-server/internal/module/preview/infrastructure"
+	"github.com/ilovintit/file-preview-server/internal/module/preview/infrastructure"
 	s3 "github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/cors"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -103,6 +103,7 @@ func setupSilo(t *testing.T, source *http.Client) (*fixture, *siloFixture) {
 	f := setupWithOSS(t, testAliyunOSS(t), source, func(cfg *infrastructure.Config) {
 		cfg.Silo = silo.cfg
 		cfg.GotenbergURL = os.Getenv("GOTENBERG_TEST_URL")
+		withoutUnconfiguredOSS(cfg)
 	})
 	silo.allowOrigin(t, f.server.URL)
 	return f, silo

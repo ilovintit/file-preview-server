@@ -16,9 +16,9 @@ import (
 	"testing"
 	"time"
 
-	preview "git.shw.top/shw-project/file-preview-server/internal/module/preview"
-	"git.shw.top/shw-project/file-preview-server/internal/module/preview/infrastructure"
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
+	preview "github.com/ilovintit/file-preview-server/internal/module/preview"
+	"github.com/ilovintit/file-preview-server/internal/module/preview/infrastructure"
 	s3 "github.com/minio/minio-go/v7"
 )
 
@@ -71,7 +71,7 @@ func TestTC_S04_AC03_ProfileGenerationAndConfig(t *testing.T) {
 		})
 	}
 	t.Run("unknown-and-unconfigured", func(t *testing.T) {
-		f := setup(t)
+		f := setupWithOSS(t, testAliyunOSS(t), nil)
 		for _, tc := range []struct {
 			profile string
 			status  int
@@ -194,6 +194,9 @@ func TestTC_S04_AC03_ReadinessChecksActualProfiles(t *testing.T) {
 	}
 	for _, profile := range []string{"silo", "aliyun-oss"} {
 		t.Run(profile+"-missing-bucket", func(t *testing.T) {
+			if profile == "aliyun-oss" {
+				requireOSS(t)
+			}
 			cfg := f.cfg
 			if profile == "silo" {
 				cfg.Silo.Bucket += "-missing"

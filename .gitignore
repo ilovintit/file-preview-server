@@ -19,3 +19,9 @@ demo/preview-h5/.nuxt/
 demo/preview-h5/.output/
 demo/preview-h5/dist
 demo/preview-h5/public/pdfjs/
+
+# 文档站构建产物（Hugo）
+website/public/
+website/resources/
+website/.hugo_cache/
+website/.hugo_build.lock

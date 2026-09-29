@@ -19,9 +19,6 @@ spec:
       labels:
         app.kubernetes.io/name: file-preview-server
     spec:
-      # 基础设施侧预置的拉取凭据，仅按名称引用，仓库内不含 key。
-      imagePullSecrets:
-        - name: harbor
       terminationGracePeriodSeconds: 60
       automountServiceAccountToken: false
       securityContext:
@@ -30,9 +27,9 @@ spec:
           type: RuntimeDefault
       containers:
         - name: file-preview-server
-          # 发布记录中的不可变 digest 由 GitOps publisher 写入 fleet 分支；
-          # 仓库内保留显式占位符，不使用浮动标签，也不编造 digest。
-          image: reg.shw.top/shw-project/file-preview-server:UNPINNED-SEE-RELEASE-RECORD
+          # 部署时用 kustomize edit set image 换成已发布版本的 tag 或 digest；
+          # 仓库内保留显式占位符，不使用浮动标签。
+          image: docker.io/ilovintit/file-preview-server:UNPINNED-SEE-RELEASE-RECORD
           args: ["server"]
           ports:
             - name: http
@@ -40,8 +37,9 @@ spec:
           envFrom:
             - configMapRef:
                 name: file-preview-server-defaults
-            # 凭据与环境相关取值由基础设施预置，不在本仓库声明。
-            - configMapRef:
+            # 凭据（CALLER_KEYS_JSON、对象存储 AK、VALKEY_PASSWORD 等）由部署方
+            # 自行创建同名 Secret 提供，本仓库不含任何凭据值。
+            - secretRef:
                 name: file-preview-server-runtime
           livenessProbe:
             httpGet:
