@@ -1,4 +1,8 @@
-# 配置
+---
+title: 配置
+description: 全部环境变量与存储 profile 配置。
+weight: 20
+---
 
 所有配置经环境变量注入。结构无效的配置会让进程拒绝启动。凭据类变量请放在 Secret 或密钥管理系统中，不要写进镜像或代码仓库。
 
@@ -39,8 +43,7 @@
 | `PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_ID` / `PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_SECRET` / `PREVIEW_CI_ALIYUN_OSS_SECURITY_TOKEN` | 凭据，token 可选 |
 | `PREVIEW_CI_OSS_SIGNED_URL_MAX_TTL_SECONDS` | 签名 URL 最长有效期 |
 
-::: warning 变量名
-阿里云 OSS 的变量名目前带有历史遗留的 `PREVIEW_CI_` 前缀，生产环境也使用这组名称。
-:::
+> [!WARNING] 变量名
+> 阿里云 OSS 的变量名目前带有历史遗留的 `PREVIEW_CI_` 前缀，生产环境也使用这组名称。
 
 PDF 阅读器通过 JavaScript 分段读取文件，对象存储需要为阅读页 Origin 配置精确的 CORS，并允许 `Range` 请求头、暴露 `Content-Range` 等响应头。

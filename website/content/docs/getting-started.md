@@ -1,4 +1,8 @@
-# 快速开始
+---
+title: 快速开始
+description: 运行依赖、获取镜像与启动服务。
+weight: 10
+---
 
 file-preview-server 是一个独立的 Go 服务。业务后端用 HMAC 签名调用它签发短期 token，前端打开 `/v/{token}` 即可预览；服务负责下载源文件、校验内容、必要时转换为 PDF，并跳转到对象存储上的短时签名地址。
 
@@ -40,15 +44,14 @@ docker run -d --name file-preview-server -p 9501:9501 \
   ilovintit/file-preview-server:latest
 ```
 
-配置结构无效时服务会拒绝启动，而不是降级运行。全部变量见 [配置](./configuration)。
+配置结构无效时服务会拒绝启动，而不是降级运行。全部变量见 [配置](../configuration/)。
 
-::: tip 冷启动保护窗口
-使用全新的 `KEY_NAMESPACE` 首次启动时，为保证防重放状态完整，`/readyz` 会在约 601 秒内返回 503，这是预期行为。
-:::
+> [!TIP] 冷启动保护窗口
+> 使用全新的 `KEY_NAMESPACE` 首次启动时，为保证防重放状态完整，`/readyz` 会在约 601 秒内返回 503，这是预期行为。
 
 ## 健康检查
 
 - `GET /livez`：进程可服务时返回 200。
 - `GET /readyz`：Valkey、Gotenberg 与已启用的存储 profile 都就绪时返回 200，否则 503。
 
-下一步：[接入业务系统](./integration)。
+下一步：[接入业务系统](../integration/)。

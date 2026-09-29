@@ -40,7 +40,7 @@ python3 scripts/check-docs.py && python3 scripts/check-deploy.py
 
 阅读页前端在 [`demo/preview-h5`](demo/preview-h5)，用 `sh scripts/build-web.sh` 构建后产物写入 `internal/module/preview/interfaces/reader-assets` 并随二进制嵌入。
 
-设计与架构文档在 [`docs/`](docs/architecture/index.md)，文档站源码在 [`website/`](website)。
+设计与架构文档在 [`docs/`](docs/architecture/index.md)。文档站源码在 [`website/`](website)，使用 Hugo 与 [OINK](https://github.com/pgsty/oink) 主题，本地预览：`cd website && hugo server`（需要 Hugo Extended 0.165.0+ 与 Go 1.27+）。
 
 ## 贡献
 

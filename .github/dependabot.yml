@@ -1,7 +1,9 @@
 version: 2
 updates:
   - package-ecosystem: gomod
-    directory: /
+    directories:
+      - /
+      - /website
     schedule:
       interval: weekly
     groups:
@@ -21,7 +23,6 @@ updates:
   - package-ecosystem: npm
     directories:
       - /demo/preview-h5
-      - /website
       - /scripts/checks
     schedule:
       interval: weekly

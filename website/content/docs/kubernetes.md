@@ -1,4 +1,8 @@
-# Kubernetes 部署
+---
+title: Kubernetes 部署
+description: 用仓库内的 Kustomize 示例部署。
+weight: 50
+---
 
 仓库的 [`deploy/app`](https://github.com/ilovintit/file-preview-server/tree/main/deploy/app) 提供 Kustomize 示例：应用与 Gotenberg sidecar 同 Pod，转换器只绑定 loopback，只有 9501 端口经 Service 暴露。
 

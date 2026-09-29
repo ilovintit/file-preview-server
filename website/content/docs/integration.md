@@ -1,4 +1,8 @@
-# 业务系统接入
+---
+title: 业务系统接入
+description: 签发 token、请求签名与前端打开预览。
+weight: 30
+---
 
 接入分两步：业务后端签名调用签发接口拿到 token，前端用 token 打开阅读页。源文件地址、对象存储地址和密钥都只留在服务端。
 
@@ -22,7 +26,7 @@
 | --- | --- |
 | `url` | 源文件 HTTPS 地址，服务下载后按 `content_sha256` 校验 |
 | `storage_profile` | `aliyun-oss` 或 `silo`，预览产物存放位置 |
-| `filename` | 必须带 [支持的扩展名](./formats) |
+| `filename` | 必须带 [支持的扩展名](../formats/) |
 | `ttl` | token 有效期，60–86400 秒 |
 | `cache_ttl` | 产物缓存期，满足 `ttl ≤ cache_ttl ≤ MAX_CACHE_TTL` |
 | `metadata` | 可选，仅用于管理查询展示，最大 4096 字节 |

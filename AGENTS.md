@@ -5,7 +5,7 @@
 ## 真相源
 
 - `docs/prd/product.md`：产品需求；`docs/architecture/index.md`：服务、领域、数据、接口、安全、测试与部署文档索引；`docs/design/index.html`：交互原型。
-- `website/`：面向使用者的文档站（VitePress，发布到 GitHub Pages）。接口、配置或部署变更时同步更新 `docs/` 与 `website/`。
+- `website/`：面向使用者的文档站（Hugo + [OINK](https://github.com/pgsty/oink) 主题，发布到 GitHub Pages），需要 Hugo Extended 0.165.0 与 Go 1.27。接口、配置或部署变更时同步更新 `docs/` 与 `website/`。
 - `docs/journal/` 是迁移到 GitHub 之前的历史过程记录，其中的 Issue/PR 编号指向旧的内部仓库，只作参考。
 
 ## 永久格式范围
@@ -23,7 +23,7 @@
 - `ci.yml`（必须通过）：文档链接/原型脚本、部署声明结构与 kustomize 渲染、gofmt/vet、单元测试与构建。
 - `integration.yml`（PR、main 推送与手动触发）：一次性 Valkey/Gotenberg/silo 服务集成、Chromium 浏览器导航、实际镜像端到端，不需要任何 Secret。silo（S3 协议）是默认测试存储；阿里云 OSS 适配器用例只在仓库配置了 `PREVIEW_CI_ALIYUN_OSS_*` 时运行，否则显式跳过。失败如实记录，不写回仓库、不自动重录基线。当前 `tests/vrt`、`e2e` 无已接受基线。
 - `release.yml`：构建应用镜像，推送 Docker Hub（主）与 GHCR（备），创建 GitHub Release。
-- `docs.yml`：构建文档站，main 推送时发布 GitHub Pages。
+- `docs.yml`：用 Hugo 构建文档站（警告即失败），main 推送时发布 GitHub Pages。
 - 所有第三方 Action 与镜像按 SHA/digest 固定；Go 使用公共模块代理，不依赖任何私有仓库、私有镜像或内部网络。
 
 ## 部署声明
