@@ -20,6 +20,8 @@ type transportFunc func(*http.Request) (*http.Response, error)
 func (f transportFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 func TestTC_S02_AC05_DeleteFailureRetainsMaintenance(t *testing.T) {
+	// Injects faults into the OSS transport; silo coverage is in the S04 lifecycle cases.
+	requireOSS(t)
 	var deny atomic.Bool
 	deny.Store(true)
 	transport := transportFunc(func(r *http.Request) (*http.Response, error) {
@@ -79,6 +81,8 @@ func TestTC_S02_AC05_DeleteFailureRetainsMaintenance(t *testing.T) {
 }
 
 func TestTC_S02_AC05_LeaseLossFencesPublication(t *testing.T) {
+	// Drives the OSS preview store directly.
+	requireOSS(t)
 	entered, release := make(chan struct{}), make(chan struct{})
 	source := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		close(entered)
@@ -160,6 +164,8 @@ func TestTC_S02_AC05_LeaseLossFencesPublication(t *testing.T) {
 }
 
 func TestTC_S02_AC04_DeadlineAndCleanup(t *testing.T) {
+	// Drives the OSS preview store directly.
+	requireOSS(t)
 	source := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/pdf")
 		_, _ = w.Write(rawPDF)

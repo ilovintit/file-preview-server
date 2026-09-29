@@ -28,6 +28,7 @@ type officeFixture struct {
 }
 
 func TestTC_S03_AC01_CoreOfficeConversion(t *testing.T) {
+	requireOSS(t)
 	testCoreOfficeConversion(t, "aliyun-oss")
 }
 

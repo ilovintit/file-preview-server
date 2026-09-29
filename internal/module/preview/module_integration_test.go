@@ -48,12 +48,52 @@ type response struct {
 	Data    json.RawMessage `json:"data"`
 }
 
-func setup(t *testing.T) *fixture {
-	return setupWithOSS(t, testAliyunOSS(t), nil)
+// ossConfigured reports whether a real Aliyun OSS test bucket was provided.
+// silo (S3 compatible) is the default integration profile; OSS-only cases skip
+// with an explicit reason when it is absent.
+func ossConfigured() bool {
+	return os.Getenv("PREVIEW_CI_ALIYUN_OSS_ENDPOINT") != ""
 }
 
-func setupS02(t *testing.T, sourceClient *http.Client) *fixture {
-	return setupWithOSS(t, testAliyunOSS(t), sourceClient)
+func requireOSS(t *testing.T) {
+	t.Helper()
+	if !ossConfigured() {
+		t.Skip("aliyun-oss test bucket not configured (PREVIEW_CI_ALIYUN_OSS_*); this case only covers the OSS adapter")
+	}
+}
+
+// withoutUnconfiguredOSS declares only silo when no OSS test bucket exists, so
+// readiness reflects the profiles the run can actually exercise.
+func withoutUnconfiguredOSS(c *infrastructure.Config) {
+	if !ossConfigured() {
+		c.Profiles = []string{"silo"}
+	}
+}
+
+// testProfile is the storage profile provider-agnostic cases run against.
+func testProfile() string {
+	if ossConfigured() {
+		return "aliyun-oss"
+	}
+	return "silo"
+}
+
+func setup(t *testing.T) *fixture {
+	return setupS02(t, nil)
+}
+
+func setupS02(t *testing.T, sourceClient *http.Client, configure ...func(*infrastructure.Config)) *fixture {
+	if !ossConfigured() {
+		silo := newSiloFixture(t)
+		configure = append([]func(*infrastructure.Config){func(c *infrastructure.Config) {
+			c.Silo = silo.cfg
+			c.GotenbergURL = os.Getenv("GOTENBERG_TEST_URL")
+		}, withoutUnconfiguredOSS}, configure...)
+		f := setupWithOSS(t, testAliyunOSS(t), sourceClient, configure...)
+		silo.allowOrigin(t, f.server.URL)
+		return f
+	}
+	return setupWithOSS(t, testAliyunOSS(t), sourceClient, configure...)
 }
 
 func setupWithOSS(t *testing.T, ossConfig infrastructure.AliyunOSSConfig, sourceClient *http.Client, configure ...func(*infrastructure.Config)) *fixture {
@@ -142,6 +182,10 @@ func fixtureOSSBucket(t *testing.T, c infrastructure.AliyunOSSConfig) *oss.Bucke
 
 func testAliyunOSS(t *testing.T) infrastructure.AliyunOSSConfig {
 	t.Helper()
+	if !ossConfigured() {
+		// Leave the profile unconfigured: issuance for it fails closed with 503.
+		return infrastructure.AliyunOSSConfig{}
+	}
 	keys := []string{
 		"PREVIEW_CI_ALIYUN_OSS_ENDPOINT",
 		"PREVIEW_CI_ALIYUN_OSS_BUCKET",
@@ -175,7 +219,7 @@ func testAliyunOSS(t *testing.T) infrastructure.AliyunOSSConfig {
 }
 
 func resource() map[string]any {
-	return map[string]any{"url": "https://source.invalid/private.pdf?Signature=source-fixture", "storage_profile": "aliyun-oss", "content_sha256": strings.Repeat("a", 64), "filename": "sample.pdf", "ttl": 60, "cache_ttl": 120}
+	return map[string]any{"url": "https://source.invalid/private.pdf?Signature=source-fixture", "storage_profile": testProfile(), "content_sha256": strings.Repeat("a", 64), "filename": "sample.pdf", "ttl": 60, "cache_ttl": 120}
 }
 
 func signature(key []byte, method, path, id, timestamp, nonce string, body []byte) string {

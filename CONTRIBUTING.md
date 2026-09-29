@@ -30,7 +30,7 @@
 4. 行为变更需要附带测试；影响接口、配置或部署的改动同步更新 `docs/` 与 `website/`。
 5. 发起 PR 到 `main`，CI（`CI` workflow）必须通过。
 
-集成测试（`Integration` workflow）依赖维护者配置的对象存储凭据，只在 `main` 上运行；fork 的 PR 不会触发它，维护者会在合并后跟进结果。
+集成测试（`Integration` workflow）在每个 PR 上用一次性的 Valkey、Gotenberg 和 silo 运行，不需要任何凭据。阿里云 OSS 适配器用例需要维护者配置的测试 bucket，fork 的 PR 中会自动跳过。
 
 ## 代码风格
 

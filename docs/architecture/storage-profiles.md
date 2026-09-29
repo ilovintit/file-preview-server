@@ -35,7 +35,9 @@ OSS 就绪对已授权前缀内的保留探测对象做 HEAD：成功或供应�
 
 ## CI 环境与证据边界
 
-CI 使用 per-run 的真实 silo：Docker Hub 公开镜像 `pgsty/minio:RELEASE.2026-08-04T00-00-00Z`，按 digest 固定（见 [integration.yml](../../.github/workflows/integration.yml)），启动时显式传入 `server /data`。服务只绑定 runner 的 loopback，fixture 凭据仅用于该隔离服务。每个 fixture 创建自己的测试 bucket，结束后删除；不需要生产 silo 凭据。
+CI 使用 per-run 的真实 silo：Docker Hub 公开镜像 `pgsty/silo:RELEASE.2026-09-03T13-18-01Z`，按 digest 固定（见 [integration.yml](../../.github/workflows/integration.yml)），启动时显式传入 `server /data`。服务只绑定 runner 的 loopback，fixture 凭据仅用于该隔离服务。每个 fixture 创建自己的测试 bucket，结束后删除；不需要生产 silo 凭据。
+
+集成测试默认以 silo 作为存储 profile。阿里云 OSS 适配器用例只在提供 `PREVIEW_CI_ALIYUN_OSS_*` 测试 bucket 配置时运行，否则以明确原因跳过；未配置 OSS 时 fixture 只声明 silo profile。
 
 测试 TLS 代理向真实 silo 转发请求，保留 Host，不改写签名或 CORS。silo bucket 的 CORS 只允许当前测试预览 Origin；实际 OSS 沿用用户明确批准的无凭据通配 CORS。Chromium 对这两个真实链路执行图片解码、PDF Range 读取/原生阅读器检查。TLS 只信任测试证书的精确指纹，OSS 公共证书继续正常校验。
 

@@ -36,7 +36,7 @@ python3 scripts/check-docs.py && python3 scripts/check-deploy.py
 
 国内网络可先 `export GOPROXY=https://goproxy.cn,direct` 再执行上面的命令。
 
-集成测试（`-tags integration`）需要真实的 Valkey、Gotenberg、silo 和阿里云 OSS 测试 bucket，具体环境变量见 [`.github/workflows/integration.yml`](.github/workflows/integration.yml)。
+集成测试（`-tags integration`）需要真实的 Valkey、Gotenberg 和 silo（S3 兼容），用 Docker 即可在本地拉起，启动方式和环境变量见 [`.github/workflows/integration.yml`](.github/workflows/integration.yml)。阿里云 OSS 适配器用例只在设置了 `PREVIEW_CI_ALIYUN_OSS_*` 时运行。
 
 阅读页前端在 [`demo/preview-h5`](demo/preview-h5)，用 `sh scripts/build-web.sh` 构建后产物写入 `internal/module/preview/interfaces/reader-assets` 并随二进制嵌入。
 

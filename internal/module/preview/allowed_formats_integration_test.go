@@ -90,6 +90,9 @@ func TestTC_R1_WPSProfileConversion(t *testing.T) {
 	for _, tc := range cases {
 		for _, profile := range []string{"aliyun-oss", "silo"} {
 			t.Run(tc.File+"/"+profile, func(t *testing.T) {
+				if profile == "aliyun-oss" {
+					requireOSS(t)
+				}
 				body, err := os.ReadFile(filepath.Join("testdata/wps", tc.File))
 				if err != nil || sha256Hex(body) != tc.SHA256 {
 					t.Fatal("native WPS fixture changed")
@@ -145,6 +148,9 @@ func TestTC_R1_BMPAndTIFFProfileContent(t *testing.T) {
 		}
 		for _, profile := range []string{"aliyun-oss", "silo"} {
 			t.Run(ext+"/"+profile, func(t *testing.T) {
+				if profile == "aliyun-oss" {
+					requireOSS(t)
+				}
 				data := allowedPDF(t, buffer.Bytes(), "pattern."+ext, profile, 1)
 				found := pageHasColor(t, data, 1, [3]int{240, 32, 64})
 				if !found {
@@ -241,6 +247,9 @@ func TestTC_R1_MultipageTIFFPreservesOrder(t *testing.T) {
 	}
 	for _, profile := range []string{"aliyun-oss", "silo"} {
 		t.Run(profile, func(t *testing.T) {
+			if profile == "aliyun-oss" {
+				requireOSS(t)
+			}
 			data := allowedPDF(t, body, "two-page.tiff", profile, 2)
 			if !pageHasColor(t, data, 1, [3]int{240, 32, 64}) || !pageHasColor(t, data, 2, [3]int{32, 64, 240}) {
 				saveFormatArtifacts(t, "two-page.tiff", profile, body, data)

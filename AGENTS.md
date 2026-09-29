@@ -21,7 +21,7 @@
 ## CI
 
 - `ci.yml`（必须通过）：文档链接/原型脚本、部署声明结构与 kustomize 渲染、gofmt/vet、单元测试与构建。
-- `integration.yml`（非阻断，main 推送与手动触发）：真实 Valkey/Gotenberg/silo 与阿里云 OSS 服务集成、Chromium 双 profile 浏览器导航、实际镜像端到端。需要仓库 Secrets/Variables 中的 OSS 测试 bucket 配置；失败、缺失如实记录，不写回仓库、不自动重录基线。当前 `tests/vrt`、`e2e` 无已接受基线。
+- `integration.yml`（PR、main 推送与手动触发）：一次性 Valkey/Gotenberg/silo 服务集成、Chromium 浏览器导航、实际镜像端到端，不需要任何 Secret。silo（S3 协议）是默认测试存储；阿里云 OSS 适配器用例只在仓库配置了 `PREVIEW_CI_ALIYUN_OSS_*` 时运行，否则显式跳过。失败如实记录，不写回仓库、不自动重录基线。当前 `tests/vrt`、`e2e` 无已接受基线。
 - `release.yml`：构建应用镜像，推送 Docker Hub（主）与 GHCR（备），创建 GitHub Release。
 - `docs.yml`：构建文档站，main 推送时发布 GitHub Pages。
 - 所有第三方 Action 与镜像按 SHA/digest 固定；Go 使用公共模块代理，不依赖任何私有仓库、私有镜像或内部网络。

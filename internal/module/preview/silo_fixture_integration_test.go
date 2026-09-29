@@ -103,6 +103,7 @@ func setupSilo(t *testing.T, source *http.Client) (*fixture, *siloFixture) {
 	f := setupWithOSS(t, testAliyunOSS(t), source, func(cfg *infrastructure.Config) {
 		cfg.Silo = silo.cfg
 		cfg.GotenbergURL = os.Getenv("GOTENBERG_TEST_URL")
+		withoutUnconfiguredOSS(cfg)
 	})
 	silo.allowOrigin(t, f.server.URL)
 	return f, silo

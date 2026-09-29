@@ -1,16 +1,18 @@
 name: Integration
-# 非阻断回归报告：TLS API/Valkey/对象存储服务集成、Chromium 双 profile 与实际镜像端到端。
-# 需要阿里云 OSS 测试 bucket 的仓库 Secrets/Variables；fork 提交的 PR 拿不到这些值，
-# 所以只在 main 推送与手动触发时运行。失败如实保留，不自动重录基线、不写回仓库。
+# 服务集成回归：TLS API、Valkey、Gotenberg 与 silo（S3 兼容）对象存储、Chromium 导航
+# 与实际镜像端到端，全部使用本次运行内的一次性服务，不需要任何仓库 Secret。
+# 阿里云 OSS 适配器用例只在仓库配置了 PREVIEW_CI_ALIYUN_OSS_* 时运行，否则显式跳过；
+# fork 的 PR 拿不到这些值，仍按 silo 跑完整套。失败如实保留，不自动重录基线、不写回仓库。
 on:
+  pull_request:
   push:
     branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: integration-${{ github.sha }}
-  cancel-in-progress: false
+  group: integration-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   GOTOOLCHAIN: local
@@ -18,7 +20,7 @@ env:
   SILO_TEST_ACCESS_KEY: preview-ci
   SILO_TEST_SECRET_KEY: preview-ci-isolated-service-only
   # silo 是 MinIO 社区续维护版本；镜像默认命令不带 server 参数，因此用 docker run 启动而不是 services。
-  SILO_IMAGE: docker.io/pgsty/minio:RELEASE.2026-08-04T00-00-00Z@sha256:b6bfe7239bfc83fb90d31612d9704d86039dd714f7904b3f1ad68f211e602372
+  SILO_IMAGE: docker.io/pgsty/silo:RELEASE.2026-09-03T13-18-01Z@sha256:b616a0cf8cb281e7e6bb3c9b1fb53875b4016a2878223925541c18f82d6c5ca3
   VALKEY_IMAGE: docker.io/valkey/valkey@sha256:e55eb7bfbce02957d1a91fb1e26d69aa36eb18f77bf9f86ff6eff81f864b13b7
   # 与 deploy/components/gotenberg/sidecar.yaml 使用同一 digest，由 office_test.go 断言。
   GOTENBERG_IMAGE: docker.io/gotenberg/gotenberg:8.34.0@sha256:0ec4b0a125c55ff1dfaed071cab30e0f37cc4326f7d53d903ee5b24e4f27fd85
@@ -34,14 +36,14 @@ env:
 
 jobs:
   heavy:
-    name: 服务集成回归（TLS API/Valkey/OSS）
+    name: 服务集成回归（TLS API/Valkey/silo）
     runs-on: ubuntu-latest
     env:
       CGO_ENABLED: "1"
       VALKEY_TEST_ADDR: 127.0.0.1:6379
       GOTENBERG_TEST_URL: http://127.0.0.1:3000
       SILO_TEST_ENDPOINT: http://127.0.0.1:9000
-      PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE: ${{ vars.PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE }}/${{ github.run_id }}
+      PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE: ${{ vars.PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE && format('{0}/{1}', vars.PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE, github.run_id) || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -65,7 +67,7 @@ jobs:
           done
           docker ps -a; docker logs gotenberg | tail -50; docker logs silo | tail -50
           exit 1
-      - name: 实际 TLS API、Valkey 与 OSS 集成
+      - name: 实际 TLS API、Valkey 与对象存储集成
         run: go test -race -tags integration -count=1 -v ./internal/module/preview/...
       - name: 隔离转换器失败诊断
         if: failure()
@@ -85,7 +87,7 @@ jobs:
     env:
       VALKEY_TEST_ADDR: 127.0.0.1:6379
       SILO_TEST_ENDPOINT: http://127.0.0.1:9000
-      PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE: ${{ vars.PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE }}/${{ github.run_id }}/browser
+      PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE: ${{ vars.PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE && format('{0}/{1}/browser', vars.PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE, github.run_id) || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0

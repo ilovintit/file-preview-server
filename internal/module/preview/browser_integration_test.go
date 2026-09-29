@@ -27,6 +27,7 @@ import (
 )
 
 func TestTC_S02_BrowserNavigation(t *testing.T) {
+	requireOSS(t)
 	browserNavigation(t, "aliyun-oss")
 }
 
