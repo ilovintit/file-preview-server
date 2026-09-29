@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"git.shw.top/shw-project/file-preview-server/internal/module/preview/infrastructure"
+	"github.com/ilovintit/file-preview-server/internal/module/preview/infrastructure"
 	pdftext "github.com/ledongthuc/pdf"
 	pdfapi "github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"

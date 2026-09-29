@@ -38,7 +38,7 @@ PDF 翻页、图片缩放属于已确认阅读器的展示交互；原型中的�
 ## 证据与放行
 
 - 文档链接和 JavaScript 语法由当前 PR CI 的文档步骤检查。
-- `.gitea/checks/prototype.test.cjs` 只在 PR CI 以 jsdom 验证 DOM 状态迁移：取消/迟到响应、失败恢复、fragment 清理、分页/缩放边界、Office 等待、过期/撤销一致性、页面恢复。它不连接网络、不启动浏览器、不验证 CSS 布局或真实跨页导航。
+- `scripts/checks/prototype.test.cjs` 只在 PR CI 以 jsdom 验证 DOM 状态迁移：取消/迟到响应、失败恢复、fragment 清理、分页/缩放边界、Office 等待、过期/撤销一致性、页面恢复。它不连接网络、不启动浏览器、不验证 CSS 布局或真实跨页导航。
 - 本地浏览器文件 URL 已被安全策略阻止；本轮未重新尝试或绕过，不能宣称渲染、E2E、VRT、微信开发者工具或真机验收通过。
 - 两个入口交互已获用户确认；三项底层契约亦已采纳，见 [审查裁决表](../architecture/review.md)。后续按 #36 的范围与 #28 的自动验收方式交付 H5/PC Web；小程序工程取消，不再保留其验收要求。
 

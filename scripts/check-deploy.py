@@ -2,24 +2,21 @@
 
 Scope: text-level structural constraints of the repository's own manifests.
 Actual kustomize rendering is verified separately in the PR gate's fast job,
-where the internal Go toolchain is available. Neither contacts any cluster,
+with kustomize. Neither contacts any cluster,
 proves a successful rollout, or is evidence that any environment is running.
 """
 from pathlib import Path
 import re
 import sys
 
-# 未登记的外部事实使用显式占位符，禁止编造 digest、域名或浮动标签。
+# 部署时才确定的取值使用显式占位符，禁止编造 digest、域名或浮动标签。
 PLACEHOLDERS = {
-    "reg.shw.top/shw-project/file-preview-server:UNPINNED-SEE-RELEASE-RECORD",
-    "reg.shw.top/shw-project/file-preview-playground:UNPINNED-SEE-RELEASE-RECORD",
+    "docker.io/ilovintit/file-preview-server:UNPINNED-SEE-RELEASE-RECORD",
     "preview-host-not-registered.invalid",
     "https://silo-host-not-registered.invalid",
 }
 FORBIDDEN = (
-    (re.compile(r"^\s*kind:\s*Secret\s*$", re.M), "运行配置不得声明 Kubernetes Secret"),
-    (re.compile(r"secretKeyRef|secretRef\b"), "运行配置不得使用 Secret 引用"),
-    (re.compile(r"^\s*secret:\s*$", re.M), "不得挂载 Secret volume"),
+    (re.compile(r"^\s*kind:\s*Secret\s*$", re.M), "仓库内不得声明 Secret 对象，凭据由部署方自行创建"),
 )
 
 manifests = sorted(Path("deploy").rglob("*.yaml"))
@@ -40,18 +37,18 @@ for manifest, value in images:
         continue
     if "@sha256:" not in value:
         raise SystemExit(f"{manifest}: 镜像必须固定 digest，不得使用浮动标签：{value}")
-    if not value.startswith("reg.shw.top/"):
-        raise SystemExit(f"{manifest}: 镜像必须来自内部仓库：{value}")
+    if not value.startswith("docker.io/"):
+        raise SystemExit(f"{manifest}: 镜像必须写明完整的 docker.io 仓库地址：{value}")
 
 sidecar = Path("deploy/components/gotenberg/sidecar.yaml").read_text(encoding="utf-8")
 for required in ("--api-bind-ip=127.0.0.1", "--api-disable-download-from=true", "--chromium-disable-routes=true"):
     if required not in sidecar:
         raise SystemExit(f"Gotenberg sidecar 缺少固定参数：{required}")
 
-# playground 只允许出现在 dev overlay：生产与 test 不部署 demo fixture 入口。
+# playground 只用于本地演示，部署声明中不得出现。
 for manifest in manifests:
-    if "file-preview-playground" in manifest.read_text(encoding="utf-8") and not str(manifest).startswith("deploy/dev/"):
-        raise SystemExit(f"{manifest}: playground 只能在 dev overlay 中声明")
+    if "file-preview-playground" in manifest.read_text(encoding="utf-8"):
+        raise SystemExit(f"{manifest}: 部署声明不得包含 playground")
 
 service = Path("deploy/app/service.yaml").read_text(encoding="utf-8")
 if "3000" in service:

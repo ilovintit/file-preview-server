@@ -1,7 +1,7 @@
 # H5 阅读页与 /v/ 预览经同一 HTTPS Origin 的路径路由接入，便于失败分类。
 # Internal/Admin 端点不在本入口暴露，由集群内 Service 或受限入口访问。
-# TLS 在可信入口终止，证书由基础设施管理，本仓库不声明 Secret。
-# 业务域名尚未登记，保留显式占位符，由 GitOps publisher 在 fleet 分支写入。
+# TLS 在可信入口终止，证书由部署方管理，本仓库不声明 Secret。
+# 域名保留显式占位符，部署时替换为实际域名。
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:

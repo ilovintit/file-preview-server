@@ -8,9 +8,6 @@ export GOCACHE="$GOPATH/build"
 export GOTMPDIR="$preview_root/.cache/tmp"
 export TMPDIR="$GOTMPDIR"
 export GOTOOLCHAIN=local
-export GONOSUMDB=git.shw.top
-export GOPRIVATE=
-export GONOPROXY=
 mkdir -p "$GOMODCACHE" "$GOCACHE" "$GOTMPDIR"
-# Company proxy anti-abuse credential is public per goproxy-auth; never print the URL.
-export GOPROXY="https://gop:606fad8a50b9656d24aed5158251cc5a@gop.shw.top,direct"
+# Public module proxy by default; set GOPROXY beforehand to use a mirror (e.g. https://goproxy.cn).
+export GOPROXY="${GOPROXY:-https://proxy.golang.org,direct}"

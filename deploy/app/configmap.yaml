@@ -1,6 +1,6 @@
 # 仓库内声明的非敏感运行默认值。凭据（CALLER_KEYS_JSON、SILO_ACCESS_KEY_*、
-# VALKEY_PASSWORD 等）由基础设施侧预置的 ConfigMap `file-preview-server-runtime`
-# 提供，本仓库不声明 Kubernetes Secret，也不写入任何真实凭据值。
+# VALKEY_PASSWORD 等）由部署方创建的 Secret `file-preview-server-runtime` 提供，
+# 本仓库不声明 Secret 对象，也不写入任何真实凭据值。
 apiVersion: v1
 kind: ConfigMap
 metadata:

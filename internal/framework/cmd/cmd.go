@@ -4,11 +4,11 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	preview "git.shw.top/shw-project/file-preview-server/internal/module/preview"
-	"git.shw.top/shw-project/file-preview-server/internal/module/preview/infrastructure"
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/net/ghttp"
 	"github.com/gogf/gf/v2/os/gcmd"
+	preview "github.com/ilovintit/file-preview-server/internal/module/preview"
+	"github.com/ilovintit/file-preview-server/internal/module/preview/infrastructure"
 	"os"
 	"time"
 )

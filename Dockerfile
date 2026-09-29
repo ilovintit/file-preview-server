@@ -1,14 +1,15 @@
-FROM reg.shw.top/ci-cache/shw-plugin-toolchain@sha256:4b71bd74caa70a65cde2120fa8438dd141a1afe7c8268367cbc76ab202d80b9e AS build
+FROM golang:1.25.14-bookworm@sha256:3b4a11519ad929d1e1d261a12cff056f0c85b735253d7d861346b9c6f8b36437 AS build
 WORKDIR /src
+ARG GOPROXY=https://proxy.golang.org,direct
+ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOTOOLCHAIN=local GOPROXY=${GOPROXY}
 COPY go.mod go.sum ./
-ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOTOOLCHAIN=local
-RUN --mount=type=secret,id=go_proxy test -s /run/secrets/go_proxy && GOPROXY="$(cat /run/secrets/go_proxy)" go mod download
+RUN go mod download
 COPY . .
-RUN --mount=type=secret,id=go_proxy GOPROXY="$(cat /run/secrets/go_proxy)" go build -trimpath -ldflags="-s -w" -o /out/file-preview-server ./
-# playground 只在开发环境部署，单独成像；生产镜像不包含它，也没有 /demo/ 路由。
-RUN --mount=type=secret,id=go_proxy GOPROXY="$(cat /run/secrets/go_proxy)" go build -trimpath -ldflags="-s -w" -o /out/file-preview-playground ./demo/playground
+RUN go build -trimpath -ldflags="-s -w" -o /out/file-preview-server ./
+# playground 只用于本地演示，单独成像；发布镜像不包含它，也没有 /demo/ 路由。
+RUN go build -trimpath -ldflags="-s -w" -o /out/file-preview-playground ./demo/playground
 
-FROM reg.shw.top/library/alpine@sha256:dabf91b69c191a1a0a1628fd6bdd029c0c4018041c7f052870bb13c5a222ae76 AS runtime
+FROM alpine:3.22@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8 AS runtime
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 RUN addgroup -S preview && adduser -S -G preview -H -s /sbin/nologin preview
 USER preview

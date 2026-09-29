@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"git.shw.top/shw-project/file-preview-server/internal/module/preview/domain/entity"
+	"github.com/ilovintit/file-preview-server/internal/module/preview/domain/entity"
 )
 
 var keyIDPattern = regexp.MustCompile(`^[A-Za-z0-9._-]{1,64}$`)

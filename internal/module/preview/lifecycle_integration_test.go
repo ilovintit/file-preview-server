@@ -5,7 +5,7 @@ package preview_test
 import (
 	"context"
 	"encoding/json"
-	"git.shw.top/shw-project/file-preview-server/internal/module/preview/infrastructure"
+	"github.com/ilovintit/file-preview-server/internal/module/preview/infrastructure"
 	"io"
 	"net/http"
 	"net/http/httptest"

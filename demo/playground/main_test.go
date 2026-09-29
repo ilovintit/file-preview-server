@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"git.shw.top/shw-project/file-preview-server/demo/adapter"
-	"git.shw.top/shw-project/file-preview-server/internal/module/preview/domain/entity"
+	"github.com/ilovintit/file-preview-server/demo/adapter"
+	"github.com/ilovintit/file-preview-server/internal/module/preview/domain/entity"
 )
 
 // adapter 对 fixture ID 的约束；playground 生成的 ID 必须直接满足它。

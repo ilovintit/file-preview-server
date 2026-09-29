@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"git.shw.top/shw-project/file-preview-server/internal/module/preview/infrastructure"
+	"github.com/ilovintit/file-preview-server/internal/module/preview/infrastructure"
 )
 
 func officeInput(t *testing.T, file string) []byte {

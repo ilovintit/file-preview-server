@@ -14,5 +14,5 @@ if ! command -v go >/dev/null 2>&1; then
   find / -maxdepth 6 -type f -name go -perm -u+x 2>/dev/null | head -5 >&2
   exit 127
 fi
-. .gitea/scripts/go-env.sh
+. scripts/go-env.sh
 exec sh -c "$1"

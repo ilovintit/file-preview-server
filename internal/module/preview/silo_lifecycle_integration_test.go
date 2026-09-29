@@ -16,9 +16,9 @@ import (
 	"testing"
 	"time"
 
-	preview "git.shw.top/shw-project/file-preview-server/internal/module/preview"
-	"git.shw.top/shw-project/file-preview-server/internal/module/preview/infrastructure"
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
+	preview "github.com/ilovintit/file-preview-server/internal/module/preview"
+	"github.com/ilovintit/file-preview-server/internal/module/preview/infrastructure"
 	s3 "github.com/minio/minio-go/v7"
 )
 

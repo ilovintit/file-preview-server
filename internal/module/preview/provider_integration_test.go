@@ -4,8 +4,8 @@ package preview_test
 
 import (
 	"context"
-	"git.shw.top/shw-project/file-preview-server/internal/module/preview/infrastructure"
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
+	"github.com/ilovintit/file-preview-server/internal/module/preview/infrastructure"
 	"net/http"
 	"net/http/httptest"
 	"net/url"

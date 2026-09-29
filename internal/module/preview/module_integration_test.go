@@ -22,10 +22,10 @@ import (
 	"testing"
 	"time"
 
-	preview "git.shw.top/shw-project/file-preview-server/internal/module/preview"
-	"git.shw.top/shw-project/file-preview-server/internal/module/preview/infrastructure"
 	_ "github.com/gogf/gf/contrib/nosql/redis/v2"
 	"github.com/gogf/gf/v2/database/gredis"
+	preview "github.com/ilovintit/file-preview-server/internal/module/preview"
+	"github.com/ilovintit/file-preview-server/internal/module/preview/infrastructure"
 )
 
 var internalSecret = []byte("fixture-internal-key-32-bytes-long!")

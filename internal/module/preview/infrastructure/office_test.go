@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"git.shw.top/shw-project/file-preview-server/internal/module/preview/domain/entity"
+	"github.com/ilovintit/file-preview-server/internal/module/preview/domain/entity"
 )
 
 func TestTC_S03_AC02_OutputVersionAndDeployment(t *testing.T) {
@@ -34,12 +34,12 @@ func TestTC_S03_AC02_OutputVersionAndDeployment(t *testing.T) {
 	if !strings.Contains(officeOutputVersion, digest) {
 		t.Fatal("output identity lost converter digest")
 	}
-	for _, file := range []string{"../../../../deploy/components/gotenberg/sidecar.yaml", "../../../../.gitea/workflows/regression-report.yml"} {
+	for _, file := range []string{"../../../../deploy/components/gotenberg/sidecar.yaml", "../../../../.github/workflows/integration.yml"} {
 		body, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !bytes.Contains(body, []byte("reg.shw.top/ci-cache/ci-gotenberg@sha256:"+digest)) {
+		if !bytes.Contains(body, []byte("gotenberg/gotenberg:8.34.0@sha256:"+digest)) {
 			t.Fatal("deployment and CI converter images differ")
 		}
 	}

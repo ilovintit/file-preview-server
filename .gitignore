@@ -19,3 +19,7 @@ demo/preview-h5/.nuxt/
 demo/preview-h5/.output/
 demo/preview-h5/dist
 demo/preview-h5/public/pdfjs/
+
+# 文档站构建产物
+website/.vitepress/dist/
+website/.vitepress/cache/

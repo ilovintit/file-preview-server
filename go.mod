@@ -1,4 +1,4 @@
-module git.shw.top/shw-project/file-preview-server
+module github.com/ilovintit/file-preview-server
 
 go 1.25.4
 

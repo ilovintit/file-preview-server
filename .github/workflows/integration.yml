@@ -1,0 +1,161 @@
+name: Integration
+# 非阻断回归报告：TLS API/Valkey/对象存储服务集成、Chromium 双 profile 与实际镜像端到端。
+# 需要阿里云 OSS 测试 bucket 的仓库 Secrets/Variables；fork 提交的 PR 拿不到这些值，
+# 所以只在 main 推送与手动触发时运行。失败如实保留，不自动重录基线、不写回仓库。
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: integration-${{ github.sha }}
+  cancel-in-progress: false
+
+env:
+  GOTOOLCHAIN: local
+  # 测试服务只存在于本次运行，这里是公开的一次性 fixture 凭据。
+  SILO_TEST_ACCESS_KEY: preview-ci
+  SILO_TEST_SECRET_KEY: preview-ci-isolated-service-only
+  # silo 是 MinIO 社区续维护版本；镜像默认命令不带 server 参数，因此用 docker run 启动而不是 services。
+  SILO_IMAGE: docker.io/pgsty/minio:RELEASE.2026-08-04T00-00-00Z@sha256:b6bfe7239bfc83fb90d31612d9704d86039dd714f7904b3f1ad68f211e602372
+  VALKEY_IMAGE: docker.io/valkey/valkey@sha256:e55eb7bfbce02957d1a91fb1e26d69aa36eb18f77bf9f86ff6eff81f864b13b7
+  # 与 deploy/components/gotenberg/sidecar.yaml 使用同一 digest，由 office_test.go 断言。
+  GOTENBERG_IMAGE: docker.io/gotenberg/gotenberg:8.34.0@sha256:0ec4b0a125c55ff1dfaed071cab30e0f37cc4326f7d53d903ee5b24e4f27fd85
+  PREVIEW_CI_ALIYUN_OSS_ENDPOINT: ${{ vars.PREVIEW_CI_ALIYUN_OSS_ENDPOINT }}
+  PREVIEW_CI_ALIYUN_OSS_PREVIEW_ENDPOINT: ${{ vars.PREVIEW_CI_ALIYUN_OSS_PREVIEW_ENDPOINT }}
+  PREVIEW_CI_ALIYUN_OSS_REGION: ${{ vars.PREVIEW_CI_ALIYUN_OSS_REGION }}
+  PREVIEW_CI_ALIYUN_OSS_BUCKET: ${{ vars.PREVIEW_CI_ALIYUN_OSS_BUCKET }}
+  PREVIEW_CI_OSS_SIGNED_URL_MAX_TTL_SECONDS: ${{ vars.PREVIEW_CI_OSS_SIGNED_URL_MAX_TTL_SECONDS }}
+  PREVIEW_CI_OSS_CORS_ALLOWED_ORIGIN: ${{ vars.PREVIEW_CI_OSS_CORS_ALLOWED_ORIGIN }}
+  PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_ID: ${{ secrets.PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_ID }}
+  PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_SECRET: ${{ secrets.PREVIEW_CI_ALIYUN_OSS_ACCESS_KEY_SECRET }}
+  PREVIEW_CI_ALIYUN_OSS_SECURITY_TOKEN: ${{ secrets.PREVIEW_CI_ALIYUN_OSS_SECURITY_TOKEN }}
+
+jobs:
+  heavy:
+    name: 服务集成回归（TLS API/Valkey/OSS）
+    runs-on: ubuntu-latest
+    env:
+      CGO_ENABLED: "1"
+      VALKEY_TEST_ADDR: 127.0.0.1:6379
+      GOTENBERG_TEST_URL: http://127.0.0.1:3000
+      SILO_TEST_ENDPOINT: http://127.0.0.1:9000
+      PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE: ${{ vars.PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE }}/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: 1.25.14
+      - name: 启动一次性依赖服务
+        run: |
+          docker run -d --name valkey -p 127.0.0.1:6379:6379 "$VALKEY_IMAGE"
+          docker run -d --name silo -p 127.0.0.1:9000:9000 \
+            -e MINIO_ROOT_USER="$SILO_TEST_ACCESS_KEY" -e MINIO_ROOT_PASSWORD="$SILO_TEST_SECRET_KEY" \
+            "$SILO_IMAGE" server /data
+          docker run -d --name gotenberg -p 127.0.0.1:3000:3000 \
+            --memory 2g --cpus 2 --pids-limit 256 --tmpfs /tmp:rw,nosuid,nodev,size=536870912 \
+            "$GOTENBERG_IMAGE" gotenberg \
+            --log-level=debug --api-timeout=30s --api-body-limit=34MB --api-disable-download-from=true \
+            --libreoffice-auto-start=true --libreoffice-max-queue-size=4 --libreoffice-deny-list='.*' \
+            --libreoffice-deny-private-ips=true --libreoffice-deny-public-ips=true --chromium-disable-routes=true
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3000/health >/dev/null && curl -fsS http://127.0.0.1:9000/minio/health/live >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          docker ps -a; docker logs gotenberg | tail -50; docker logs silo | tail -50
+          exit 1
+      - name: 实际 TLS API、Valkey 与 OSS 集成
+        run: go test -race -tags integration -count=1 -v ./internal/module/preview/...
+      - name: 隔离转换器失败诊断
+        if: failure()
+        # 只查看本 job 的一次性转换器；不输出 Actions 环境变量。
+        run: docker logs --tail 150 gotenberg 2>&1 || true
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: failure()
+        with:
+          name: format-failure-evidence
+          path: .cache/format-artifacts
+          if-no-files-found: ignore
+          retention-days: 7
+
+  browser:
+    name: Chromium 图片与 PDF 跨域读取
+    runs-on: ubuntu-latest
+    env:
+      VALKEY_TEST_ADDR: 127.0.0.1:6379
+      SILO_TEST_ENDPOINT: http://127.0.0.1:9000
+      PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE: ${{ vars.PREVIEW_CI_ALIYUN_OSS_PREFIX_BASE }}/${{ github.run_id }}/browser
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: 1.25.14
+      - name: 启动一次性依赖服务
+        run: |
+          docker run -d --name valkey -p 127.0.0.1:6379:6379 "$VALKEY_IMAGE"
+          docker run -d --name silo -p 127.0.0.1:9000:9000 \
+            -e MINIO_ROOT_USER="$SILO_TEST_ACCESS_KEY" -e MINIO_ROOT_PASSWORD="$SILO_TEST_SECRET_KEY" \
+            "$SILO_IMAGE" server /data
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:9000/minio/health/live >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          docker logs silo | tail -50
+          exit 1
+      # 测试固定查找 /ms-playwright 下唯一的 Chromium，这里装 Playwright 1.61.1 对应版本。
+      - name: 安装固定版本 Chromium
+        run: |
+          sudo install -d -o "$USER" /ms-playwright
+          PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx -y playwright@1.61.1 install --with-deps chromium
+          ls /ms-playwright
+      - name: 实际浏览器定向验证
+        run: |
+          xvfb-run -a go test -tags 'integration browser' -count=1 -v -run '^(TestTC_S02_BrowserNavigation|TestTC_S04_AC04_SiloBrowserNavigation)$' ./internal/module/preview
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: dual-profile-browser-screenshots
+          path: .cache/browser-artifacts
+          if-no-files-found: error
+          retention-days: 7
+
+  image-e2e:
+    name: 实际镜像端到端（Web 旅程、运行预算与恢复）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: 构建镜像并执行端到端验证
+        env:
+          PREVIEW_TOOLCHAIN_IMAGE: docker.io/library/golang:1.25.14-bookworm@sha256:3b4a11519ad929d1e1d261a12cff056f0c85b735253d7d861346b9c6f8b36437
+          PREVIEW_VALKEY_IMAGE: ${{ env.VALKEY_IMAGE }}
+          PREVIEW_SILO_IMAGE: ${{ env.SILO_IMAGE }}
+          PREVIEW_GOTENBERG_IMAGE: ${{ env.GOTENBERG_IMAGE }}
+        run: bash tests/image/run.sh
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: image-e2e-evidence
+          path: .cache/image-evidence
+          if-no-files-found: error
+          retention-days: 7
+
+  report:
+    name: 回归报告汇总
+    runs-on: ubuntu-latest
+    needs: [heavy, browser, image-e2e]
+    if: always()
+    steps:
+      - name: 记录候选与各项真实状态
+        run: |
+          mkdir -p report
+          cat > report/report.json <<JSON
+          {"candidateSha":"${GITHUB_SHA}","ref":"${GITHUB_REF_NAME}","scope":"full","baseline":"unbaselined",
+           "jobs":{"integration":"${{ needs.heavy.result }}","browser":"${{ needs.browser.result }}","imageE2E":"${{ needs.image-e2e.result }}"}}
+          JSON
+          cat report/report.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: regression-report
+          path: report
+          retention-days: 30

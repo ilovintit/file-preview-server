@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"git.shw.top/shw-project/file-preview-server/demo/adapter"
+	"github.com/ilovintit/file-preview-server/demo/adapter"
 )
 
 //go:embed all:fixtures

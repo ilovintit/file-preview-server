@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"image/png"
 
-	"git.shw.top/shw-project/file-preview-server/internal/module/preview/domain/entity"
+	"github.com/ilovintit/file-preview-server/internal/module/preview/domain/entity"
 	"golang.org/x/image/tiff"
 )
 
